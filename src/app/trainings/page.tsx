@@ -300,7 +300,7 @@ function TrainingsContent() {
               participant_id: participant.id,
               certificate_type: 'Attendance',
               certificate_number: p.cert_kehadiran,
-              status: 'Completed',
+              status: 'Pending',
               evaluation_result: p.evaluasi
             });
           }
@@ -311,7 +311,7 @@ function TrainingsContent() {
               participant_id: participant.id,
               certificate_type: 'Qualification',
               certificate_number: p.cert_kualifikasi,
-              status: 'Completed',
+              status: 'Pending',
               evaluation_result: p.evaluasi
             });
           }
