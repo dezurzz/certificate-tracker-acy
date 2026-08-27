@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Settings - Security - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component -->
+    <header id="header-container" data-title="Security & Access"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full flex flex-col gap-6">
+      <div class="mb-2">
+        <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Settings</h2>
+        <p class="text-sm text-slate-500 mt-1">Manage your account preferences and system configurations.</p>
+      </div>
+
+      <!-- Settings Layout Grid -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start">
+        
+        <!-- Settings Tabs Sidebar -->
+        <nav class="w-full lg:w-64 flex flex-col gap-1 shrink-0">
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-profile.html">
+            <span class="material-symbols-outlined text-[20px]">person</span>
+            Profile Settings
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-notifications.html">
+            <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+            Notification Preferences
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-200 text-slate-900 font-semibold" href="settings-security.html">
+            <span class="material-symbols-outlined text-[20px] fill">shield</span>
+            Security & Access
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-system.html">
+            <span class="material-symbols-outlined text-[20px]">dns</span>
+            System Configuration
+          </a>
+        </nav>
+
+        <!-- Settings Content Card -->
+        <div class="flex-grow flex flex-col gap-6 w-full max-w-3xl">
+          <!-- Card 1: Password Update -->
+          <div class="cms-card bg-white w-full">
+            <section id="security-password">
+              <!-- Header -->
+              <div class="border-b border-slate-200 pb-4 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <span class="material-symbols-outlined text-blue-600 fill">shield</span>
+                  Update Password
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">Change your current account access credentials.</p>
+              </div>
+
+              <!-- Password Inputs Form -->
+              <form onsubmit="changePassword(event)" class="flex flex-col gap-6">
+                <div class="grid grid-cols-1 gap-6">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="current-pass">Current Password</label>
+                    <input class="cms-input" id="current-pass" type="password" required>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="new-pass">New Password</label>
+                      <input class="cms-input" id="new-pass" type="password" minlength="8" required>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="confirm-pass">Confirm New Password</label>
+                      <input class="cms-input" id="confirm-pass" type="password" minlength="8" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action button -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                  <button type="submit" class="cms-btn-primary">Update Password</button>
+                </div>
+              </form>
+            </section>
+          </div>
+
+          <!-- Card 2: Two-Factor Setup -->
+          <div class="cms-card bg-white w-full">
+            <section id="security-2fa">
+              <!-- Header -->
+              <div class="border-b border-slate-200 pb-4 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <span class="material-symbols-outlined text-blue-600">smartphone</span>
+                  Two-Factor Authentication (2FA)
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">Secure your system with an extra verification device.</p>
+              </div>
+
+              <!-- 2FA Toggle -->
+              <div class="flex items-start justify-between p-4 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+                <div class="flex flex-col gap-1 pr-6">
+                  <span class="text-sm font-bold text-slate-800">Authenticator App</span>
+                  <span class="text-xs text-slate-500">Require temporary 6-digit codes generated by your mobile device.</span>
+                </div>
+                <input id="twofa-toggle" class="rounded border-slate-350 text-blue-600 focus:ring-blue-500 border-slate-250 cursor-pointer" type="checkbox">
+              </div>
+            </section>
+          </div>
+
+          <!-- Card 3: Active Sessions -->
+          <div class="cms-card bg-white w-full">
+            <section id="security-sessions">
+              <!-- Header -->
+              <div class="border-b border-slate-200 pb-4 mb-6">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <span class="material-symbols-outlined text-blue-600">devices</span>
+                  Active Login Sessions
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">Manage external devices logged into BKI Academy CMS.</p>
+              </div>
+
+              <!-- Sessions list -->
+              <div class="flex flex-col gap-4">
+                <!-- Session 1 (Current) -->
+                <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-blue-50/20 border-blue-100">
+                  <div class="flex gap-4 items-center">
+                    <span class="material-symbols-outlined text-blue-600">laptop_mac</span>
+                    <div class="flex flex-col">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-slate-800">MacBook Pro (Jakarta, Indonesia)</span>
+                        <span class="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Current Session</span>
+                      </div>
+                      <span class="text-xs text-slate-500">Chrome Browser &bull; IP 192.168.1.102</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Session 2 -->
+                <div class="flex items-center justify-between p-4 rounded-xl border border-slate-200">
+                  <div class="flex gap-4 items-center">
+                    <span class="material-symbols-outlined text-slate-400">phone_android</span>
+                    <div class="flex flex-col">
+                      <span class="text-sm font-bold text-slate-800">Samsung Galaxy S24 (Surabaya, Indonesia)</span>
+                      <span class="text-xs text-slate-500">Mobile App &bull; IP 182.4.22.90</span>
+                    </div>
+                  </div>
+                  <button onclick="if(confirm('Revoke this mobile session?')) { this.closest('div').remove(); }" class="text-xs font-semibold text-red-650 hover:text-red-700 hover:underline">Revoke Access</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 2FA SETUP MODAL -->
+  <div id="twofa-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="cancel2FA()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <h3 class="text-base font-bold text-slate-800">Set Up Two-Factor (2FA)</h3>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="cancel2FA()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <form onsubmit="confirm2FA(event)" class="p-6 flex flex-col gap-4 items-center text-center">
+        <p class="text-xs text-slate-500">Scan this QR code with Google Authenticator or Microsoft Authenticator app.</p>
+        
+        <!-- Mock QR Code -->
+        <div class="w-36 h-36 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center p-2 relative group cursor-help">
+          <span class="material-symbols-outlined text-4xl text-slate-400">qr_code_2</span>
+          <div class="absolute inset-0 bg-slate-950/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] text-white p-2">
+            Simulated Key: BKIACAD116
+          </div>
+        </div>
+        
+        <div class="w-full flex flex-col gap-1 text-left">
+          <label class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider" for="twofa-code">Verification Code</label>
+          <input class="cms-input text-center font-mono tracking-widest text-lg" id="twofa-code" placeholder="000000" type="text" maxlength="6" required>
+        </div>
+        <div class="flex justify-end gap-3 pt-2 w-full">
+          <button class="cms-btn-secondary flex-1" type="button" onclick="cancel2FA()">Cancel</button>
+          <button class="cms-btn-primary flex-1" type="submit">Verify & Enable</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check saved 2FA state
+      const is2fa = localStorage.getItem('twofa_enabled') === 'true';
+      document.getElementById('twofa-toggle').checked = is2fa;
+    });
+
+    const twofaToggle = document.getElementById('twofa-toggle');
+    if (twofaToggle) {
+      twofaToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          document.getElementById('twofa-modal').classList.remove('hidden');
+        } else {
+          localStorage.setItem('twofa_enabled', 'false');
+          alert('Two-factor authentication disabled.');
+        }
+      });
+    }
+
+    function confirm2FA(event) {
+      event.preventDefault();
+      const code = document.getElementById('twofa-code').value;
+      if (code.length === 6) {
+        localStorage.setItem('twofa_enabled', 'true');
+        alert('Two-factor authentication enabled successfully!');
+        document.getElementById('twofa-modal').classList.add('hidden');
+      } else {
+        alert('Please enter a valid 6-digit code.');
+      }
+    }
+
+    function cancel2FA() {
+      document.getElementById('twofa-modal').classList.add('hidden');
+      document.getElementById('twofa-toggle').checked = false;
+      document.getElementById('twofa-code').value = '';
+    }
+
+    async function changePassword(event) {
+      event.preventDefault();
+      const currentPass = document.getElementById('current-pass').value;
+      const newPass = document.getElementById('new-pass').value;
+      const confirmPass = document.getElementById('confirm-pass').value;
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+
+      if (newPass !== confirmPass) {
+        alert('Confirm password does not match new password.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full align-middle mr-2"></span> Updating...';
+
+      try {
+        if (typeof DB !== 'undefined') {
+          await DB.updateUserPassword(newPass);
+          alert('Password updated successfully!');
+          event.target.reset();
+        } else {
+          alert('Database module not loaded.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to update password: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Update Password';
+      }
+    }
+  </script>
+</body>
+</html>

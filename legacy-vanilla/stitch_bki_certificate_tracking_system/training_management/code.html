@@ -1,0 +1,329 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>BKI Academy - Training List</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#131b2e",
+                        "inverse-on-surface": "#eff1f3",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#004395",
+                        "on-secondary-container": "#fefcff",
+                        "on-background": "#191c1e",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-container-high": "#e6e8ea",
+                        "inverse-primary": "#bec6e0",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#565e74",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "outline-variant": "#c6c6cd",
+                        "on-surface-variant": "#45464d",
+                        "surface": "#f7f9fb",
+                        "background": "#f7f9fb",
+                        "on-primary-fixed": "#131b2e",
+                        "surface-bright": "#f7f9fb",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#0b1c30",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface-dim": "#d8dadc",
+                        "on-error-container": "#93000a",
+                        "secondary-container": "#2170e4",
+                        "on-secondary-fixed": "#001a42",
+                        "on-tertiary-container": "#75859d",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed": "#d8e2ff",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "outline": "#76777d",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-fixed": "#dae2fd",
+                        "surface-variant": "#e0e3e5",
+                        "secondary": "#0058be",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "tertiary-fixed": "#d3e4fe",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "on-primary-container": "#7c839b",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eceef0",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "primary": "#000000",
+                        "tertiary": "#000000"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "container-padding": "24px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "mono-label": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "title-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+        /* Custom scrollbar for data tables */
+        .table-scroll::-webkit-scrollbar { height: 8px; }
+        .table-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden bg-background text-on-surface">
+<!-- SideNavBar (from JSON) -->
+<nav class="bg-surface dark:bg-inverse-surface w-60 h-screen fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col gap-unit p-4 z-20">
+<!-- Brand Header -->
+<div class="mb-8 flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded bg-secondary flex items-center justify-center text-on-secondary font-bold text-lg flex-shrink-0">
+                BKI
+            </div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed tracking-tight">BKI Academy</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Management System</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-on-secondary-container font-semibold rounded-lg transition-colors duration-200 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined icon-fill" data-icon="school">school</span>
+<span class="font-body-md text-body-md">Training List</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+<span class="font-body-md text-body-md">Training Detail</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+<span class="font-body-md text-body-md">Certificate Monitoring</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-60 flex flex-col h-screen overflow-hidden">
+<!-- TopNavBar (from JSON) -->
+<header class="bg-surface dark:bg-surface-dim docked full-width top-0 sticky border-b border-outline-variant dark:border-outline flex justify-between items-center h-16 px-gutter w-full z-10 shrink-0">
+<!-- Left: Title & Search -->
+<div class="flex items-center gap-6">
+<span class="font-title-sm text-title-sm font-bold text-on-surface dark:text-inverse-on-surface tracking-tight">CMS Dashboard</span>
+<div class="relative hidden md:block w-64 group focus-within:ring-2 focus-within:ring-secondary rounded">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full h-9 pl-9 pr-3 rounded border border-outline-variant bg-surface text-body-sm focus:outline-none focus:border-secondary transition-colors" placeholder="Search..." type="text">
+</div>
+</div>
+<!-- Right: Actions & Profile -->
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+</div>
+<div class="h-6 w-px bg-outline-variant mx-1"></div>
+<button class="flex items-center gap-2 hover:bg-surface-container-high p-1 pr-2 rounded-full transition-colors">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A small, professional headshot of an administrator in a corporate setting. The person has a friendly, neutral expression, softly lit against a clean, bright minimalist background. Light mode aesthetic with sharp, clear details." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGNfi5-vnn1CgjXL0SdS7A7fT_Q7qxj1D3BVWxknoIAc4wUkTsRbJ_NwywfbHBHA5E1C682H1c_jI5L8hjcx94vwUrb2QvriUIgDkWS21EF8oyivj3sA-5qeox7jtOec9RDUQVWlP1CqBTYFfbsXthSey92bbmpk75YIWzM8MIGOkZcfe6e1q_0rogKmuHGXjVI7tcjDrdBq_o0lCi6jVkIJMAqZZ6AmaTZEHpBS1KXiQSGfp5t-s95A">
+<span class="font-body-sm text-body-sm font-medium text-on-surface hidden md:block">Admin</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span>
+</button>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 overflow-auto p-container-padding">
+<div class="max-w-[1440px] mx-auto flex flex-col gap-stack-lg">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h2 class="font-display-lg text-display-lg text-primary tracking-tight">Trainings</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage and monitor all training programs.</p>
+</div>
+<button class="bg-[#3B82F6] hover:bg-blue-600 text-white font-body-md text-body-md font-medium h-10 px-4 rounded shadow-sm border-t border-white/20 transition-all active:scale-95 flex items-center gap-2 shrink-0">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                        Add Training
+                    </button>
+</div>
+<!-- Filters & Controls (Bento-inspired container) -->
+<div class="bg-white rounded-xl border border-[#E2E8F0] p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+<div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+<!-- Search specific to trainings -->
+<div class="relative w-full md:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="w-full h-9 pl-9 pr-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] text-body-sm focus:outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all" placeholder="Search trainings..." type="text">
+</div>
+<!-- Filter Drops -->
+<select class="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] text-body-sm text-on-surface px-3 py-0 focus:outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 appearance-none min-w-[120px]">
+<option value="">Status</option>
+<option value="completed">Completed</option>
+<option value="processing">Processing</option>
+<option value="upcoming">Upcoming</option>
+</select>
+<div class="relative flex items-center h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] px-3">
+<span class="material-symbols-outlined text-outline text-[16px] mr-2">calendar_today</span>
+<input class="bg-transparent border-none p-0 text-body-sm text-on-surface focus:ring-0 w-32 placeholder:text-outline" placeholder="Date range" type="text">
+</div>
+<select class="h-9 rounded border border-[#E2E8F0] bg-[#F8FAFC] text-body-sm text-on-surface px-3 py-0 focus:outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 appearance-none min-w-[120px]">
+<option value="">PIC</option>
+<option value="andi">Andi</option>
+<option value="budi">Budi</option>
+</select>
+</div>
+<div class="flex items-center gap-2 w-full md:w-auto justify-end">
+<button class="h-9 px-3 rounded border border-[#E2E8F0] bg-white text-body-sm font-medium hover:bg-[#F8FAFC] transition-colors flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            More Filters
+                        </button>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden flex flex-col">
+<div class="table-scroll overflow-x-auto w-full">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-[#E2E8F0] bg-[#F8FAFC]">
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap">Training Name</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap">Batch</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap">Date</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap text-right">Participants</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap">Status</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap">PIC</th>
+<th class="font-label-caps text-label-caps text-on-surface-variant px-4 py-3 font-semibold uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#E2E8F0]">
+<!-- Row 1 -->
+<tr class="hover:bg-[#F8FAFC] transition-colors group h-12">
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-body-sm text-body-sm font-medium text-on-surface">Internal Auditor ISM</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-mono-label text-mono-label text-on-surface-variant">Batch 116</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-body-sm text-body-sm text-on-surface-variant">03-05 Aug 2026</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap text-right">
+<div class="font-body-sm text-body-sm text-on-surface">25</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#D1FAE5] text-[#065F46] border border-[#A7F3D0]">
+                                            Completed
+                                        </span>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-[#E2E8F0] flex items-center justify-center text-[10px] font-bold text-on-surface-variant">AN</div>
+<span class="font-body-sm text-body-sm text-on-surface">Andi</span>
+</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap text-right">
+<button class="text-on-surface-variant hover:text-[#3B82F6] p-1 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#F8FAFC] transition-colors group h-12">
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-body-sm text-body-sm font-medium text-on-surface">CSO Training</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-mono-label text-mono-label text-on-surface-variant">Batch 53</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="font-body-sm text-body-sm text-on-surface-variant">10-12 Aug 2026</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap text-right">
+<div class="font-body-sm text-body-sm text-on-surface">15</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]">
+                                            Processing
+                                        </span>
+</td>
+<td class="px-4 py-2 whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-[#E2E8F0] flex items-center justify-center text-[10px] font-bold text-on-surface-variant">BU</div>
+<span class="font-body-sm text-body-sm text-on-surface">Budi</span>
+</div>
+</td>
+<td class="px-4 py-2 whitespace-nowrap text-right">
+<button class="text-on-surface-variant hover:text-[#3B82F6] p-1 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Additional Empty Rows for visual density feel -->
+<tr class="h-12 border-t border-transparent group hover:bg-[#F8FAFC] transition-colors"><td colspan="7"></td></tr>
+<tr class="h-12 border-t border-transparent group hover:bg-[#F8FAFC] transition-colors"><td colspan="7"></td></tr>
+<tr class="h-12 border-t border-transparent group hover:bg-[#F8FAFC] transition-colors"><td colspan="7"></td></tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="border-t border-[#E2E8F0] bg-white px-4 py-3 flex items-center justify-between">
+<div class="font-body-sm text-body-sm text-on-surface-variant">
+                            Showing <span class="font-medium text-on-surface">1</span> to <span class="font-medium text-on-surface">2</span> of <span class="font-medium text-on-surface">2</span> results
+                        </div>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-on-surface-variant disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] bg-[#F8FAFC] text-primary font-body-sm font-medium">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-[#E2E8F0] text-on-surface-variant disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

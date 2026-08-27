@@ -1,0 +1,404 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>CMS Dashboard - Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "background": "#f7f9fb",
+                "on-tertiary-fixed": "#0b1c30",
+                "on-primary-container": "#7c839b",
+                "secondary": "#0058be",
+                "on-secondary": "#ffffff",
+                "primary-container": "#131b2e",
+                "tertiary": "#000000",
+                "on-tertiary-fixed-variant": "#38485d",
+                "surface-dim": "#d8dadc",
+                "on-background": "#191c1e",
+                "on-error": "#ffffff",
+                "surface-container-low": "#f2f4f6",
+                "on-secondary-container": "#fefcff",
+                "surface-container-highest": "#e0e3e5",
+                "on-tertiary": "#ffffff",
+                "surface-bright": "#f7f9fb",
+                "on-surface-variant": "#45464d",
+                "inverse-primary": "#bec6e0",
+                "surface": "#f7f9fb",
+                "surface-variant": "#e0e3e5",
+                "on-primary-fixed": "#131b2e",
+                "surface-container-high": "#e6e8ea",
+                "surface-tint": "#565e74",
+                "on-secondary-fixed-variant": "#004395",
+                "tertiary-fixed-dim": "#b7c8e1",
+                "primary": "#000000",
+                "error": "#ba1a1a",
+                "on-tertiary-container": "#75859d",
+                "tertiary-fixed": "#d3e4fe",
+                "on-secondary-fixed": "#001a42",
+                "error-container": "#ffdad6",
+                "surface-container": "#eceef0",
+                "on-error-container": "#93000a",
+                "secondary-fixed": "#d8e2ff",
+                "outline-variant": "#c6c6cd",
+                "inverse-on-surface": "#eff1f3",
+                "on-primary": "#ffffff",
+                "secondary-container": "#2170e4",
+                "secondary-fixed-dim": "#adc6ff",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#3f465c",
+                "on-surface": "#191c1e",
+                "primary-fixed": "#dae2fd",
+                "inverse-surface": "#2d3133",
+                "primary-fixed-dim": "#bec6e0",
+                "outline": "#76777d",
+                "tertiary-container": "#0b1c30"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "gutter": "16px",
+                "unit": "4px",
+                "stack-md": "16px",
+                "stack-sm": "8px",
+                "container-padding": "24px",
+                "stack-lg": "32px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "mono-label": [
+                        "Inter"
+                ],
+                "display-lg": [
+                        "Inter"
+                ],
+                "headline-md": [
+                        "Inter"
+                ],
+                "body-sm": [
+                        "Inter"
+                ],
+                "title-sm": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "11px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "mono-label": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-sm": [
+                        "13px",
+                        {
+                                "lineHeight": "18px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "title-sm": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom Input Styles */
+        .cms-input {
+            @apply w-full bg-surface-container-lowest border border-outline-variant rounded-DEFAULT px-3 py-2 text-on-surface font-body-md focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/20 transition-all;
+        }
+        .cms-label {
+            @apply block text-on-surface-variant font-label-caps mb-unit uppercase;
+        }
+        .cms-btn-primary {
+            @apply bg-secondary-container text-white font-mono-label px-4 py-2 rounded-DEFAULT border border-secondary-container hover:bg-secondary transition-colors shadow-sm;
+        }
+        .cms-btn-secondary {
+            @apply bg-surface-container-lowest text-on-surface font-mono-label px-4 py-2 rounded-DEFAULT border border-outline-variant hover:bg-surface-container-low transition-colors;
+        }
+        .cms-card {
+            @apply bg-surface-container-lowest rounded-lg border border-outline-variant p-6;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-inverse-surface w-60 h-screen fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col gap-unit p-4 z-50 font-body-md text-body-md">
+  <div class="mb-8 mt-2 px-2 flex items-center gap-3 justify-center"><div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center shrink-0"><img alt="BKI Academy Logo" class="w-6 h-6 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOROL9j1gyd28UW0HyQtjG3TK-MVGmj8Yhize5EuMSMQfNQyUEqx7qeRz6okG1ilqqFbnditEy4ChQhLFC6H-4NJCrxgSL95O47kGlC6RSN4PlHaGZo-R9WYUpnntkJTa52MrPvzt2zCGDf2l0woF0nyVHi3_oFcRwBbNiy4ydarVhVUTRKoZHO78WPXvmWnoNJeaCxskmleQjuHPJ5ukWESWMtx0hx4-Yd8EG0mw4GQfjoBPyEJIx-w"></div><div class=""><h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed leading-tight">BKI Academy</h1><p class="font-body-sm text-body-sm text-on-surface-variant">Management System</p></div></div>
+  <ul class="flex flex-col gap-1 w-full flex-grow">
+    <li class="">
+      <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined text-[20px]">dashboard</span>
+        <span class="">Dashboard</span>
+      </a>
+    </li>
+    <li class="">
+      <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined text-[20px]">school</span>
+        <span class="">Training List</span>
+      </a>
+    </li>
+    <li class="">
+      <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined text-[20px]">assignment</span>
+        <span class="">Training Detail</span>
+      </a>
+    </li>
+    <li class="">
+      <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined text-[20px]">verified</span>
+        <span class="">Certificate Monitoring</span>
+      </a>
+    </li>
+    <li class="">
+      <a class="text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined text-[20px]">assessment</span>
+        <span class="">Reports</span>
+      </a>
+    </li>
+  </ul>
+  <div class="mt-auto px-2 pb-4">
+    <div class="pt-4 border-t border-outline-variant/50">
+      <a class="bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-on-secondary-container font-semibold rounded-lg flex items-center gap-3 px-3 py-2 active:scale-95 transition-transform w-full" href="#">
+        <span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">settings</span>
+        <span class="">Settings</span>
+      </a>
+    </div>
+  </div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col ml-60 min-w-0">
+<!-- TopNavBar -->
+<header class="docked full-width top-0 sticky bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center h-16 px-gutter w-full z-30 font-label-caps text-label-caps"><div class="flex items-center gap-4"><button class="md:hidden text-primary dark:text-primary-fixed p-2"><span class="material-symbols-outlined">menu</span></button><div class="hidden sm:flex relative items-center focus-within:ring-2 focus-within:ring-secondary rounded-DEFAULT"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant dark:text-surface-variant text-[20px]">search</span><input class="bg-surface-container-low border-none pl-10 pr-4 py-2 rounded-DEFAULT text-body-sm text-on-surface w-64 focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/70" placeholder="Search settings..." type="text"></div></div><div class="flex items-center gap-4"><div class="font-title-sm text-title-sm font-bold text-on-surface dark:text-inverse-on-surface">CMS Dashboard</div><div class="flex items-center gap-2"><button class="p-2 text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors rounded-full hover:bg-surface-container-low"><span class="material-symbols-outlined">notifications</span></button><button class="p-2 text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-colors rounded-full hover:bg-surface-container-low"><span class="material-symbols-outlined">help_outline</span></button><div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant ml-2 cursor-pointer"><img alt="Administrator Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDnILHGhWupVptJ-c-O1TMr7M9kgJN1e3AkNi4Iifry0oLSJSKcHp1R10Xj87s_0R41T1PX0Bm1I3DBLwgIUgZUacpLGvpznXfVVciVXC6dpjypOsM4z_ecZBHyALsvNPfgJ4nuaaNk3qm_10J23oTQ-5t9K5mkxKrc6C7twu5elP3wsZyBHIVtfRHYA51xZaNEwHaaf3AaelNxdmRARSYCxw87dOblVbk7poTJOzvK1qmuNCmomFs5A"></div></div></div></header>
+<!-- Page Content -->
+<main class="flex-1 p-gutter max-w-[1440px] mx-auto w-full">
+<div class="mb-stack-lg">
+<h2 class="font-display-lg text-display-lg text-on-surface mb-2">Settings</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your account preferences and system configurations.</p>
+</div>
+<div class="flex flex-col lg:flex-row gap-stack-lg items-start">
+<!-- Settings Navigation (Vertical Tabs) -->
+<nav class="w-full lg:w-64 flex flex-col gap-1 shrink-0 font-medium">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-surface-container-highest text-on-surface font-mono-label font-medium" href="#profile">
+<span class="material-symbols-outlined text-[20px]" data-icon="person" data-weight="fill">person</span>
+                        Profile Settings
+                    </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-mono-label transition-colors" href="#notifications">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications_active">notifications_active</span>
+                        Notification Preferences
+                    </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-mono-label transition-colors" href="#system">
+<span class="material-symbols-outlined text-[20px]" data-icon="dns">dns</span>
+                        System Configuration
+                    </a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-low font-mono-label transition-colors" href="#security">
+<span class="material-symbols-outlined text-[20px]" data-icon="lock">lock</span>
+                        Security &amp; Access
+                    </a>
+</nav>
+<!-- Settings Forms Canvas -->
+<div class="flex-1 w-full flex flex-col gap-stack-lg">
+<!-- Profile Settings Section -->
+<section class="" id="profile">
+<div class="border-b border-outline-variant pb-4 mb-6">
+<h3 class="font-title-sm text-title-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container" data-icon="person" data-weight="fill">person</span>
+                                Profile Settings
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Update your personal information and contact details.</p>
+</div>
+<div class="flex flex-col sm:flex-row gap-8 items-start mb-8">
+<div class="relative">
+<div class="w-24 h-24 rounded-full overflow-hidden border-2 border-surface-container-highest">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate administrator in a bright, modern office setting. The lighting is soft and neutral, conveying trust and competence. Minimalist background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdD4E7QjbZgUUY-CFjFY1V-OzD4qToPv-plelTnrqsIsZF-KertfG1RGSqmiykAWhQ4WCodcXA2eMWOvDRJhsZg7N-cjYKaDyL1osfGEiJ5BfZBlVaTJ9cvx-R-WbIQDtLn7hZZDiQ9URzsuXuqd6lJOJOHxWYqeiUv4BTODGEt7upmEQNNROe_qOVkv8061FSzPPfEyaYeL5cGchUHr86_iv7LfDa0GrsKsoFQ9zKCC0SPE1oo42GJA">
+</div>
+<button class="absolute bottom-0 right-0 bg-surface-container-lowest border border-outline-variant rounded-full p-1.5 shadow-sm text-on-surface-variant hover:text-[#2563eb] transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="edit">edit</span>
+</button>
+</div>
+<div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+<div>
+<label class="cms-label">First Name</label>
+<input class="cms-input rounded-lg" type="text" value="Jane">
+</div>
+<div>
+<label class="cms-label">Last Name</label>
+<input class="cms-input rounded-lg" type="text" value="Doe">
+</div>
+<div class="sm:col-span-2">
+<label class="cms-label">Email Address</label>
+<input class="cms-input rounded-lg" type="email" value="jane.doe@bkiacademy.com">
+</div>
+<div>
+<label class="cms-label">Role</label>
+<input class="cms-input bg-surface-container-low text-on-surface-variant cursor-not-allowed rounded-lg" disabled="" type="text" value="System Administrator">
+</div>
+<div>
+<label class="cms-label">Department</label>
+<input class="cms-input rounded-lg" type="text" value="Certification Management">
+</div>
+</div>
+</div>
+<div class="flex justify-end gap-3 pt-4 border-t border-outline-variant">
+<button class="cms-btn-secondary rounded-lg">Discard Changes</button>
+<button class="cms-btn-primary rounded-lg">Save Profile</button>
+</div>
+</section>
+<!-- Notification Preferences Section -->
+<section class="" id="notifications">
+<div class="border-b border-outline-variant pb-4 mb-6">
+<h3 class="font-title-sm text-title-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container" data-icon="notifications_active" data-weight="fill">notifications_active</span>
+                                Notification Preferences
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Manage how and when you receive alerts from the CMS.</p>
+</div>
+<div class="flex flex-col gap-4 mb-6">
+<!-- Toggle Item 1 -->
+<div class="flex items-center justify-between p-4 rounded-lg border border-outline-variant bg-surface-container-lowest">
+<div>
+<div class="font-mono-label text-mono-label text-on-surface mb-1">Overdue Certificates (Email)</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Receive daily email digests for certificates past their validity date.</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+<!-- Toggle Item 2 -->
+<div class="flex items-center justify-between p-4 rounded-lg border border-outline-variant bg-surface-container-lowest">
+<div>
+<div class="font-mono-label text-mono-label text-on-surface mb-1">SLA Breach Warnings (In-App)</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Instant notifications when certificate processing exceeds SLA thresholds.</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+<!-- Toggle Item 3 -->
+<div class="flex items-center justify-between p-4 rounded-lg border border-outline-variant bg-surface-container-lowest">
+<div>
+<div class="font-mono-label text-mono-label text-on-surface mb-1">Weekly Summary Reports</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant">Receive automated weekly PDF reports of training completion rates.</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value="">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-container"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- System Configuration Section -->
+<section class="" id="system">
+<div class="border-b border-outline-variant pb-4 mb-6">
+<h3 class="font-title-sm text-title-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container" data-icon="dns" data-weight="fill">dns</span>
+                                System Configuration
+                            </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Configure global Service Level Agreements (SLAs) and processing parameters.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="p-4 bg-surface-container-lowest rounded-lg border border-outline-variant flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<label class="font-mono-label text-mono-label text-on-surface">Standard Processing SLA (Days)</label>
+<span class="text-secondary-fixed-variant font-mono-label bg-secondary-fixed text-on-secondary-fixed px-2 py-0.5 rounded text-[10px]">Critical Metric</span>
+</div>
+<div class="flex items-center gap-3">
+<input class="cms-input w-24 text-center rounded-lg" type="number" value="14">
+<span class="font-body-sm text-on-surface-variant">days from submission</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant/70">Threshold before a certificate request is flagged as delayed.</p>
+</div>
+<div class="p-4 bg-surface-container-lowest rounded-lg border border-outline-variant flex flex-col gap-4">
+<label class="font-mono-label text-mono-label text-on-surface">Certificate Validity Buffer</label>
+<div class="flex items-center gap-3">
+<input class="cms-input w-24 text-center rounded-lg" type="number" value="30">
+<span class="font-body-sm text-on-surface-variant">days prior to expiry</span>
+</div>
+<p class="font-body-sm text-[12px] text-on-surface-variant/70">When to start displaying 'Expiring Soon' warnings in dashboards.</p>
+</div>
+<div class="p-4 bg-surface-container-lowest rounded-lg border border-outline-variant flex flex-col gap-4 md:col-span-2">
+<label class="font-mono-label text-mono-label text-on-surface">Default Certificate Template</label>
+<select class="cms-input appearance-none bg-surface-container-lowest rounded-lg">
+<option>Standard Corporate Issue v2.1</option>
+<option>Legacy Certificate Format v1.0</option>
+<option>External Training Record Template</option>
+</select>
+</div>
+</div>
+<div class="flex justify-end gap-3 pt-4 border-t border-outline-variant">
+<button class="cms-btn-secondary rounded-lg">Reset to Defaults</button>
+<button class="cms-btn-primary rounded-lg">Apply Configuration</button>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

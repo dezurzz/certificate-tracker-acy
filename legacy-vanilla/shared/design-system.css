@@ -1,0 +1,208 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+/* Design System Styling */
+:root {
+  --color-primary: #0F172A; /* Deep Navy */
+  --color-primary-container: #131B2E;
+  --color-on-primary-container: #7C839B;
+  --color-secondary: #3B82F6; /* Action Blue */
+  --color-secondary-hover: #2563EB;
+  --color-secondary-container: #E0F2FE;
+  --color-on-secondary-container: #0369A1;
+  --color-background: #F8FAFC; /* Slate 50 */
+  --color-surface: #FFFFFF;
+  --color-outline: #64748B; /* Slate 500 */
+  --color-outline-variant: #E2E8F0; /* Slate 200 */
+  --color-on-surface: #0F172A;
+  --color-on-surface-variant: #475569;
+}
+
+/* Global transitions & defaults */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+.material-symbols-outlined.fill {
+  font-variation-settings: 'FILL' 1;
+}
+
+/* Custom Scrollbars */
+.table-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.table-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Design System Component Layouts */
+.cms-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease-in-out;
+}
+.cms-card-interactive {
+  cursor: pointer;
+}
+.cms-card-interactive:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.cms-input {
+  width: 100%;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--color-on-surface);
+  transition: all 0.2s;
+}
+.cms-input:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.cms-btn-primary {
+  background-color: var(--color-secondary);
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+.cms-btn-primary:hover {
+  background-color: var(--color-secondary-hover);
+}
+.cms-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.cms-btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-on-surface-variant);
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: 1px solid var(--color-outline-variant);
+  cursor: pointer;
+}
+.cms-btn-secondary:hover {
+  background-color: #F8FAFC;
+  color: var(--color-on-surface);
+}
+.cms-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.cms-btn-danger {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+.cms-btn-danger:hover {
+  background-color: #DC2626;
+}
+.cms-btn-danger:active {
+  transform: scale(0.98);
+}
+
+/* Badge variants */
+.cms-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.cms-badge-pending {
+  background-color: #F1F5F9;
+  color: #475569;
+}
+.cms-badge-processing {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+.cms-badge-completed {
+  background-color: #DCFCE7;
+  color: #15803D;
+}
+.cms-badge-overdue {
+  background-color: #FEE2E2;
+  color: #B91C1C;
+}
+
+/* Tab Active Styles */
+.settings-tab-active {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+/* Kanban column and cards */
+.kanban-col {
+  background-color: #F1F5F9;
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.kanban-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.kanban-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}

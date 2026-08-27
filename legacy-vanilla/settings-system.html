@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Settings - System Config - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component -->
+    <header id="header-container" data-title="System Configuration"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full flex flex-col gap-6">
+      <div class="mb-2">
+        <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Settings</h2>
+        <p class="text-sm text-slate-500 mt-1">Manage your account preferences and system configurations.</p>
+      </div>
+
+      <!-- Settings Layout Grid -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start">
+        
+        <!-- Settings Tabs Sidebar -->
+        <nav class="w-full lg:w-64 flex flex-col gap-1 shrink-0">
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-profile.html">
+            <span class="material-symbols-outlined text-[20px]">person</span>
+            Profile Settings
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-notifications.html">
+            <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+            Notification Preferences
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-security.html">
+            <span class="material-symbols-outlined text-[20px]">shield</span>
+            Security & Access
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-200 text-slate-900 font-semibold" href="settings-system.html">
+            <span class="material-symbols-outlined text-[20px] fill">dns</span>
+            System Configuration
+          </a>
+        </nav>
+
+        <!-- Settings Content Card -->
+        <div class="flex-1 cms-card bg-white w-full">
+          <section id="system">
+            <!-- Header -->
+            <div class="border-b border-slate-200 pb-4 mb-6">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-600 fill">dns</span>
+                System Configuration
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">Configure global Service Level Agreements (SLAs) and processing parameters.</p>
+            </div>
+
+            <!-- Configuration fields Form -->
+            <form onsubmit="applyConfig(event)" class="flex flex-col gap-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- SLA setting -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4">
+                  <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-700">Standard Processing SLA (Days)</label>
+                    <span class="text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold">Critical Metric</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input id="sys-sla" class="cms-input w-24 text-center font-semibold" type="number" min="1" required>
+                    <span class="text-xs text-slate-500 font-medium">days from completion</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Threshold before a certificate request is flagged as delayed.</p>
+                </div>
+
+                <!-- Buffer setting -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4">
+                  <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-700">Certificate Validity Buffer</label>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input id="sys-buffer" class="cms-input w-24 text-center font-semibold" type="number" min="1" required>
+                    <span class="text-xs text-slate-500 font-medium">days prior to expiry</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400">When to start displaying 'Expiring Soon' warnings in dashboards.</p>
+                </div>
+
+                <!-- Template setting -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 md:col-span-2">
+                  <label class="text-xs font-bold text-slate-700" for="sys-template">Default Certificate Template</label>
+                  <div class="relative">
+                    <select id="sys-template" class="cms-input appearance-none pr-10 cursor-pointer">
+                      <option>Standard Corporate Issue v2.1</option>
+                      <option>Legacy Certificate Format v1.0</option>
+                      <option>External Training Record Template</option>
+                    </select>
+                    <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+
+                <!-- Supabase setting -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 md:col-span-2">
+                  <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-700">Supabase Connection Settings</label>
+                    <span class="text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold">Database Sync</span>
+                  </div>
+                  <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project URL</label>
+                      <input id="sys-supabase-url" class="cms-input font-mono text-xs" placeholder="https://xxxxxx.supabase.co" type="url">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Anon API Key</label>
+                      <input id="sys-supabase-key" class="cms-input font-mono text-xs" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." type="password">
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Provide your Supabase URL and Anon API key to sync training, attendee, and certificate data in real-time. Leave blank to run locally in localStorage mock database.</p>
+                </div>
+              </div>
+ 
+              <!-- Footer Actions -->
+              <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="resetToDefaults()" class="cms-btn-secondary">Reset to Defaults</button>
+                <button type="submit" class="cms-btn-primary">Apply Configuration</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- User Provisioning section -->
+          <section id="user-provisioning" class="border-t border-slate-200 pt-6 mt-6">
+            <div class="pb-4 mb-4">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-600 fill">person_add</span>
+                Add New Staff Account
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">Register new administrative or operator accounts. They can login with the default password and change it later.</p>
+            </div>
+
+            <form onsubmit="registerUser(event)" class="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">User Email Address</label>
+                  <input id="prov-email" class="cms-input text-xs font-semibold" placeholder="e.g. operator@bkiacademy.com" type="email" required>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Default Password</label>
+                  <input id="prov-password" class="cms-input text-xs font-semibold font-mono" placeholder="e.g. BKI12345" type="text" required>
+                </div>
+              </div>
+              <div class="flex justify-end pt-2">
+                <button type="submit" id="prov-submit-btn" class="cms-btn-primary py-2 px-4 text-xs flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px]">person_add</span>
+                  Register User
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+ 
+      </div>
+    </main>
+  </div>
+ 
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load configurations
+      document.getElementById('sys-sla').value = localStorage.getItem('sys_sla') || '14';
+      document.getElementById('sys-buffer').value = localStorage.getItem('sys_buffer') || '30';
+      document.getElementById('sys-template').value = localStorage.getItem('sys_template') || 'Standard Corporate Issue v2.1';
+      document.getElementById('sys-supabase-url').value = localStorage.getItem('supabase_url') || '';
+      document.getElementById('sys-supabase-key').value = localStorage.getItem('supabase_key') || '';
+    });
+ 
+    function applyConfig(event) {
+      event.preventDefault();
+      const sla = document.getElementById('sys-sla').value;
+      const buffer = document.getElementById('sys-buffer').value;
+      const template = document.getElementById('sys-template').value;
+      const dbUrl = document.getElementById('sys-supabase-url').value.trim();
+      const dbKey = document.getElementById('sys-supabase-key').value.trim();
+ 
+      localStorage.setItem('sys_sla', sla);
+      localStorage.setItem('sys_buffer', buffer);
+      localStorage.setItem('sys_template', template);
+      localStorage.setItem('supabase_url', dbUrl);
+      localStorage.setItem('supabase_key', dbKey);
+ 
+      alert('System configurations applied successfully!');
+    }
+ 
+    async function registerUser(event) {
+      event.preventDefault();
+      const email = document.getElementById('prov-email').value.trim();
+      const password = document.getElementById('prov-password').value;
+      const btn = document.getElementById('prov-submit-btn');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full align-middle mr-1.5"></span> Registering...';
+
+      try {
+        if (typeof DB !== 'undefined') {
+          await DB.registerNewUser(email, password);
+          alert(`Account for ${email} has been registered successfully!`);
+          document.getElementById('prov-email').value = '';
+          document.getElementById('prov-password').value = '';
+        } else {
+          alert('Database module not loaded.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to register user: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px] mr-1">person_add</span> Register User';
+      }
+    }
+
+    function resetToDefaults() {
+      if (confirm('Reset all configurations to standard values (14 days SLA, 30 days buffer)?')) {
+        document.getElementById('sys-sla').value = '14';
+        document.getElementById('sys-buffer').value = '30';
+        document.getElementById('sys-template').value = 'Standard Corporate Issue v2.1';
+        document.getElementById('sys-supabase-url').value = '';
+        document.getElementById('sys-supabase-key').value = '';
+        
+        localStorage.setItem('sys_sla', '14');
+        localStorage.setItem('sys_buffer', '30');
+        localStorage.setItem('sys_template', 'Standard Corporate Issue v2.1');
+        localStorage.setItem('supabase_url', '');
+        localStorage.setItem('supabase_key', '');
+        
+        alert('Configurations reset to system defaults.');
+      }
+    }
+  </script>
+</body>
+</html>

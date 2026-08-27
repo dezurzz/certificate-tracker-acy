@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Dashboard - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component (dynamically injected) -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component (dynamically injected) -->
+    <header id="header-container" data-title="CMS Dashboard"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full">
+      <!-- Page Header -->
+      <div class="flex justify-between items-end mb-8">
+        <div>
+          <h2 id="dashboard-greeting" class="text-3xl font-bold text-slate-800 tracking-tight mb-1">Good Morning, Admin
+          </h2>
+          <p class="text-sm text-slate-500 flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">calendar_today</span>
+            <span id="dashboard-date">25 Aug 2026</span>
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="downloadDashboardReport()" class="cms-btn-secondary">
+            <span class="material-symbols-outlined text-sm">download</span>
+            Export Report
+          </button>
+          <a href="trainings.html?openModal=true" class="cms-btn-primary">
+            <span class="material-symbols-outlined text-sm">add</span>
+            New Batch
+          </a>
+        </div>
+      </div>
+
+      <!-- Unified Consistent KPI Cards Row -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- KPI 1: Training Completed -->
+        <div onclick="window.location.href='trainings.html'"
+          class="cms-card cms-card-interactive hover:border-slate-350">
+          <div class="flex justify-between items-start mb-4">
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+              <span class="material-symbols-outlined">task_alt</span>
+            </div>
+            <span
+              class="bg-green-50 text-green-700 border border-green-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
+              +12% Month
+            </span>
+          </div>
+          <div>
+            <h3 id="stat-completed-trainings" class="text-3xl font-bold text-slate-900 mb-1">0</h3>
+            <p class="text-sm text-slate-500 font-semibold">Training Completed</p>
+            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wide font-medium">Total batches finished this
+              month</p>
+          </div>
+        </div>
+
+        <!-- KPI 2: Certificate Pending -->
+        <div onclick="window.location.href='certificates.html?filter=pending'"
+          class="cms-card cms-card-interactive hover:border-slate-350">
+          <div class="flex justify-between items-start mb-4">
+            <div
+              class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-650 text-slate-600">
+              <span class="material-symbols-outlined">hourglass_empty</span>
+            </div>
+            <span class="cms-badge cms-badge-processing">
+              Pending
+            </span>
+          </div>
+          <div>
+            <h3 id="stat-pending-certs" class="text-3xl font-bold text-slate-900 mb-1">0</h3>
+            <p class="text-sm text-slate-500 font-semibold">Certificate Pending</p>
+            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wide font-medium">Requires verification queue
+            </p>
+          </div>
+        </div>
+
+        <!-- KPI 3: Overdue -->
+        <div onclick="window.location.href='certificates.html?filter=overdue'"
+          class="cms-card cms-card-interactive hover:border-slate-350">
+          <div class="flex justify-between items-start mb-4">
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+              <span class="material-symbols-outlined">warning</span>
+            </div>
+            <span class="cms-badge cms-badge-overdue">
+              Overdue
+            </span>
+          </div>
+          <div>
+            <h3 id="stat-overdue-certs" class="text-3xl font-bold text-slate-900 mb-1">0</h3>
+            <p class="text-sm text-slate-500 font-semibold">Overdue Certificates</p>
+            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wide font-medium">Exceeded standard SLA limits
+            </p>
+          </div>
+        </div>
+
+        <!-- KPI 4: Completion Rate -->
+        <div onclick="window.location.href='reports.html'" class="cms-card cms-card-interactive hover:border-slate-350">
+          <div class="flex justify-between items-start mb-4">
+            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+              <span class="material-symbols-outlined">analytics</span>
+            </div>
+            <span
+              class="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
+              Target Met
+            </span>
+          </div>
+          <div>
+            <h3 id="stat-completion-rate" class="text-3xl font-bold text-slate-900 mb-1">100%</h3>
+            <p class="text-sm text-slate-500 font-semibold">Completion Rate</p>
+            <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wide font-medium">Target SLA threshold: 90%</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Layout Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Pipeline (Takes 2 columns) -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+          <div class="cms-card">
+            <div class="flex justify-between items-center mb-6">
+              <div>
+                <h3 class="text-lg font-bold text-slate-800 tracking-tight">Certificate Pipeline</h3>
+                <p class="text-sm text-slate-500">Current status across all active batches</p>
+              </div>
+
+              <!-- Three-dots action dropdown wrapper -->
+              <div class="relative inline-block text-left">
+                <button
+                  class="row-actions-btn p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                  <span class="material-symbols-outlined">more_horiz</span>
+                </button>
+                <div
+                  class="row-actions-menu hidden absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                  <a href="trainings.html"
+                    class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">visibility</span> View All Batches
+                  </a>
+                  <a href="reports.html"
+                    class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">assessment</span> View SLA Reports
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bento-style visual pipeline -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+              <!-- Pending -->
+              <div
+                class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-xs font-mono font-semibold text-slate-400">01</span>
+                  <span class="material-symbols-outlined text-slate-400 text-sm">schedule</span>
+                </div>
+                <div>
+                  <p id="pipe-pending-count" class="text-2xl font-bold text-slate-800 mb-0.5">0</p>
+                  <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Pending</p>
+                </div>
+              </div>
+
+              <!-- Processing -->
+              <div
+                class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-xs font-mono font-semibold text-slate-400">02</span>
+                  <span class="material-symbols-outlined text-blue-500 text-sm">sync</span>
+                </div>
+                <div>
+                  <p id="pipe-processing-count" class="text-2xl font-bold text-slate-800 mb-0.5">0</p>
+                  <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Processing</p>
+                </div>
+              </div>
+
+              <!-- Printing -->
+              <div
+                class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-xs font-mono font-semibold text-slate-500">03</span>
+                  <span class="material-symbols-outlined text-blue-400 text-sm">print</span>
+                </div>
+                <div>
+                  <p id="pipe-printing-count" class="text-2xl font-bold text-slate-800 mb-0.5">0</p>
+                  <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Printing</p>
+                </div>
+              </div>
+
+              <!-- Shipping -->
+              <div
+                class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-xs font-mono font-semibold text-slate-400">04</span>
+                  <span class="material-symbols-outlined text-amber-500 text-sm font-light">local_shipping</span>
+                </div>
+                <div>
+                  <p id="pipe-shipping-count" class="text-2xl font-bold text-slate-800 mb-0.5">0</p>
+                  <p class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Shipping</p>
+                </div>
+              </div>
+
+              <!-- Completed -->
+              <div
+                class="bg-green-50 border border-green-200 p-4 rounded-xl flex flex-col justify-between min-h-[105px]">
+                <div class="flex justify-between items-start">
+                  <span class="text-xs font-mono font-semibold text-green-700">05</span>
+                  <span class="material-symbols-outlined text-green-700 text-sm fill">done_all</span>
+                </div>
+                <div>
+                  <p id="pipe-completed-count" class="text-2xl font-bold text-green-900 mb-0.5 text-green-900">0</p>
+                  <p class="text-[9px] font-bold text-green-700 uppercase tracking-wider">Completed</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Progress Bar visualization -->
+            <div id="pipe-progress-bar" class="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-100">
+              <div id="pb-pending" class="bg-slate-300 h-full" style="width: 0%"></div>
+              <div id="pb-processing" class="bg-blue-300 h-full" style="width: 0%"></div>
+              <div id="pb-printing" class="bg-slate-900 h-full" style="width: 0%"></div>
+              <div id="pb-shipping" class="bg-amber-400 h-full" style="width: 0%"></div>
+              <div id="pb-completed" class="bg-green-500 h-full" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Recent Activity -->
+        <div class="cms-card flex flex-col h-[400px] p-0 overflow-hidden bg-white">
+          <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center sticky top-0 z-10">
+            <h3 class="font-bold text-slate-800 text-sm">Recent Activity</h3>
+            <a class="text-xs font-semibold text-blue-600 hover:underline" href="history-logs.html">View All</a>
+          </div>
+
+          <div class="overflow-y-auto p-4 flex-grow table-scroll bg-white">
+            <div id="recent-activity-list"
+              class="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200">
+              <!-- Dynamic activity items will load here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    async function loadDashboardData() {
+      if (typeof DB === 'undefined') return;
+
+      const trainings = await DB.getTrainings();
+      const certificates = await DB.getCertificates();
+
+      // Calculate KPIs
+      const completedTrainings = trainings.filter(t => t.status === 'Completed').length;
+      const pendingCerts = certificates.filter(c => c.status === 'Pending').length;
+      const overdueCerts = certificates.filter(c => c.status !== 'Completed' && c.sla_age_days > 4).length;
+
+      const totalCerts = certificates.length;
+      const completedCerts = certificates.filter(c => c.status === 'Completed').length;
+      const completionRate = totalCerts > 0 ? Math.round((completedCerts / totalCerts) * 100) : 100;
+
+      // Update KPI cards UI
+      document.getElementById('stat-completed-trainings').textContent = completedTrainings;
+      document.getElementById('stat-pending-certs').textContent = pendingCerts;
+      document.getElementById('stat-overdue-certs').textContent = overdueCerts;
+      document.getElementById('stat-completion-rate').textContent = `${completionRate}%`;
+
+      // Calculate Pipeline stages
+      const pipePending = certificates.filter(c => c.status === 'Pending').length;
+      const pipeProcessing = certificates.filter(c => c.status === 'Processing').length;
+      const pipePrinting = certificates.filter(c => c.status === 'Printing').length;
+      const pipeShipping = certificates.filter(c => c.status === 'Shipping').length;
+      const pipeCompleted = completedCerts;
+
+      // Update Pipeline counters UI
+      document.getElementById('pipe-pending-count').textContent = pipePending;
+      document.getElementById('pipe-processing-count').textContent = pipeProcessing;
+      document.getElementById('pipe-printing-count').textContent = pipePrinting;
+      document.getElementById('pipe-shipping-count').textContent = pipeShipping;
+      document.getElementById('pipe-completed-count').textContent = pipeCompleted;
+
+      // Update Pipeline Progress Bar segments
+      if (totalCerts > 0) {
+        const pctPending = (pipePending / totalCerts) * 100;
+        const pctProcessing = (pipeProcessing / totalCerts) * 100;
+        const pctPrinting = (pipePrinting / totalCerts) * 100;
+        const pctShipping = (pipeShipping / totalCerts) * 100;
+        const pctCompleted = (pipeCompleted / totalCerts) * 100;
+
+        document.getElementById('pb-pending').style.width = `${pctPending}%`;
+        document.getElementById('pb-pending').title = `Pending: ${pipePending}`;
+
+        document.getElementById('pb-processing').style.width = `${pctProcessing}%`;
+        document.getElementById('pb-processing').title = `Processing: ${pipeProcessing}`;
+
+        document.getElementById('pb-printing').style.width = `${pctPrinting}%`;
+        document.getElementById('pb-printing').title = `Printing: ${pipePrinting}`;
+
+        document.getElementById('pb-shipping').style.width = `${pctShipping}%`;
+        document.getElementById('pb-shipping').title = `Shipping: ${pipeShipping}`;
+
+        document.getElementById('pb-completed').style.width = `${pctCompleted}%`;
+        document.getElementById('pb-completed').title = `Completed: ${pipeCompleted}`;
+      } else {
+        // Empty state progress bar
+        document.getElementById('pb-pending').style.width = '0%';
+        document.getElementById('pb-processing').style.width = '0%';
+        document.getElementById('pb-printing').style.width = '0%';
+        document.getElementById('pb-shipping').style.width = '0%';
+        document.getElementById('pb-completed').style.width = '100%';
+        document.getElementById('pb-completed').title = 'No active certificates';
+      }
+
+      // Render Recent Activity Logs
+      const activityList = document.getElementById('recent-activity-list');
+      if (activityList) {
+        activityList.innerHTML = '';
+        const activities = [];
+
+        // Add trainings to activities
+        trainings.forEach(t => {
+          activities.push({
+            type: 'training',
+            title: 'New batch created',
+            desc: `<span class="font-bold text-slate-900">${t.program_name}</span> (${t.batch_code})`,
+            time: t.created_at ? new Date(t.created_at) : (t.start_date ? new Date(t.start_date) : new Date()),
+            dotColor: 'bg-blue-600',
+            badgeHtml: `<span class="cms-badge bg-blue-50 text-blue-700 border border-blue-100">Created</span>`
+          });
+        });
+
+        // Add certificates to activities dynamically based on actual status logs
+        certificates.forEach(c => {
+          const name = c.participants ? c.participants.name : 'Unknown';
+
+          // 1. Initial Generation Event
+          activities.push({
+            type: 'certificate_created',
+            title: 'Certificate generated',
+            desc: `<span class="font-bold text-slate-900">${name}</span> - ${c.certificate_type}`,
+            time: c.created_at ? new Date(c.created_at) : new Date(),
+            dotColor: 'bg-slate-300',
+            badgeHtml: `<span class="cms-badge bg-slate-50 text-slate-500 border border-slate-100">Draft</span>`
+          });
+
+          // 2. Printing Action Event
+          if (c.printed_at) {
+            activities.push({
+              type: 'certificate_printed',
+              title: 'Certificate printed',
+              desc: `<span class="font-bold text-slate-900">${name}</span> - ${c.certificate_type} <span class="text-[10px] text-slate-400">by ${c.printed_by || 'Admin'}</span>`,
+              time: new Date(c.printed_at),
+              dotColor: 'bg-amber-500',
+              badgeHtml: `<span class="cms-badge bg-amber-50 text-amber-700 border border-amber-100">Printed</span>`
+            });
+          }
+
+          // 3. Sent / Shipping Event
+          if (c.sent_at) {
+            activities.push({
+              type: 'certificate_sent',
+              title: 'Certificate completed',
+              desc: `<span class="font-bold text-slate-900">${name}</span> - ${c.certificate_type} <span class="text-[10px] text-slate-400">by ${c.sent_by || 'Admin'}</span>`,
+              time: new Date(c.sent_at),
+              dotColor: 'bg-green-500',
+              badgeHtml: `<span class="cms-badge bg-green-50 text-green-700 border border-green-100">Sent</span>`
+            });
+          }
+
+          // 4. Fallback transition log if state has updated but no specialized timestamp
+          if (!c.printed_at && !c.sent_at && c.updated_at && c.updated_at !== c.created_at) {
+            activities.push({
+              type: 'certificate_updated',
+              title: `Certificate ${c.status.toLowerCase()}`,
+              desc: `<span class="font-bold text-slate-900">${name}</span> - ${c.certificate_type} <span class="text-[10px] text-slate-400">by ${c.updated_by || 'Admin'}</span>`,
+              time: new Date(c.updated_at),
+              dotColor: 'bg-blue-500',
+              badgeHtml: `<span class="cms-badge bg-blue-50 text-blue-700 border border-blue-100">${c.status}</span>`
+            });
+          }
+        });
+
+        // Sort activities descending by time
+        activities.sort((a, b) => b.time - a.time);
+
+        const displayActivities = activities.slice(0, 4);
+
+        if (displayActivities.length === 0) {
+          activityList.className = '';
+          activityList.innerHTML = `
+            <div class="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2">
+              <span class="material-symbols-outlined text-3xl">history</span>
+              <p class="text-xs font-semibold text-slate-700">No recent activity</p>
+              <p class="text-[10px] text-slate-400">Actions will be logged here</p>
+            </div>
+          `;
+        } else {
+          activityList.className = 'relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200';
+          displayActivities.forEach(act => {
+            const item = document.createElement('div');
+            item.className = 'relative pl-8 mb-6 animate-in fade-in slide-in-from-bottom-1 duration-150';
+
+            const timeStr = formatRelativeTime(act.time);
+
+            item.innerHTML = `
+              <div class="absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${act.dotColor} ring-4 ring-white"></div>
+              <p class="text-sm text-slate-700">
+                ${act.title}: ${act.desc}
+              </p>
+              <div class="mt-1.5">
+                ${act.badgeHtml}
+              </div>
+              <span class="text-[10px] text-slate-400 block mt-2 font-semibold uppercase tracking-wider">${timeStr}</span>
+            `;
+            activityList.appendChild(item);
+          });
+        }
+      }
+    }
+
+    function formatRelativeTime(date) {
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.round(diffMs / 60000);
+      const diffHours = Math.round(diffMs / 3600000);
+      const diffDays = Math.round(diffMs / 86400000);
+
+      if (diffMs < 0) return 'Just now';
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} mins ago`;
+      if (diffHours < 24) return `${diffHours} hours ago`;
+      if (diffDays === 1) return 'Yesterday';
+
+      const options = { day: 'numeric', month: 'short', year: 'numeric' };
+      return date.toLocaleDateString('en-US', options);
+    }
+
+    // Call on load
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Update greeting and date dynamically
+      const currentUser = localStorage.getItem('profileName') || 'Admin';
+      const greetingEl = document.getElementById('dashboard-greeting');
+      if (greetingEl) {
+        const hours = new Date().getHours();
+        let greet = "Good Morning";
+        if (hours >= 12 && hours < 17) greet = "Good Afternoon";
+        else if (hours >= 17) greet = "Good Evening";
+        greetingEl.textContent = `${greet}, ${currentUser}`;
+      }
+
+      const dateEl = document.getElementById('dashboard-date');
+      if (dateEl) {
+        const options = { day: 'numeric', month: 'short', year: 'numeric' };
+        dateEl.textContent = new Date().toLocaleDateString('en-US', options);
+      }
+
+      await loadDashboardData();
+    });
+  </script>
+</body>
+
+</html>

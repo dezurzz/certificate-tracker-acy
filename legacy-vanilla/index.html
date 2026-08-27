@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Login - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+    <!-- Header / Logo Area -->
+    <div class="pt-8 pb-6 px-6 flex flex-col items-center text-center border-b border-slate-100">
+      <div class="w-16 h-16 rounded-lg bg-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/10">
+        <span class="material-symbols-outlined text-white text-4xl fill">school</span>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-900 mb-1">BKI Academy</h1>
+      <p class="text-sm text-slate-500">Certificate Management System</p>
+    </div>
+
+    <!-- Login Form -->
+    <div class="p-6 flex-grow">
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5" for="email">Email Address</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-slate-400 text-lg">mail</span>
+            </div>
+            <input class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 font-sans focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-sm" id="email" name="email" placeholder="admin@bkiacademy.edu" type="email" required>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="password">Password</label>
+            <a class="text-xs text-blue-600 hover:text-blue-700 transition-colors" href="#">Forgot password?</a>
+          </div>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-slate-400 text-lg">lock</span>
+            </div>
+            <input class="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-800 font-sans focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-sm" id="password" name="password" placeholder="••••••••" type="password" required>
+            <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer">
+              <span class="material-symbols-outlined text-slate-400 hover:text-slate-600 text-lg">visibility_off</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center pt-1">
+          <input class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-200 rounded bg-slate-50" id="remember-me" name="remember-me" type="checkbox">
+          <label class="ml-2 block text-xs text-slate-500" for="remember-me">
+            Remember me for 30 days
+          </label>
+        </div>
+
+        <div class="pt-2">
+          <button class="w-full flex justify-center py-2.5 px-4 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all active:scale-95 shadow-md shadow-blue-500/10 cursor-pointer" type="submit">
+            Sign In
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer / Support -->
+    <div class="bg-slate-50 px-6 py-4 text-center border-t border-slate-100">
+      <p class="text-xs text-slate-500">
+        Need help? <a class="text-blue-600 hover:underline" href="#">Contact IT Support</a>
+      </p>
+    </div>
+  </div>
+  <script>
+    async function handleLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full align-middle mr-2"></span> Signing In...';
+
+      try {
+        const client = await DB.getSupabaseClient();
+        if (client) {
+          const { data, error } = await client.auth.signInWithPassword({ email, password });
+          if (error) {
+            alert('Login failed: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Sign In';
+            return;
+          }
+          window.location.href = 'dashboard.html';
+        } else {
+          // Local fallback
+          if (email === 'admin@bkiacademy.edu' && password === 'admin') {
+            localStorage.setItem('bki_mock_session', 'true');
+            window.location.href = 'dashboard.html';
+          } else {
+            alert('Local login failed: Please use admin@bkiacademy.edu and password "admin"');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Sign In';
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert('An error occurred during sign in.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>

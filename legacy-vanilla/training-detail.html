@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Training Detail - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component (dynamically injected) -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component (dynamically injected) -->
+    <header id="header-container" data-title="Training Details"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full flex flex-col gap-6">
+      
+      <!-- Breadcrumbs -->
+      <nav class="flex items-center gap-2 text-slate-500 text-xs font-semibold">
+        <a class="hover:text-slate-800 transition-colors" href="trainings.html">Trainings</a>
+        <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+        <span id="breadcrumb-title" class="text-slate-800">Internal Auditor ISM Code</span>
+      </nav>
+
+      <!-- Page Header Section -->
+      <section class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-6">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-3">
+            <h1 id="header-batch-title" class="text-3xl font-bold text-slate-900 tracking-tight">Internal Auditor ISM Code</h1>
+            <span class="cms-badge cms-badge-completed flex items-center gap-1 border border-green-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"></span>
+              Completed
+            </span>
+          </div>
+          <div class="flex flex-wrap items-center gap-6 text-slate-500 text-sm mt-1">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">group</span>
+              <span id="header-batch-number">Batch 116</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">calendar_today</span>
+              <span id="header-batch-dates">03-05 August 2026</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">location_on</span>
+              <span id="header-batch-location">Jakarta Training Center</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+              <span id="header-batch-pic" class="font-medium">—</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <button onclick="openEditDetailsModal()" class="cms-btn-secondary">
+            <span class="material-symbols-outlined text-[18px]">edit</span>
+            Edit Details
+          </button>
+          <button onclick="downloadBatchReport()" class="cms-btn-primary">
+            <span class="material-symbols-outlined text-[18px]">cloud_download</span>
+            Generate Report
+          </button>
+        </div>
+      </section>
+
+      <!-- In-Page Tab Navigation -->
+      <div class="flex gap-8 border-b border-slate-200">
+        <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn pb-3 border-b-2 border-blue-600 text-blue-600 font-semibold hover:text-blue-700 transition-colors text-sm">Overview</button>
+        <button onclick="switchTab('participants')" id="tab-btn-participants" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors text-sm">Participants</button>
+        <button onclick="switchTab('certificates')" id="tab-btn-certificates" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors text-sm flex items-center gap-1.5">
+          Certificates
+          <span class="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] leading-none font-bold">2 PENDING</span>
+        </button>
+        <button onclick="switchTab('activity')" id="tab-btn-activity" class="tab-btn pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors text-sm">Activity Log</button>
+      </div>
+
+      <!-- TABS CONTAINER -->
+      <div id="tab-contents">
+        
+        <!-- OVERVIEW TAB -->
+        <div id="tab-overview" class="tab-content grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-150">
+          <!-- Stat Cards Row -->
+          <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="cms-card flex flex-col justify-between shadow-sm">
+              <div class="flex justify-between items-start mb-4">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Participants</span>
+                <span class="material-symbols-outlined text-slate-400">groups</span>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <span id="stat-participants-count" class="text-3xl font-bold text-slate-900">0</span>
+                <span class="text-xs text-slate-500 font-medium">Enrolled</span>
+              </div>
+            </div>
+            <div class="cms-card flex flex-col justify-between shadow-sm">
+              <div class="flex justify-between items-start mb-4">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Qualification Progress</span>
+                <span class="material-symbols-outlined text-slate-400">check_circle</span>
+              </div>
+              <div class="flex flex-col gap-2">
+                <div class="flex items-baseline gap-2">
+                  <span id="stat-qualification-percent" class="text-3xl font-bold text-slate-900">0%</span>
+                  <span id="stat-qualification-ratio" class="text-xs text-slate-500 font-medium">0/0 Passed</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="stat-qualification-bar" class="h-full bg-blue-600 w-[0%] rounded-full"></div>
+                </div>
+              </div>
+            </div>
+            <div class="cms-card flex flex-col justify-between shadow-sm">
+              <div class="flex justify-between items-start mb-4">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Attendance Rate</span>
+                <span class="material-symbols-outlined text-slate-400">event_available</span>
+              </div>
+              <div class="flex flex-col gap-2">
+                <div class="flex items-baseline gap-2">
+                  <span id="stat-attendance-percent" class="text-3xl font-bold text-blue-600">100%</span>
+                  <span class="text-xs text-slate-500 font-medium">Perfect</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="stat-attendance-bar" class="h-full bg-blue-600 w-full rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Preview Section -->
+          <div class="lg:col-span-12 cms-card p-0 overflow-hidden flex flex-col shadow-sm">
+            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h2 class="font-bold text-slate-800 text-sm">Participant Progress</h2>
+              <button onclick="switchTab('participants')" class="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1">
+                View All <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-50">
+                    <th class="h-10 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider align-middle">Participant Name</th>
+                    <th class="h-10 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider align-middle">ID Number</th>
+                    <th class="h-10 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider align-middle">Attendance Status</th>
+                    <th class="h-10 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider align-middle">Qualification Status</th>
+                    <th class="h-10 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider align-middle text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-table-body" class="text-sm text-slate-800 divide-y divide-slate-100">
+                  <!-- Dynamic rows loaded via shared/db.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Contextual Side Card -->
+          <!-- <div class="lg:col-span-4 cms-card flex flex-col gap-4 shadow-sm">
+            <h3 class="font-bold text-slate-800 text-sm">Training Instructor</h3>
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-full overflow-hidden border border-slate-200">
+                <img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPSw6HPvzYQ_0MMYQbxu3AADE8TLc1-Ua6wjR-nIp1Mh_pj3jHhoFqYCqW1QCNtzbbrI1cxkvKDfix5Asc4taHsOjhaL063ZPzxn-ATESxtMlE5Ky5IKvP-zXGpHYtlJ3yhUAdX-SkmRVKX201MxyduWqCQg2gXbeEwiAhebZGi4KUjwKfBzZFvCjkCfeupAr-aCqXeX0fiSc4TdONx6fQ5e8iW7lNPPhTD-AJFge0R6vYo7-TXdLFxA">
+              </div>
+              <div>
+                <p class="font-bold text-slate-800 text-sm">Capt. Haryono Wijaya</p>
+                <p class="text-xs text-slate-500">Lead ISM Auditor</p>
+              </div>
+            </div>
+            <hr class="border-slate-100">
+            <h3 class="font-bold text-slate-800 text-sm">Quick Actions</h3>
+            <div class="flex flex-col gap-2">
+              <button onclick="openBulkEmailModal()" class="w-full text-left px-4 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-3 group">
+                <span class="material-symbols-outlined text-slate-400 group-hover:text-slate-700">mail</span>
+                <span class="text-xs font-semibold text-slate-700">Email Participants</span>
+              </button>
+              <button onclick="downloadRosterReport()" class="w-full text-left px-4 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-3 group">
+                <span class="material-symbols-outlined text-slate-400 group-hover:text-slate-700">cloud_download</span>
+                <span class="text-xs font-semibold text-slate-700">Download Roster (CSV)</span>
+              </button>
+            </div>
+          </div> -->
+        </div>
+
+        <!-- PARTICIPANTS TAB (HIDDEN BY DEFAULT) -->
+        <div id="tab-participants" class="tab-content hidden flex flex-col gap-4 animate-in fade-in duration-150">
+          <div class="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="relative w-64">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+                <input id="part-search" class="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-slate-800" placeholder="Search participant..." type="text">
+              </div>
+              <button class="cms-btn-secondary h-9 py-0">
+                <span class="material-symbols-outlined text-[16px]">filter_alt</span> Filter Company
+              </button>
+            </div>
+            <button onclick="document.getElementById('upload-modal').classList.remove('hidden')" class="cms-btn-primary h-9 py-0">
+              <span class="material-symbols-outlined text-[18px]">upload</span> Upload Participant list
+            </button>
+          </div>
+
+          <div class="cms-card p-0 overflow-hidden shadow-sm">
+            <div class="table-scroll overflow-x-auto w-full">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-200 bg-slate-50">
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Name</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Company</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Email</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Position</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Qualification status</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider">Attendance status</th>
+                    <th class="text-[10px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="participants-table" class="divide-y divide-slate-100 text-sm text-slate-800">
+                  <!-- Dynamic rows loaded via shared/db.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- CERTIFICATES TAB (KANBAN BOARD - HIDDEN BY DEFAULT) -->
+        <div id="tab-certificates" class="tab-content hidden flex flex-col gap-4 animate-in fade-in duration-150">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Column 1: Pending -->
+            <div class="flex flex-col gap-3 bg-slate-100 p-4 rounded-xl min-h-[450px]">
+              <div class="flex justify-between items-center px-1">
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Pending</span>
+                <span class="col-count bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">0</span>
+              </div>
+              <div id="col-pending" ondragover="allowDrop(event)" ondrop="drop(event, 'Pending')" class="kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200">
+                <!-- Dynamic cards -->
+              </div>
+            </div>
+
+            <!-- Column 2: Processing -->
+            <div class="flex flex-col gap-3 bg-slate-100 p-4 rounded-xl min-h-[450px]">
+              <div class="flex justify-between items-center px-1">
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Processing (QC)</span>
+                <span class="col-count bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">0</span>
+              </div>
+              <div id="col-processing" ondragover="allowDrop(event)" ondrop="drop(event, 'Processing')" class="kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200">
+                <!-- Dynamic cards -->
+              </div>
+            </div>
+
+            <!-- Column 3: Printing / Signing -->
+            <div class="flex flex-col gap-3 bg-slate-100 p-4 rounded-xl min-h-[450px]">
+              <div class="flex justify-between items-center px-1">
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Printing / Signing</span>
+                <span class="col-count bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">0</span>
+              </div>
+              <div id="col-printing" ondragover="allowDrop(event)" ondrop="drop(event, 'Printing')" class="kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200">
+                <!-- Dynamic cards -->
+              </div>
+            </div>
+
+            <!-- Column 4: Completed -->
+            <div class="flex flex-col gap-3 bg-slate-100 p-4 rounded-xl min-h-[450px]">
+              <div class="flex justify-between items-center px-1">
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-wider">Completed / Sent</span>
+                <span class="col-count bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">0</span>
+              </div>
+              <div id="col-completed" ondragover="allowDrop(event)" ondrop="drop(event, 'Completed')" class="kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200">
+                <!-- Dynamic cards -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACTIVITY LOG TAB (HIDDEN BY DEFAULT) -->
+        <div id="tab-activity" class="tab-content hidden flex flex-col gap-4 max-w-2xl animate-in fade-in duration-150">
+          <div class="cms-card shadow-sm">
+            <h3 class="font-bold text-slate-800 text-sm mb-4">Audit Trail History</h3>
+            <div id="audit-timeline" class="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200">
+              <!-- Dynamically populated from certificate logs -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- BATCH EDIT DETAILS MODAL -->
+  <div id="edit-batch-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeEditDetailsModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <h3 class="text-base font-bold text-slate-800">Edit Training Details</h3>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeEditDetailsModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <form onsubmit="saveEditDetails(event)" class="p-6 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Training Program Name</label>
+          <input class="cms-input" id="edit-training-name" type="text" required>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Batch Code</label>
+          <input class="cms-input font-mono" id="edit-batch-code" type="text" required>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Start Date</label>
+            <input class="cms-input" id="edit-batch-start" type="date" required>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">End Date</label>
+            <input class="cms-input" id="edit-batch-end" type="date" required>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Location / Venue</label>
+          <input class="cms-input" id="edit-batch-loc" type="text" required>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Person in Charge (PIC)</label>
+          <input class="cms-input" id="edit-batch-pic" placeholder="e.g. Budi Santoso" type="text">
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button class="cms-btn-secondary" type="button" onclick="closeEditDetailsModal()">Cancel</button>
+          <button class="cms-btn-primary" type="submit">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EMAIL COMPOSITION MODAL -->
+  <div id="email-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeEmailModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-150" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <div>
+          <h3 id="email-modal-title" class="text-base font-bold text-slate-800">Email Participants</h3>
+          <p id="email-modal-subtitle" class="text-xs text-slate-500 mt-0.5">Compose and send bulk emails.</p>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeEmailModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <form onsubmit="sendMockEmail(event)" class="p-6 flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Recipient(s)</label>
+          <input class="cms-input bg-slate-50 text-slate-500 font-medium" id="email-modal-recipients" type="text" readonly>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Subject</label>
+          <input class="cms-input" id="email-modal-subject" placeholder="e.g. Survey Feedback / Certificate Status Notification" type="text" required>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Message Content</label>
+          <textarea class="cms-input h-32 resize-none" placeholder="Dear participants, ..." required></textarea>
+        </div>
+        <div class="flex justify-end gap-3 pt-2">
+          <button class="cms-btn-secondary" type="button" onclick="closeEmailModal()">Cancel</button>
+          <button class="cms-btn-primary" type="submit">Send Message</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- UPLOAD PARTICIPANTS MODAL -->
+  <div id="upload-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeUploadModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <h3 class="text-base font-bold text-slate-800">Import Agenda CSV</h3>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeUploadModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-6 flex flex-col gap-4">
+        <div id="upload-box" onclick="triggerCSVSelect()" class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-white">
+          <span class="material-symbols-outlined text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2">upload_file</span>
+          <p id="upload-box-text" class="text-sm font-semibold text-slate-700">Drag & drop your Agenda CSV here</p>
+          <p class="text-xs text-slate-400 mt-1">Supported files: .csv (Max 5MB)</p>
+          <input type="file" id="real-file-input" class="hidden" accept=".csv" onchange="handleFileSelect(event)">
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 flex gap-2.5 items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-slate-400 text-sm">download</span>
+            <span class="text-xs font-semibold text-slate-700">BKI Agenda Template</span>
+          </div>
+          <button onclick="downloadCSVTemplate()" class="text-xs font-bold text-blue-600 hover:underline">Download CSV</button>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <button class="cms-btn-secondary" onclick="closeUploadModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CERTIFICATE DETAIL MODAL -->
+  <div id="cert-details-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeCertModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <div>
+          <h3 class="text-base font-bold text-slate-800">Certificate Status Details</h3>
+          <p id="modal-cert-id" class="text-xs text-slate-400 font-mono mt-0.5">BKI-116-001</p>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeCertModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="p-6 flex-grow flex flex-col gap-5">
+        <!-- Participant Detail -->
+        <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Participant Name</p>
+            <p id="modal-cert-name" class="text-sm font-bold text-slate-800">Ahmad Rizky</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Certificate Type</p>
+            <p id="modal-cert-type" class="text-sm font-bold text-slate-800">Qualification</p>
+          </div>
+        </div>
+
+        <!-- Timeline Checklist -->
+        <div>
+          <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-3">Workflow Progress</p>
+          <div class="flex flex-col gap-3 relative before:absolute before:inset-y-0 before:left-3.5 before:w-0.5 before:bg-slate-200 pl-1">
+            <div class="flex items-center gap-3">
+              <div class="w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center border border-green-200 z-10 shrink-0">
+                <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-800">Generated & Template Formed</p>
+                <p class="text-[10px] text-slate-400">Completed on 24 Aug 2026</p>
+              </div>
+            </div>
+            <div id="step-qc" class="flex items-center gap-3">
+              <div class="w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center border border-green-200 z-10 shrink-0">
+                <span class="material-symbols-outlined text-[16px] font-bold">check</span>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-800">Quality Control (QC)</p>
+                <p class="text-[10px] text-slate-400">Completed on 24 Aug 2026</p>
+              </div>
+            </div>
+            <div id="step-print" class="flex items-center gap-3">
+              <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200 z-10 shrink-0 bg-blue-100">
+                <span class="material-symbols-outlined text-[16px]">print</span>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-800">Printed & Physical Check</p>
+                <p id="print-step-detail" class="text-[10px] text-slate-400">Pending physical print queue</p>
+              </div>
+            </div>
+             <div id="step-ship" class="flex items-center gap-3 opacity-50">
+               <div class="w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200 z-10 shrink-0">
+                 <span class="material-symbols-outlined text-[16px]">local_shipping</span>
+               </div>
+               <div>
+                 <p class="text-xs font-semibold text-slate-800">Signed & Shipped</p>
+                 <p id="ship-step-detail" class="text-[10px] text-slate-400">Awaiting signature completion</p>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Update Action -->
+        <div class="flex flex-col gap-2">
+          <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider" for="cert-status-select">Update Stage Status</label>
+          <div class="flex gap-2">
+            <select id="cert-status-select" class="cms-input flex-1 py-2">
+              <option value="Pending">Pending Template</option>
+              <option value="Processing">Processing QC</option>
+              <option value="Printing">Printing / Signing</option>
+              <option value="Completed">Completed / Sent</option>
+            </select>
+            <button onclick="saveCertStatus()" class="cms-btn-primary py-2">Update</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+        btn.classList.add('border-transparent', 'text-slate-500');
+      });
+
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('tab-btn-' + tabId);
+      activeBtn.classList.remove('border-transparent', 'text-slate-500');
+      activeBtn.classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+    }
+
+    let activeTraining = null;
+
+    // Edit details modals prefill
+    function openEditDetailsModal() {
+      if (!activeTraining) return;
+      document.getElementById('edit-training-name').value = activeTraining.program_name;
+      document.getElementById('edit-batch-code').value = activeTraining.batch_code;
+      document.getElementById('edit-batch-start').value = activeTraining.start_date;
+      document.getElementById('edit-batch-end').value = activeTraining.end_date;
+      document.getElementById('edit-batch-loc').value = activeTraining.location || '';
+      document.getElementById('edit-batch-pic').value = activeTraining.pic || '';
+
+      document.getElementById('edit-batch-modal').classList.remove('hidden');
+    }
+
+    function closeEditDetailsModal() {
+      document.getElementById('edit-batch-modal').classList.add('hidden');
+    }
+
+    async function saveEditDetails(event) {
+      event.preventDefault();
+      const name = document.getElementById('edit-training-name').value;
+      const code = document.getElementById('edit-batch-code').value;
+      const start = document.getElementById('edit-batch-start').value;
+      const end = document.getElementById('edit-batch-end').value;
+      const loc = document.getElementById('edit-batch-loc').value;
+      const pic = document.getElementById('edit-batch-pic').value.trim();
+
+      if (typeof DB !== 'undefined' && activeTraining) {
+        try {
+          await DB.updateTraining(activeTraining.id, {
+            program_name: name,
+            batch_code: code,
+            start_date: start,
+            end_date: end,
+            location: loc,
+            pic: pic
+          });
+          alert('Training details updated successfully!');
+          closeEditDetailsModal();
+          await loadTrainingDetailData();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to update training: ' + err.message);
+        }
+      }
+    }
+
+    // Email Modals
+    function openBulkEmailModal() {
+      document.getElementById('email-modal-title').textContent = 'Email Participants';
+      document.getElementById('email-modal-subtitle').textContent = 'Send a message to all 25 enrolled attendees.';
+      document.getElementById('email-modal-recipients').value = 'All Enrolled Participants (25 recipients)';
+      document.getElementById('email-modal').classList.remove('hidden');
+    }
+
+    function openSingleEmailModal(name) {
+      document.getElementById('email-modal-title').textContent = 'Contact Participant';
+      document.getElementById('email-modal-subtitle').textContent = `Send a message directly to ${name}.`;
+      document.getElementById('email-modal-recipients').value = `${name} <${name.toLowerCase().replace(' ', '.')}@bki.co.id>`;
+      document.getElementById('email-modal').classList.remove('hidden');
+    }
+
+    function closeEmailModal() {
+      document.getElementById('email-modal').classList.add('hidden');
+    }
+
+    function sendMockEmail(event) {
+      event.preventDefault();
+      alert('Email sent successfully!');
+      closeEmailModal();
+    }
+
+    // File Selector trigger
+    function closeUploadModal() {
+      document.getElementById('upload-modal').classList.add('hidden');
+    }
+
+    function triggerCSVSelect() {
+      document.getElementById('real-file-input').click();
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const batches = normalizeAgendaCSV(text);
+          if (batches && batches.length > 0) {
+            closeUploadModal();
+            showNormalizationPreview(batches);
+          } else {
+            alert('Could not parse any training records. Please check that headers match the BKI CSV template.');
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    // Drag and Drop
+    function allowDrop(ev) {
+      ev.preventDefault();
+    }
+
+    function drag(ev) {
+      ev.dataTransfer.setData("text/plain", ev.currentTarget.id);
+      document.querySelectorAll('.kanban-col-body').forEach(col => {
+        col.classList.add('bg-slate-200/50', 'border-2', 'border-dashed', 'border-slate-300');
+      });
+    }
+
+    function dragEnd(ev) {
+      document.querySelectorAll('.kanban-col-body').forEach(col => {
+        col.classList.remove('bg-slate-200/50', 'border-2', 'border-dashed', 'border-slate-300');
+      });
+    }
+
+    async function drop(ev, newStatus) {
+      ev.preventDefault();
+      const cardId = ev.dataTransfer.getData("text/plain");
+      const card = document.getElementById(cardId);
+      if (!card) return;
+
+      const colBody = ev.currentTarget;
+      if (colBody && colBody.classList.contains('kanban-col-body')) {
+        colBody.appendChild(card);
+        
+        const name = card.getAttribute('data-name');
+        const type = card.getAttribute('data-type');
+        const id = card.getAttribute('data-id');
+        
+        card.setAttribute('data-status', newStatus);
+        card.setAttribute('onclick', `openCertDetails('${name}', '${type}', '${newStatus}', '${id}')`);
+
+        // 1. Persist change to database
+        if (typeof DB !== 'undefined') {
+          try {
+            await DB.updateCertificateStatus(id, newStatus);
+          } catch (err) {
+            console.error(err);
+            alert("Failed to update status in database: " + err.message + "\n\nPlease check database connectivity and policies.");
+            window.location.reload();
+            return;
+          }
+        }
+
+        // 2. Update overview & roster tables badge cells (Index 2 for Attendance, 3 for Qualification)
+        const cellIndex = type === 'Qualification' ? 3 : 2;
+        const targetTables = ['#overview-table-body', '#participants-table'];
+        targetTables.forEach(selector => {
+          const rows = document.querySelectorAll(`${selector} tr`);
+          rows.forEach(row => {
+            if (row.cells[0] && row.cells[0].textContent.trim() === name) {
+              const badgeCell = row.cells[cellIndex];
+              if (badgeCell) {
+                badgeCell.innerHTML = getStatusBadge(newStatus);
+              }
+            }
+          });
+        });
+
+        // 3. Update SLA alerts inside card footer
+        const isOverdue = card.className.includes('border-red-200');
+        const footer = card.querySelector('div.flex.justify-between.items-center');
+        if (footer) {
+          if (newStatus === 'Completed') {
+            footer.innerHTML = `
+              <span class="text-[9px] text-green-600 font-semibold">Ready / Sent</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            `;
+          } else if (isOverdue) {
+            footer.innerHTML = `
+              <span class="text-[9px] text-red-500 font-bold uppercase tracking-wider">Overdue</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+            `;
+          } else {
+            footer.innerHTML = `
+              <span class="text-[9px] text-slate-400 font-semibold">Active SLA</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+            `;
+          }
+        }
+
+        // 4. Update counters & empty states
+        updateKanbanCounters();
+
+        // 5. Add history timeline entry
+        const timeline = document.getElementById('audit-timeline');
+        const item = document.createElement('div');
+        item.className = 'relative pl-8 mb-6 animate-in fade-in duration-200';
+        const currentUser = localStorage.getItem('profileName') || 'Admin';
+        item.innerHTML = `
+          <div class="absolute left-[8px] top-1.5 w-2 h-2 rounded-full bg-slate-500 ring-4 ring-white"></div>
+          <p class="text-xs text-slate-500">Just now - ${currentUser}</p>
+          <p class="text-sm font-semibold text-slate-800 mt-0.5">Moved card for ${name} to ${newStatus}</p>
+        `;
+        timeline.insertBefore(item, timeline.firstChild);
+      }
+      dragEnd(ev);
+    }
+
+    function updateKanbanCounters() {
+      document.querySelectorAll('.flex.flex-col.gap-3.bg-slate-100').forEach(col => {
+        const colBody = col.querySelector('.kanban-col-body');
+        const cards = colBody.querySelectorAll('.kanban-card');
+        const badge = col.querySelector('.col-count');
+        if (badge) {
+          badge.textContent = cards.length;
+        }
+
+        // Clean up any existing empty states
+        const existingEmpty = colBody.querySelector('.kanban-empty-state');
+        if (existingEmpty) existingEmpty.remove();
+
+        // Append empty state card if 0 items in column
+        if (cards.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'kanban-empty-state border border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center text-center py-8 bg-slate-50/50 w-full';
+          empty.innerHTML = `
+            <span class="material-symbols-outlined text-slate-400 text-lg mb-1">inbox</span>
+            <p class="text-[10px] font-semibold text-slate-500">Column Empty</p>
+            <p class="text-[9px] text-slate-400">Drag cards here</p>
+          `;
+          colBody.appendChild(empty);
+        }
+      });
+    }
+
+    async function loadTrainingDetailData() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const trainingId = urlParams.get('id') || 't-116';
+      
+      if (typeof DB === 'undefined') return;
+      const trainings = await DB.getTrainings();
+      const currentTraining = trainings.find(t => t.id === trainingId) || trainings[0];
+      activeTraining = currentTraining;
+      
+      if (!currentTraining) {
+        alert("Training batch not found.");
+        return;
+      }
+      
+      // Update Title & details in page header
+      document.getElementById('breadcrumb-title').textContent = currentTraining.program_name;
+      document.getElementById('header-batch-title').textContent = currentTraining.program_name;
+      document.getElementById('header-batch-number').textContent = currentTraining.batch_code;
+      document.getElementById('header-batch-dates').textContent = `${formatDateStr(currentTraining.start_date)} - ${formatDateStr(currentTraining.end_date)}`;
+      document.getElementById('header-batch-location').textContent = currentTraining.location || 'N/A';
+      document.getElementById('header-batch-pic').textContent = currentTraining.pic || 'Not set';
+
+      const certificates = await DB.getCertificates();
+      const batchCerts = certificates.filter(c => c.training_id === currentTraining.id);
+      
+      const uniqueParticipants = {};
+      batchCerts.forEach(c => {
+        if (c.participants) {
+          uniqueParticipants[c.participants.id] = c.participants;
+        }
+      });
+      const participantList = Object.values(uniqueParticipants);
+      const totalParts = participantList.length;
+      
+      // Update stats cards
+      document.getElementById('stat-participants-count').textContent = totalParts;
+      
+      const qualCerts = batchCerts.filter(c => c.certificate_type === 'Qualification');
+      const passedQual = qualCerts.filter(c => c.status === 'Completed').length;
+      const qualPercent = qualCerts.length > 0 ? Math.round((passedQual / qualCerts.length) * 100) : 0;
+      
+      document.getElementById('stat-qualification-percent').textContent = `${qualPercent}%`;
+      document.getElementById('stat-qualification-ratio').textContent = `${passedQual}/${qualCerts.length} Passed`;
+      document.getElementById('stat-qualification-bar').style.width = `${qualPercent}%`;
+      
+      const attCerts = batchCerts.filter(c => c.certificate_type === 'Attendance');
+      const presentCount = attCerts.filter(c => c.status === 'Completed').length;
+      const attPercent = attCerts.length > 0 ? Math.round((presentCount / attCerts.length) * 100) : 100;
+      
+      document.getElementById('stat-attendance-percent').textContent = `${attPercent}%`;
+      document.getElementById('stat-attendance-bar').style.width = `${attPercent}%`;
+
+      const pendingCertsCount = batchCerts.filter(c => c.status === 'Pending' || c.status === 'Processing' || c.status === 'Printing').length;
+      const certBadge = document.querySelector('#tab-btn-certificates span');
+      if (certBadge) {
+        certBadge.textContent = `${pendingCertsCount} PENDING`;
+        if (pendingCertsCount === 0) {
+          certBadge.className = 'bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-[10px] leading-none font-bold';
+        } else {
+          certBadge.className = 'bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded text-[10px] leading-none font-bold';
+        }
+      }
+
+      // Render tables
+      const overviewTbody = document.getElementById('overview-table-body');
+      overviewTbody.innerHTML = '';
+      
+      if (totalParts === 0) {
+        overviewTbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-12 text-center bg-white">
+              <div class="flex flex-col items-center justify-center gap-3">
+                <span class="material-symbols-outlined text-4xl text-slate-350 text-slate-400">groups</span>
+                <p class="text-sm font-semibold text-slate-700">No participants registered in this batch</p>
+                <p class="text-xs text-slate-400">Upload a participant list Excel or CSV to enroll attendees.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      } else {
+        participantList.forEach(p => {
+          const attCert = batchCerts.find(c => c.participant_id === p.id && c.certificate_type === 'Attendance');
+          const qualCert = batchCerts.find(c => c.participant_id === p.id && c.certificate_type === 'Qualification');
+          
+          let attHtml = '<span class="text-xs text-slate-400 font-medium">-</span>';
+          if (attCert) {
+            attHtml = getStatusBadge(attCert.status);
+          }
+          
+          let qualHtml = '<span class="text-xs text-slate-400 font-medium">-</span>';
+          if (qualCert) {
+            qualHtml = getStatusBadge(qualCert.status);
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition-colors h-[48px]';
+          tr.innerHTML = `
+            <td class="px-4 align-middle font-medium">${p.name}</td>
+            <td class="px-4 align-middle text-slate-500 font-mono text-xs">${p.registration_number || 'N/A'}</td>
+            <td class="px-4 align-middle">${attHtml}</td>
+            <td class="px-4 align-middle">${qualHtml}</td>
+            <td class="px-4 align-middle text-right" onclick="event.stopPropagation()">
+              <div class="relative inline-block text-left">
+                <button class="row-actions-btn text-slate-400 hover:text-slate-700 p-1 rounded transition-colors focus:outline-none">
+                  <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+                <div class="row-actions-menu hidden absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                  <a href="#" onclick="openCertDetails('${p.name}', '${qualCert ? 'Qualification' : 'Attendance'}', '${qualCert ? qualCert.status : (attCert ? attCert.status : 'Pending')}', '${p.id}')" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">visibility</span> View Stage
+                  </a>
+                  <a href="#" onclick="openSingleEmailModal('${p.name}')" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">mail</span> Send Email
+                  </a>
+                  <hr class="border-slate-100 my-1">
+                  <a href="#" onclick="if(confirm('Are you sure you want to remove ${p.name}?')) { removeParticipantRow(this, '${p.id}') }" class="flex items-center gap-2 px-3 py-2 text-xs text-red-655 hover:bg-red-50 text-red-600">
+                    <span class="material-symbols-outlined text-sm">delete</span> Delete
+                  </a>
+                </div>
+              </div>
+            </td>
+          `;
+          overviewTbody.appendChild(tr);
+        });
+      }
+
+      const partsTbody = document.getElementById('participants-table');
+      partsTbody.innerHTML = '';
+      
+      if (totalParts === 0) {
+        partsTbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center bg-white">
+              <div class="flex flex-col items-center justify-center gap-3">
+                <span class="material-symbols-outlined text-4xl text-slate-350 text-slate-400">groups</span>
+                <p class="text-sm font-semibold text-slate-700">No participants registered</p>
+                <p class="text-xs text-slate-400">Import a participant roster to start.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+      } else {
+        participantList.forEach(p => {
+          const attCert = batchCerts.find(c => c.participant_id === p.id && c.certificate_type === 'Attendance');
+          const qualCert = batchCerts.find(c => c.participant_id === p.id && c.certificate_type === 'Qualification');
+          
+          let attHtml = '<span class="text-xs text-slate-400 font-medium">-</span>';
+          if (attCert) {
+            attHtml = getStatusBadge(attCert.status);
+          }
+          
+          let qualHtml = '<span class="text-xs text-slate-400 font-medium">-</span>';
+          if (qualCert) {
+            qualHtml = getStatusBadge(qualCert.status);
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition-colors';
+          tr.innerHTML = `
+            <td class="px-6 py-3 font-semibold">${p.name}</td>
+            <td class="px-6 py-3 text-slate-600">${p.company || 'PRIBADI'}</td>
+            <td class="px-6 py-3 text-slate-500 font-mono text-xs">${p.email || '-'}</td>
+            <td class="px-6 py-3 text-slate-600">Participant</td>
+            <td class="px-6 py-3">${qualHtml}</td>
+            <td class="px-6 py-3">${attHtml}</td>
+            <td class="px-6 py-3 text-right">
+              <div class="relative inline-block text-left">
+                <button class="row-actions-btn text-slate-400 hover:text-slate-700 p-1.5 rounded transition-colors focus:outline-none">
+                  <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                </button>
+                <div class="row-actions-menu hidden absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                  <a href="#" onclick="openSingleEmailModal('${p.name}')" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                    <span class="material-symbols-outlined text-sm">mail</span> Email Contact
+                  </a>
+                  <a href="#" onclick="if(confirm('Are you sure you want to remove ${p.name}?')) { removeParticipantRow(this, '${p.id}') }" class="flex items-center gap-2 px-3 py-2 text-xs text-red-655 hover:bg-red-50 text-red-600">
+                    <span class="material-symbols-outlined text-sm">delete</span> Remove
+                  </a>
+                </div>
+              </div>
+            </td>
+          `;
+          partsTbody.appendChild(tr);
+        });
+      }
+
+      // Render Kanban cards
+      document.getElementById('col-pending').innerHTML = '';
+      document.getElementById('col-processing').innerHTML = '';
+      document.getElementById('col-printing').innerHTML = '';
+      document.getElementById('col-completed').innerHTML = '';
+
+      batchCerts.forEach(c => {
+        let colId = '';
+        if (c.status === 'Pending') colId = 'col-pending';
+        else if (c.status === 'Processing') colId = 'col-processing';
+        else if (c.status === 'Printing') colId = 'col-printing';
+        else if (c.status === 'Completed') colId = 'col-completed';
+        
+        const colBody = document.getElementById(colId);
+        if (colBody) {
+          const cardId = `card-${c.id}`;
+          const isOverdue = c.sla_age_days > 4;
+          
+          let typeBadgeHtml = '';
+          if (c.certificate_type === 'Qualification') {
+            typeBadgeHtml = `
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+                <span class="material-symbols-outlined text-[10px] font-bold">workspace_premium</span>
+                Qualification
+              </span>
+            `;
+          } else {
+            typeBadgeHtml = `
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100 uppercase tracking-wider">
+                <span class="material-symbols-outlined text-[10px] font-bold">assignment_turned_in</span>
+                Attendance
+              </span>
+            `;
+          }
+
+          let footerHtml = '';
+          let overdueBorder = '';
+          if (isOverdue && c.status !== 'Completed') {
+            overdueBorder = 'border-red-200 hover:border-red-300';
+            footerHtml = `
+              <span class="text-[9px] text-red-500 font-bold uppercase tracking-wider">Overdue (${c.sla_age_days} days)</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+            `;
+          } else {
+            footerHtml = `
+              <span class="text-[9px] text-slate-400 font-semibold">${c.sla_age_days} days SLA age</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+            `;
+          }
+          if (c.status === 'Completed') {
+            footerHtml = `
+              <span class="text-[9px] text-green-600 font-semibold">Ready / Sent</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+            `;
+          }
+
+          const card = document.createElement('div');
+          card.id = cardId;
+          card.draggable = true;
+          card.ondragstart = drag;
+          card.ondragend = dragEnd;
+          card.setAttribute('data-name', c.participants ? c.participants.name : 'Unknown');
+          card.setAttribute('data-type', c.certificate_type);
+          card.setAttribute('data-id', c.id);
+          card.setAttribute('data-status', c.status);
+          card.setAttribute('onclick', `openCertDetails('${c.participants ? c.participants.name : 'Unknown'}', '${c.certificate_type}', '${c.status}', '${c.id}')`);
+          card.className = `kanban-card cursor-grab active:cursor-grabbing ${overdueBorder}`;
+          
+          card.innerHTML = `
+            <div class="text-xs font-mono font-bold text-slate-400 mb-1">${c.certificate_number || 'N/A'}</div>
+            <h4 class="font-bold text-slate-800 text-sm">${c.participants ? c.participants.name : 'Unknown'}</h4>
+            <div class="mt-1.5">${typeBadgeHtml}</div>
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-100">${footerHtml}</div>
+          `;
+          colBody.appendChild(card);
+        }
+      });
+
+      updateKanbanCounters();
+
+      // Populate Audit Trail tab dynamically from certificate history
+      const auditTimeline = document.getElementById('audit-timeline');
+      if (auditTimeline) {
+        const auditEntries = [];
+
+        // Batch creation event from training created_at
+        if (currentTraining.created_at) {
+          auditEntries.push({
+            time: new Date(currentTraining.created_at),
+            color: 'bg-blue-600',
+            title: 'Training batch created',
+            detail: `<strong>${currentTraining.program_name}</strong> (${currentTraining.batch_code}) initialized.`,
+            by: currentTraining.pic || 'System'
+          });
+        }
+
+        // Certificate events from batchCerts
+        batchCerts.forEach(c => {
+          const name = c.participants ? c.participants.name : 'Unknown';
+          const certNum = c.certificate_number || c.id;
+          
+          if (c.created_at) {
+            auditEntries.push({
+              time: new Date(c.created_at),
+              color: 'bg-slate-400',
+              title: `Certificate draft generated`,
+              detail: `<strong>${name}</strong> (${certNum}) — ${c.certificate_type}`,
+              by: 'System'
+            });
+          }
+          if (c.printed_at) {
+            auditEntries.push({
+              time: new Date(c.printed_at),
+              color: 'bg-amber-500',
+              title: `Certificate printed`,
+              detail: `<strong>${name}</strong> (${certNum}) — ${c.certificate_type}`,
+              by: c.printed_by || 'Admin'
+            });
+          }
+          if (c.sent_at) {
+            auditEntries.push({
+              time: new Date(c.sent_at),
+              color: 'bg-green-500',
+              title: `Certificate shipped & completed`,
+              detail: `<strong>${name}</strong> (${certNum}) — ${c.certificate_type}`,
+              by: c.sent_by || 'Admin'
+            });
+          } else if (c.updated_at && c.updated_at !== c.created_at && !c.printed_at) {
+            auditEntries.push({
+              time: new Date(c.updated_at),
+              color: 'bg-blue-500',
+              title: `Certificate updated to ${c.status}`,
+              detail: `<strong>${name}</strong> (${certNum}) — ${c.certificate_type}`,
+              by: c.updated_by || 'Admin'
+            });
+          }
+        });
+
+        // Sort descending
+        auditEntries.sort((a, b) => b.time - a.time);
+
+        if (auditEntries.length === 0) {
+          auditTimeline.innerHTML = `
+            <div class="flex flex-col items-center justify-center text-center py-10 text-slate-400 gap-2">
+              <span class="material-symbols-outlined text-3xl">history</span>
+              <p class="text-xs font-semibold text-slate-700">No activity recorded yet</p>
+              <p class="text-[10px] text-slate-400">Actions on certificates will appear here.</p>
+            </div>`;
+        } else {
+          auditTimeline.innerHTML = auditEntries.map((e, i) => `
+            <div class="relative pl-8 ${i < auditEntries.length - 1 ? 'mb-6' : ''}">
+              <div class="absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${e.color} ring-4 ring-white"></div>
+              <p class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">${e.time.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} — ${e.by}</p>
+              <p class="text-sm font-semibold text-slate-800 mt-0.5">${e.title}</p>
+              <p class="text-xs text-slate-500 mt-1">${e.detail}</p>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function formatDateStr(dateStr) {
+      if (!dateStr) return 'N/A';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const options = { day: 'numeric', month: 'long', year: 'numeric' };
+        return d.toLocaleDateString('id-ID', options);
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    function getStatusBadge(status) {
+      if (status === 'Pending') {
+        return '<span class="cms-badge cms-badge-pending"><span class="material-symbols-outlined text-[14px]">pending_actions</span> Pending</span>';
+      } else if (status === 'Processing') {
+        return '<span class="cms-badge cms-badge-processing"><span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Processing</span>';
+      } else if (status === 'Printing') {
+        return '<span class="cms-badge cms-badge-processing"><span class="material-symbols-outlined text-[14px]">print</span> Printing</span>';
+      } else if (status === 'Completed') {
+        return '<span class="cms-badge cms-badge-completed"><span class="material-symbols-outlined text-[14px]">check_circle</span> Completed</span>';
+      }
+      return '<span class="text-xs text-slate-400 font-medium">-</span>';
+    }
+
+    function removeParticipantRow(element, id) {
+      element.closest('tr').remove();
+      alert("Participant removed from this local view session.");
+    }
+
+    // Trigger dynamic binder on load
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadTrainingDetailData();
+    });
+
+    // Modal Details Logic
+    let currentEditingUser = '';
+    let currentEditingCertId = '';
+    const certDetailsModal = document.getElementById('cert-details-modal');
+
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        const options = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+        return d.toLocaleDateString('id-ID', options);
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    async function openCertDetails(name, type, status, id) {
+      currentEditingUser = name;
+      currentEditingCertId = id;
+      document.getElementById('modal-cert-name').textContent = name;
+      
+      const typeContainer = document.getElementById('modal-cert-type');
+      if (type === 'Qualification') {
+        typeContainer.innerHTML = `
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider select-none">
+            <span class="material-symbols-outlined text-[10px] font-bold">workspace_premium</span>
+            Qualification
+          </span>
+        `;
+      } else {
+        typeContainer.innerHTML = `
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100 uppercase tracking-wider select-none">
+            <span class="material-symbols-outlined text-[10px] font-bold">assignment_turned_in</span>
+            Attendance
+          </span>
+        `;
+      }
+      
+      document.getElementById('modal-cert-id').textContent = id;
+      document.getElementById('cert-status-select').value = status;
+
+      // Clean timeline display with null tracking initially
+      adjustTimelineDisplay(status, null, null, null, null);
+
+      // Async fetch certificate tracking logs from DB
+      if (typeof DB !== 'undefined') {
+        try {
+          const cert = await DB.getCertificateById(id);
+          if (cert) {
+            adjustTimelineDisplay(status, cert.printed_at, cert.printed_by, cert.sent_at, cert.sent_by);
+          }
+        } catch (e) {
+          console.error("Error loading certificate tracking details:", e);
+        }
+      }
+
+      certDetailsModal.classList.remove('hidden');
+    }
+
+    function closeCertModal() {
+      certDetailsModal.classList.add('hidden');
+    }
+
+    function adjustTimelineDisplay(status, printedAt, printedBy, sentAt, sentBy) {
+      const stepQc = document.getElementById('step-qc');
+      const stepPrint = document.getElementById('step-print');
+      const stepShip = document.getElementById('step-ship');
+      const printStepDetail = document.getElementById('print-step-detail');
+      const shipStepDetail = document.getElementById('ship-step-detail');
+
+      stepQc.classList.remove('opacity-50');
+      stepPrint.classList.remove('opacity-50');
+      stepShip.classList.remove('opacity-50');
+      
+      // Default Print Step Style (slate/blue icon)
+      stepPrint.querySelector('div').className = 'w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200 z-10 shrink-0';
+      stepPrint.querySelector('span').textContent = 'print';
+      printStepDetail.textContent = 'Awaiting Print Queue';
+      
+      // Default Ship Step Style (slate icon)
+      stepShip.querySelector('div').className = 'w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200 z-10 shrink-0';
+      stepShip.querySelector('span').textContent = 'local_shipping';
+      shipStepDetail.textContent = 'Awaiting signature & delivery';
+
+      // 1. Process QC (always completed if generated)
+      stepQc.querySelector('div').className = 'w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center border border-green-200 z-10 shrink-0';
+      stepQc.querySelector('span').textContent = 'check';
+
+      // 2. Process Print Step
+      if (printedAt) {
+        stepPrint.querySelector('div').className = 'w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center border border-green-200 z-10 shrink-0';
+        stepPrint.querySelector('span').textContent = 'check';
+        printStepDetail.innerHTML = `Printed on ${formatDateTime(printedAt)}<br><span class="text-[9px] font-semibold text-slate-400 uppercase">By ${printedBy || 'Admin'}</span>`;
+      } else if (status === 'Printing') {
+        stepPrint.querySelector('div').className = 'w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200 z-10 shrink-0';
+        printStepDetail.textContent = 'Active Printing in Progress';
+      }
+
+      // 3. Process Ship Step
+      if (sentAt) {
+        stepShip.querySelector('div').className = 'w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center border border-green-200 z-10 shrink-0';
+        stepShip.querySelector('span').textContent = 'check';
+        shipStepDetail.innerHTML = `Shipped on ${formatDateTime(sentAt)}<br><span class="text-[9px] font-semibold text-slate-400 uppercase">By ${sentBy || 'Admin'}</span>`;
+      } else if (status === 'Completed') {
+        stepShip.querySelector('div').className = 'w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200 z-10 shrink-0';
+        shipStepDetail.textContent = 'Awaiting final delivery handshake';
+      } else {
+        stepShip.classList.add('opacity-50');
+      }
+
+      // If status is Pending or Processing, print is inactive/pending
+      if (status === 'Pending' || status === 'Processing') {
+        if (!printedAt) stepPrint.classList.add('opacity-50');
+        if (!sentAt) stepShip.classList.add('opacity-50');
+      }
+    }
+
+    async function saveCertStatus() {
+      const newStatus = document.getElementById('cert-status-select').value;
+      
+      // Call Database update using correct certificate UUID
+      if (typeof DB !== 'undefined') {
+        await DB.updateCertificateStatus(currentEditingCertId, newStatus);
+      }
+      
+      alert(`Certificate status for ${currentEditingUser} updated to: ${newStatus}`);
+      closeCertModal();
+      
+      // Reload view to sync counters and locations dynamically
+      await loadTrainingDetailData();
+
+      // Add to timeline
+      const timeline = document.getElementById('audit-timeline');
+      const item = document.createElement('div');
+      item.className = 'relative pl-8 mb-6 animate-in fade-in duration-200';
+      const currentUser = localStorage.getItem('profileName') || 'Admin';
+      item.innerHTML = `
+        <div class="absolute left-[8px] top-1.5 w-2 h-2 rounded-full bg-blue-600 ring-4 ring-white"></div>
+        <p class="text-xs text-slate-500">Just now - ${currentUser}</p>
+        <p class="text-sm font-semibold text-slate-800 mt-0.5">Updated status for ${currentEditingUser}</p>
+        <p class="text-xs text-slate-500 mt-1">Changed status to: <span class="cms-badge">${newStatus}</span></p>
+      `;
+      timeline.insertBefore(item, timeline.firstChild);
+    }
+
+    // Participant Search Filter
+    const partSearch = document.getElementById('part-search');
+    if (partSearch) {
+      partSearch.addEventListener('keyup', (e) => {
+        const val = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#participants-table tr');
+        rows.forEach(row => {
+          const text = row.textContent.toLowerCase();
+          if (text.includes(val)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>

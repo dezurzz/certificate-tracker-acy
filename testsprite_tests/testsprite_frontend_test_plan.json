@@ -1,0 +1,1858 @@
+[
+  {
+    "id": "TC001",
+    "title": "Move certificates through the training workflow",
+    "description": "This verifies that a signed-in user can update certificate statuses in a training batch and see the workflow state change.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch from the list"
+      },
+      {
+        "type": "action",
+        "description": "Move a certificate through the available workflow statuses"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated certificate status is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a status confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Move a certificate through the workflow board",
+    "description": "A user can drag a certificate card to another workflow column, confirm the change, and see the card appear in the new status.",
+    "category": "Certificate Kanban Workflow Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open the certificates view"
+      },
+      {
+        "type": "action",
+        "description": "Move a certificate card to another workflow column"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the status change"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the card appears in the new workflow column"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the workflow status update is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Sign in and reach the dashboard",
+    "description": "This verifies that a user can sign in from the landing page and land on the dashboard with operational overview content visible.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dashboard is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify KPI and recent activity content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Prevent access to authenticated pages before sign in",
+    "description": "This verifies that an unauthenticated user is redirected away from protected workspace pages and cannot view the dashboard content.",
+    "category": "User Authentication",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sign in page is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify dashboard content is not displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Update a certificate status from its detail view",
+    "description": "A user can change a certificate's status from its detail view and see the updated status reflected in the record.",
+    "category": "Certificate Detail and Status Update",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open a certificate card"
+      },
+      {
+        "type": "action",
+        "description": "Update the certificate status"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the status change"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated certificate status is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated timeline entry is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Review audit trail after a certificate status change",
+    "description": "A user can update a certificate status in a training batch and see the new activity recorded in the batch audit trail.",
+    "category": "Activity History and Audit Trail",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch from the list"
+      },
+      {
+        "type": "action",
+        "description": "Move a certificate to a new status in the workflow board"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a status confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a new audit trail entry is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Review training batch audit trail after an update",
+    "description": "This verifies that a signed-in user can update a certificate in a training batch and then see the related audit trail entry in the batch history.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch from the list"
+      },
+      {
+        "type": "action",
+        "description": "Update a certificate status or details"
+      },
+      {
+        "type": "action",
+        "description": "Open the audit trail for the batch"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new audit entry is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the recorded change is visible in the batch history"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Review training batch certificate progression",
+    "description": "A user can inspect a training batch's certificate board and see certificates organized by workflow status.",
+    "category": "Certificate Kanban Workflow Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open the certificates view"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the workflow columns are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify certificate cards are displayed in the workflow board"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "View dashboard after signing in",
+    "description": "A signed-in user can land on the dashboard and review KPI cards and recent activity.",
+    "category": "Reports and Analytics",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the dashboard content to load"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify KPI cards are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recent activity is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Create a new training batch",
+    "description": "This verifies that a signed-in user can create a training batch and see it appear in the training list afterward.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open the add training flow"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the training name with a unique training name"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the batch field with a unique batch identifier"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the start date field with a valid date"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the end date field with a valid date"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the PIC field with a valid internal staff name"
+      },
+      {
+        "type": "action",
+        "description": "Select an active status"
+      },
+      {
+        "type": "action",
+        "description": "Create the training record"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new training appears in the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the created training record is available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "See activity written after updating a certificate",
+    "description": "A user can update a certificate and then verify the activity trail shows the change in the batch view and history logs.",
+    "category": "Certificate Detail and Status Update",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open a certificate card"
+      },
+      {
+        "type": "action",
+        "description": "Update the certificate status"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the status change"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /history-logs"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new audit entry is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the batch activity log shows the same update"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Open a training batch detail view",
+    "description": "This verifies that a signed-in user can open a training batch and inspect its certificate workflow details and participants.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the training detail view is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify participant and certificate workflow content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Review dashboard KPI summary and recent activity",
+    "description": "This verifies that a signed-in user can open the dashboard and review the operational summary and latest activity entries.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify KPI cards are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recent activity entries are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Review training batch overview and participants",
+    "description": "A user can open a training batch from the training list and review its summary metrics and participant statuses.",
+    "category": "Training Detail and Participant Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the batch overview metrics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the participant list with certificate statuses is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "Review all certificates with basic filters",
+    "description": "A user can open the global certificate list, filter the results, and see matching certificates with their ages.",
+    "category": "Global Certificate Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /certificates"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate filter by training"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate filter by status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify matching certificates are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify certificate age information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Inspect a training batch certificate",
+    "description": "A user can open a certificate from a training batch and review participant details, certificate type, timeline, and notes.",
+    "category": "Certificate Detail and Status Update",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open a certificate card"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the certificate details view is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the timeline and notes are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "View training batch list and find records",
+    "description": "This verifies that a signed-in user can open the training list and use search or filters to narrow the displayed batches.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open trainings"
+      },
+      {
+        "type": "action",
+        "description": "Use the available search or filter controls to narrow the training list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered training list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify matching training batches are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC018",
+    "title": "Review newly created history logs after certificate updates",
+    "description": "A user can confirm that certificate changes appear in the central history log after being made from a training batch.",
+    "category": "Activity History and Audit Trail",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch from the list"
+      },
+      {
+        "type": "action",
+        "description": "Move a certificate to a new status in the workflow board"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /history-logs"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the recent certificate activity is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the history log includes the update"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC019",
+    "title": "Filter and review certificates across all trainings",
+    "description": "This verifies that a signed-in user can use the global certificate list to filter by common criteria and review the resulting records.",
+    "category": "Training Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open certificates"
+      },
+      {
+        "type": "action",
+        "description": "Apply available filters for training, type, status, PIC, or date"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered certificate list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify certificate age or monitoring details are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC020",
+    "title": "Review operational reports",
+    "description": "A manager can open the reports page and review summary metrics and performance views.",
+    "category": "Reports and Analytics",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /reports"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the reports dashboard to load"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify summary metrics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify reporting charts are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC021",
+    "title": "Redirect unauthenticated users from protected training pages",
+    "description": "An unauthenticated user is redirected to sign in when trying to open protected training content.",
+    "category": "Training Detail and Participant Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the sign in page is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the protected training content is not displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Filter certificates by type and PIC",
+    "description": "A user can narrow the global certificate list by certificate type and PIC and see the filtered results.",
+    "category": "Global Certificate Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /certificates"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate filter by type"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate filter by PIC"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify matching certificates are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the filtered certificate list is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "Review report metrics for certificate operations",
+    "description": "This verifies that a signed-in manager can open reports and review the operational metrics and trends used for oversight.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open reports"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify report metrics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify completion and delay trend information is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Review audit history entries",
+    "description": "A user can open the audit history page and review system history entries.",
+    "category": "Activity History and Audit Trail",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /history-logs"
+      },
+      {
+        "type": "action",
+        "description": "Wait for the audit history entries to load"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit trail entries are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the history view is populated"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "Update profile details successfully",
+    "description": "This test verifies that a user can change their profile name and department and see the updated profile information after saving.",
+    "category": "Profile Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/profile"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the profile name field with a new display name"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the department field with a new department"
+      },
+      {
+        "type": "action",
+        "description": "Save the profile changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated profile information is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "View the global system audit log",
+    "description": "This verifies that a signed-in user can open the system history log and review recorded activity entries.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open history logs"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify history log entries are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit activity details are visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Filter certificates by date range",
+    "description": "A user can filter certificates by date and see results limited to the selected range.",
+    "category": "Global Certificate Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /certificates"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate date filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify matching certificates are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify certificate ages are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "Review overdue and performance insights",
+    "description": "A manager can inspect reporting views for overdue certificates, completion trends, delay reasons, and PIC performance.",
+    "category": "Reports and Analytics",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /reports"
+      },
+      {
+        "type": "action",
+        "description": "Scroll to the lower reporting sections"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify overdue certificate insights are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify delay and PIC performance insights are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC029",
+    "title": "Update system SLA days and save the configuration",
+    "description": "This verifies that a system administrator can change the standard SLA processing days and see the updated configuration saved.",
+    "category": "System Configuration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/system"
+      },
+      {
+        "type": "action",
+        "description": "Update the standard SLA processing days value"
+      },
+      {
+        "type": "action",
+        "description": "Save the system configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated system settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC030",
+    "title": "Clear certificate filters and return to the full list",
+    "description": "A user can remove applied certificate filters and return to the unfiltered certificate list.",
+    "category": "Global Certificate Monitoring",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /certificates"
+      },
+      {
+        "type": "action",
+        "description": "Apply a certificate filter by status"
+      },
+      {
+        "type": "action",
+        "description": "Clear the applied certificate filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the full certificate list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filtered-only results are no longer displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC031",
+    "title": "Update notification preferences and save them",
+    "description": "This test verifies that a user can change notification preferences, save the settings, and see the updated preferences afterward.",
+    "category": "Notification Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "action",
+        "description": "Change a notification preference"
+      },
+      {
+        "type": "action",
+        "description": "Save the notification settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated notification settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC032",
+    "title": "Register a new staff member in system settings",
+    "description": "This verifies that a system administrator can add a new staff member through system configuration and see the new staff record appear.",
+    "category": "System Configuration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/system"
+      },
+      {
+        "type": "action",
+        "description": "Add new staff information"
+      },
+      {
+        "type": "action",
+        "description": "Save the system configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new staff record is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC033",
+    "title": "Change only the department in profile settings",
+    "description": "This test verifies that a user can update just the department field and still see the saved profile changes.",
+    "category": "Profile Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/profile"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the department field with a new department"
+      },
+      {
+        "type": "action",
+        "description": "Save the profile changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated department information is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC034",
+    "title": "Update personal profile details",
+    "description": "This verifies that a signed-in user can update profile information and see the saved changes reflected in the profile view.",
+    "category": "Dashboard Overview",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "action",
+        "description": "Fill in email address with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in password with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the sign in form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open profile settings"
+      },
+      {
+        "type": "action",
+        "description": "Update the profile name and department"
+      },
+      {
+        "type": "action",
+        "description": "Save the profile changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated profile details are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC035",
+    "title": "Change password with valid current password",
+    "description": "This test verifies that a user can enter the current password, set a new password, confirm it, and complete the password update flow.",
+    "category": "Security Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/security"
+      },
+      {
+        "type": "action",
+        "description": "Enter the current password"
+      },
+      {
+        "type": "action",
+        "description": "Enter a new password"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the new password"
+      },
+      {
+        "type": "action",
+        "description": "Save the security changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the password update completion message is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC036",
+    "title": "Retain existing staff registration data when required information is missing",
+    "description": "This verifies that attempting to register a staff member without required information shows validation feedback and does not create a new record.",
+    "category": "System Configuration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/system"
+      },
+      {
+        "type": "action",
+        "description": "Start adding new staff information"
+      },
+      {
+        "type": "action",
+        "description": "Save the system configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a staff registration validation error is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC037",
+    "title": "Show a validation message for an invalid certificate update",
+    "description": "A user sees a validation message when attempting to save an invalid certificate update from the detail view.",
+    "category": "Certificate Detail and Status Update",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /trainings"
+      },
+      {
+        "type": "action",
+        "description": "Open a training batch"
+      },
+      {
+        "type": "action",
+        "description": "Open a certificate card"
+      },
+      {
+        "type": "action",
+        "description": "Update the certificate status with an invalid value"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the certificate status is not changed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC038",
+    "title": "Show validation errors for invalid system setting input",
+    "description": "This verifies that invalid system configuration input is rejected and a validation error is shown before any save occurs.",
+    "category": "System Configuration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/system"
+      },
+      {
+        "type": "action",
+        "description": "Update the standard SLA processing days value with an invalid value"
+      },
+      {
+        "type": "action",
+        "description": "Save the system configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a system setting validation error is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC039",
+    "title": "Review current notification preferences",
+    "description": "This test verifies that a user can open notification settings and review the existing preference options and saved state.",
+    "category": "Notification Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notification preference options are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC040",
+    "title": "Keep existing profile information when no changes are made",
+    "description": "This test verifies that opening the profile settings page and saving without edits preserves the current profile information.",
+    "category": "Profile Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/profile"
+      },
+      {
+        "type": "action",
+        "description": "Save the profile changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the profile information remains visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC041",
+    "title": "Keep existing system settings unchanged when no edits are made",
+    "description": "This verifies that the system configuration page loads current settings and can be left without unintended changes.",
+    "category": "System Configuration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/system"
+      },
+      {
+        "type": "action",
+        "description": "Review the system configuration settings"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the current system settings are displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC042",
+    "title": "Block password update when the confirmation does not match",
+    "description": "This test verifies that the security settings page prevents a password change when the new password and confirmation do not match.",
+    "category": "Security Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/security"
+      },
+      {
+        "type": "action",
+        "description": "Enter the current password"
+      },
+      {
+        "type": "action",
+        "description": "Enter a new password"
+      },
+      {
+        "type": "action",
+        "description": "Confirm a different password"
+      },
+      {
+        "type": "action",
+        "description": "Save the security changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a password confirmation validation error is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC043",
+    "title": "Keep notification settings after revisiting the page",
+    "description": "This test verifies that saved notification preferences remain visible when the user returns to the notification settings page.",
+    "category": "Notification Preferences",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "action",
+        "description": "Change a notification preference"
+      },
+      {
+        "type": "action",
+        "description": "Save the notification settings"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/notifications"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the saved notification settings are still displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC044",
+    "title": "Show password validation when new password is too weak",
+    "description": "This test verifies that the security settings page shows validation feedback when the new password does not meet requirements.",
+    "category": "Security Settings",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /settings/security"
+      },
+      {
+        "type": "action",
+        "description": "Enter the current password"
+      },
+      {
+        "type": "action",
+        "description": "Enter a weak new password"
+      },
+      {
+        "type": "action",
+        "description": "Confirm the new password"
+      },
+      {
+        "type": "action",
+        "description": "Save the security changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a password strength validation error is displayed"
+      }
+    ],
+    "priority": "Low"
+  }
+]

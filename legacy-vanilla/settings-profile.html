@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Settings - Profile - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component -->
+    <header id="header-container" data-title="Profile Settings"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full flex flex-col gap-6">
+      <div class="mb-2">
+        <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Settings</h2>
+        <p class="text-sm text-slate-500 mt-1">Manage your account preferences and system configurations.</p>
+      </div>
+
+      <!-- Settings Layout Grid -->
+      <div class="flex flex-col lg:flex-row gap-8 items-start">
+        
+        <!-- Settings Tabs Sidebar -->
+        <nav class="w-full lg:w-64 flex flex-col gap-1 shrink-0">
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-slate-200 text-slate-900 font-semibold" href="settings-profile.html">
+            <span class="material-symbols-outlined text-[20px] fill">person</span>
+            Profile Settings
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-notifications.html">
+            <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+            Notification Preferences
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-security.html">
+            <span class="material-symbols-outlined text-[20px]">shield</span>
+            Security & Access
+          </a>
+          <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold transition-colors" href="settings-system.html">
+            <span class="material-symbols-outlined text-[20px]">dns</span>
+            System Configuration
+          </a>
+        </nav>
+
+        <!-- Settings Content Card -->
+        <div class="flex-1 cms-card bg-white w-full">
+          <section id="profile">
+            <!-- Header -->
+            <div class="border-b border-slate-200 pb-4 mb-6">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-600 fill">person</span>
+                Profile Settings
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">Update your personal account information and details.</p>
+            </div>
+
+            <!-- Profile Info Form -->
+            <form id="profile-form" onsubmit="saveProfile(event)" class="flex flex-col gap-6">
+              <!-- Avatar Silhouette Block -->
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-slate-400 shrink-0 shadow-inner">
+                  <span class="material-symbols-outlined text-4xl">person</span>
+                </div>
+                <div class="flex flex-col">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Account Photo</label>
+                  <span class="text-xs text-slate-400 mt-0.5">Profile pictures are disabled.</span>
+                </div>
+              </div>
+
+              <!-- Input Group -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="prof-name">Full Name</label>
+                  <input class="cms-input" id="prof-name" placeholder="e.g. Andi Pratama" type="text" required>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="prof-email">Email Address</label>
+                  <input class="cms-input" id="prof-email" placeholder="e.g. andi.pratama@bki.co.id" type="email" required>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="prof-role">Account Role</label>
+                  <input class="cms-input bg-slate-50 text-slate-500 font-semibold cursor-not-allowed" id="prof-role" value="System Administrator" type="text" readonly>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="prof-dept">Department</label>
+                  <input class="cms-input bg-slate-50 text-slate-500 font-semibold cursor-not-allowed" id="prof-dept" value="BKI Academy Training Center" type="text" readonly>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="discardProfileChanges()" class="cms-btn-secondary">Discard Changes</button>
+                <button type="submit" class="cms-btn-primary">Save Profile</button>
+              </div>
+            </form>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Hydrated dynamically via shared/components.js updateHeaderProfile()
+    });
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      const name = document.getElementById('prof-name').value;
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full align-middle mr-2"></span> Saving...';
+
+      try {
+        if (typeof DB !== 'undefined') {
+          await DB.updateUserProfile(name);
+          localStorage.setItem('profileName', name);
+          alert('Profile details saved successfully!');
+          if (typeof updateHeaderProfile === 'function') {
+            await updateHeaderProfile();
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to update profile: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Profile';
+      }
+    }
+
+    function discardProfileChanges() {
+      window.location.reload();
+    }
+  </script>
+</body>
+</html>

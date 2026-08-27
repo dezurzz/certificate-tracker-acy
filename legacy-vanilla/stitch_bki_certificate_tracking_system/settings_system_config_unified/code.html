@@ -1,0 +1,341 @@
+<!DOCTYPE html><html class="h-full bg-surface dark:bg-inverse-surface" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>BKI Academy CMS - System Configuration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "background": "#f7f9fb",
+                "on-tertiary-fixed": "#0b1c30",
+                "on-primary-container": "#7c839b",
+                "secondary": "#0058be",
+                "on-secondary": "#ffffff",
+                "primary-container": "#131b2e",
+                "tertiary": "#000000",
+                "on-tertiary-fixed-variant": "#38485d",
+                "surface-dim": "#d8dadc",
+                "on-background": "#191c1e",
+                "on-error": "#ffffff",
+                "surface-container-low": "#f2f4f6",
+                "on-secondary-container": "#fefcff",
+                "surface-container-highest": "#e0e3e5",
+                "on-tertiary": "#ffffff",
+                "surface-bright": "#f7f9fb",
+                "on-surface-variant": "#45464d",
+                "inverse-primary": "#bec6e0",
+                "surface": "#f7f9fb",
+                "surface-variant": "#e0e3e5",
+                "on-primary-fixed": "#131b2e",
+                "surface-container-high": "#e6e8ea",
+                "surface-tint": "#565e74",
+                "on-secondary-fixed-variant": "#004395",
+                "tertiary-fixed-dim": "#b7c8e1",
+                "primary": "#000000",
+                "error": "#ba1a1a",
+                "on-tertiary-container": "#75859d",
+                "tertiary-fixed": "#d3e4fe",
+                "on-secondary-fixed": "#001a42",
+                "error-container": "#ffdad6",
+                "surface-container": "#eceef0",
+                "on-error-container": "#93000a",
+                "secondary-fixed": "#d8e2ff",
+                "outline-variant": "#c6c6cd",
+                "inverse-on-surface": "#eff1f3",
+                "on-primary": "#ffffff",
+                "secondary-container": "#2170e4",
+                "secondary-fixed-dim": "#adc6ff",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#3f465c",
+                "on-surface": "#191c1e",
+                "primary-fixed": "#dae2fd",
+                "inverse-surface": "#2d3133",
+                "primary-fixed-dim": "#bec6e0",
+                "outline": "#76777d",
+                "tertiary-container": "#0b1c30"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "gutter": "16px",
+                "unit": "4px",
+                "stack-md": "16px",
+                "stack-sm": "8px",
+                "container-padding": "24px",
+                "stack-lg": "32px"
+        },
+        "fontFamily": {
+                "label-caps": [
+                        "Inter"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "mono-label": [
+                        "Inter"
+                ],
+                "display-lg": [
+                        "Inter"
+                ],
+                "headline-md": [
+                        "Inter"
+                ],
+                "body-sm": [
+                        "Inter"
+                ],
+                "title-sm": [
+                        "Inter"
+                ]
+        },
+        "fontSize": {
+                "label-caps": [
+                        "11px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0.05em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "mono-label": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-sm": [
+                        "13px",
+                        {
+                                "lineHeight": "18px",
+                                "letterSpacing": "0em",
+                                "fontWeight": "400"
+                        }
+                ],
+                "title-sm": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "letterSpacing": "-0.01em",
+                                "fontWeight": "600"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+</head>
+<body class="h-full flex font-body-md text-on-surface bg-surface overflow-hidden">
+<!-- SideNavBar -->
+<nav aria-label="Sidebar" class="h-screen fixed left-0 top-0 bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline flex flex-col gap-unit p-4 z-40 hidden md:flex w-64">
+<div class="mb-stack-lg px-2 flex items-center gap-3"><img alt="BKI Academy Logo" class="w-8 h-8 rounded object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBf9XsGhE_uZ9UscAH4ukZsave5uLgslorReuZFxp_8XUV85cHVbsKx2z5bVpfjfe7oN1SR9LF4mp1y3gl6vXk4GFvH32oWZzh3O_ZB-DfNTyJG_u1_oTmwu2Tud5406zDIs2byu_rfVzpNiObuccG61-wRM1ac-dujKKfinmHNDZESVYTBRZ7qOk6d2o-2cvderP7Miq2zR4X0huOz7NECzsv-FtL_c13UbzXA30l7xmAUSD5ebyINw"><div class="flex flex-col"><h1 class="font-title-sm text-title-sm font-bold text-primary dark:text-primary-fixed truncate">BKI Academy</h1><p class="text-xs text-on-surface-variant truncate uppercase tracking-wider">Management System</p></div></div>
+<div class="flex-1 overflow-y-auto pr-2">
+<ul class="space-y-unit">
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">school</span>
+<span class="font-body-md text-body-md">Training List</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assignment</span>
+<span class="font-body-md text-body-md">Training Detail</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">verified</span>
+<span class="font-body-md text-body-md">Certificate Monitoring</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors duration-200 active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assessment</span>
+<span class="font-body-md text-body-md">Reports</span>
+</a>
+</li>
+</ul>
+<div class="mt-8 pt-4 border-t border-outline-variant dark:border-outline">
+<p class="px-3 text-label-caps font-label-caps text-on-surface-variant mb-2 opacity-70">ADMINISTRATION</p>
+<ul class="space-y-unit">
+<li class="">
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-on-secondary-container font-semibold rounded-lg active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="font-body-md text-body-md">System Configuration</span>
+</a>
+</li>
+</ul>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col h-screen overflow-hidden md:ml-64">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-gutter w-full bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline sticky top-0 z-30 shrink-0"><div class="flex items-center gap-8 flex-1"><div class="flex items-center gap-4"><button class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined">menu</span></button><h2 class="text-title-sm font-title-sm text-on-surface whitespace-nowrap">CMS Dashboard</h2></div><div class="relative w-full max-w-md hidden md:block"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size: 20px;">search</span><input type="text" placeholder="Search settings..." class="w-full h-10 pl-10 pr-4 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:outline-none focus:ring-2 focus:ring-secondary transition-all"></div></div><div class="flex items-center gap-2"><button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full"><span class="material-symbols-outlined">help</span></button><button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full relative"><span class="material-symbols-outlined">notifications</span><span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span></button><div class="ml-2 pl-4 border-l border-outline-variant"><img alt="Admin" class="w-8 h-8 rounded-full border border-outline-variant object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVbC_ElPCfqVvaIOah6iQMMNljZwAg5PDMrH2tLc4i8rJcYrZZEVRywKoENt1hiLOsEJIEnmYOjIelKYQGq4Petj6aPP1WjOZhaWLyY-daheE1BlCT66hGmomGhle9UrhjQmDysYON6EYZYzKGKLbaVU_2zrblwFTMiNZ6izJ4t61E5pB3XjUrzSHFucLFYzXlwLiDjvSYRWP9iih8hbGKUHyE25558xWa_Zns27T46lmmEub6d6fqhg"></div></div></header>
+<!-- Canvas -->
+<main class="flex-1 overflow-y-auto bg-background p-container-padding scroll-smooth p-gutter">
+<div class="max-w-4xl mx-auto space-y-stack-lg pb-12">
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<div>
+<nav aria-label="Breadcrumb" class="flex text-body-sm font-body-sm text-on-surface-variant mb-2">
+<ol class="inline-flex items-center space-x-1 md:space-x-2">
+<li class="inline-flex items-center">
+<a class="hover:text-primary transition-colors" href="#">Administration</a>
+</li>
+<li class="">
+<div class="flex items-center">
+<span class="material-symbols-outlined mx-1" style="font-size: 16px;">chevron_right</span>
+<span class="text-on-surface font-medium">System Configuration</span>
+</div>
+</li>
+</ol>
+</nav>
+<h1 class="font-display-lg text-display-lg text-on-surface">Settings</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Manage global processing rules, thresholds, and defaults.</p>
+</div>
+<div class="flex items-center gap-3 shrink-0">
+<button class="px-4 py-2 border border-outline-variant rounded-lg text-body-md font-semibold text-on-surface bg-surface hover:bg-surface-container-high transition-colors active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-secondary">
+                            Discard Changes
+                        </button>
+<button class="px-4 py-2 rounded-lg text-body-md font-semibold text-on-secondary bg-secondary hover:bg-secondary/90 transition-colors active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-secondary flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 18px;">save</span>
+                            Save Configuration
+                        </button>
+</div>
+</div>
+<div class="flex gap-8">
+<!-- Inner Nav (Standard Settings Layout) -->
+<nav aria-label="Settings Navigation" class="w-64 hidden lg:block shrink-0"><ul class="space-y-1"><li class=""><a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface rounded-lg transition-colors" href="#"><span class="material-symbols-outlined">person</span><span class="font-body-md">Profile Settings</span></a></li><li class=""><a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface rounded-lg transition-colors" href="#"><span class="material-symbols-outlined">notifications</span><span class="font-body-md">Notification Preferences</span></a></li><li class=""><a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-medium" href="#"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">tune</span><span class="font-body-md">System Configuration</span></a></li><li class=""><a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container hover:text-on-surface rounded-lg transition-colors" href="#"><span class="material-symbols-outlined">lock</span><span class="font-body-md">Security &amp; Access</span></a></li></ul></nav>
+<!-- Settings Grid -->
+<div class="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-gutter">
+<!-- Core Processing Settings -->
+<div class="xl:col-span-12 space-y-stack-md">
+<!-- Card 1 -->
+<div class="bg-surface border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-outline-variant bg-surface-container-low flex items-center justify-between">
+<div>
+<h2 class="font-title-sm text-title-sm text-on-surface">Processing Timelines</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Configure standard SLA expectations for certificate issuance.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">schedule</span>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<label class="font-mono-label text-mono-label font-semibold text-on-surface block" for="sla-days">Standard Processing SLA (Days)</label>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-error-container text-on-error-container border border-error-container/50">
+                                                Critical Metric
+                                            </span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-3 sm:mb-0 max-w-sm">
+                                            The maximum number of days allowed to process and issue a certificate after training completion. This impacts compliance reporting.
+                                        </p>
+</div>
+<div class="w-full sm:w-48 shrink-0 relative">
+<input class="w-full h-10 px-3 bg-surface border border-outline-variant rounded-lg text-body-md font-medium text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary transition-all text-right pr-12" id="sla-days" max="90" min="1" name="sla-days" type="number" value="14">
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+<span class="text-on-surface-variant text-body-sm">Days</span>
+</div>
+</div>
+</div>
+<hr class="border-outline-variant/50">
+<div class="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
+<div class="flex-1">
+<label class="font-mono-label text-mono-label font-semibold text-on-surface block mb-1" for="buffer-days">Certificate Validity Buffer (Days)</label>
+<p class="text-body-sm font-body-sm text-on-surface-variant mb-3 sm:mb-0 max-w-sm">
+                                            Grace period added to the standard validity duration before a certificate is officially marked as 'Expired'.
+                                        </p>
+</div>
+<div class="w-full sm:w-48 shrink-0 relative">
+<input class="w-full h-10 px-3 bg-surface border border-outline-variant rounded-lg text-body-md font-medium text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary transition-all text-right pr-12" id="buffer-days" max="180" min="0" name="buffer-days" type="number" value="30">
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+<span class="text-on-surface-variant text-body-sm">Days</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Template -->
+<div class="bg-surface border border-outline-variant rounded-xl shadow-sm overflow-hidden mt-6">
+<div class="px-5 py-4 border-b border-outline-variant bg-surface-container-low">
+<h2 class="font-title-sm text-title-sm text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 20px;">description</span>
+                                     Default Templates
+                                 </h2>
+</div>
+<div class="p-5">
+<div class="mb-4">
+<label class="font-mono-label text-mono-label font-semibold text-on-surface block mb-2" for="default-template">Default Certificate Template</label>
+<div class="relative">
+<select class="w-full max-w-md h-10 pl-3 pr-10 bg-surface border border-outline-variant rounded-lg text-body-md text-on-surface appearance-none focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary transition-all cursor-pointer" id="default-template" name="default-template">
+<option selected="" value="standard_v2">Standard Corporate (v2.1)</option>
+<option value="compact">Compact Wallet Size</option>
+<option value="detailed">Detailed Transcript</option>
+<option value="legacy">Legacy Format (Pre-2023)</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-on-surface-variant" style="right: auto; left: 26rem;">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<div class="mt-4 p-4 bg-surface-container-low rounded-lg border border-outline-variant flex items-start gap-3 max-w-2xl">
+<span class="material-symbols-outlined text-secondary mt-0.5" style="font-size: 18px;">info</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                                         This template is used automatically when generating new certificates unless a specific course overrides it.
+                                     </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+</body></html>

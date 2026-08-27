@@ -1,0 +1,364 @@
+<!DOCTYPE html><html class="h-full" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Training Management - CMS Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "on-surface-variant": "#45464d",
+                        "tertiary-container": "#0b1c30",
+                        "primary-fixed": "#dae2fd",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-container": "#131b2e",
+                        "on-error-container": "#93000a",
+                        "on-background": "#191c1e",
+                        "inverse-surface": "#2d3133",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "on-primary-container": "#7c839b",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "surface-dim": "#d8dadc",
+                        "on-secondary-fixed": "#001a42",
+                        "on-tertiary-container": "#75859d",
+                        "secondary-container": "#2170e4",
+                        "secondary-fixed": "#d8e2ff",
+                        "primary-fixed-dim": "#bec6e0",
+                        "outline-variant": "#c6c6cd",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-tint": "#565e74",
+                        "secondary": "#0058be",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "on-secondary-container": "#fefcff",
+                        "surface-variant": "#e0e3e5",
+                        "tertiary-fixed": "#d3e4fe",
+                        "surface-bright": "#f7f9fb",
+                        "primary": "#000000",
+                        "surface-container-low": "#f2f4f6",
+                        "outline": "#76777d",
+                        "surface-container": "#eceef0",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container-high": "#e6e8ea",
+                        "inverse-primary": "#bec6e0",
+                        "on-secondary-fixed-variant": "#004395",
+                        "surface": "#f7f9fb",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#000000",
+                        "error": "#ba1a1a",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#131b2e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "container-padding": "24px",
+                        "stack-sm": "8px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "mono-label": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "title-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .icon-fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="h-full bg-background font-body-md text-on-surface antialiased overflow-hidden">
+<!-- App Shell -->
+<div class="flex h-full w-full">
+<!-- SideNavBar -->
+<nav class="hidden md:flex w-60 h-screen fixed left-0 top-0 flex-col gap-unit p-4 bg-surface border-r border-outline-variant z-10">
+<!-- Header -->
+<div class="flex items-center gap-3 mb-stack-lg px-2 pt-2">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-primary-container icon-fill">apartment</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary truncate">BKI Academy</h1>
+<p class="font-label-caps text-label-caps text-on-surface-variant truncate">Management System</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<div class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-title-sm text-title-sm">Dashboard</span>
+</a>
+<a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 bg-secondary-container text-on-secondary-container font-semibold rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined icon-fill" data-icon="school">school</span>
+<span class="font-title-sm text-title-sm">Training List</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+<span class="font-title-sm text-title-sm">Training Detail</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="verified">verified</span>
+<span class="font-title-sm text-title-sm">Certificate Monitoring</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span class="font-title-sm text-title-sm">Reports</span>
+</a>
+</div>
+<!-- User Profile Snippet (Bottom) -->
+<div class="mt-auto border-t border-outline-variant pt-4 px-2">
+<div class="flex items-center gap-3 cursor-pointer hover:bg-surface-container-high p-2 rounded-lg transition-colors">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant shrink-0" data-alt="A small, professional headshot portrait of an administrator in a corporate setting. The lighting is bright and modern, conveying a clean and trustworthy corporate identity. The background is a soft, out-of-focus office environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSRD8XrdlWPr_tN5u5tGLR_KlR488M4tmCmOYI7zKxkHY97fwb9qeFd0yuS8GEDAjsceGk5y9jfK0HMiPlT6mKHVpIBgnEdYvYDF3sQyZ8VG0-PlF9xeQ15M8jc4vexASziDW15Y7tmUoHNjpIzB0MA6BayFl165R3mWp1Ws65RfP4FZ536NT-eb0M4paZyjqtgncWNSIC1Xus1i5FjNrTjT3jogNJkE7BQsHchbRi99MuiUz0uTexpw">
+<div class="overflow-hidden">
+<p class="font-title-sm text-title-sm font-semibold text-on-surface truncate">Admin User</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">admin@bki.com</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:ml-60 h-screen w-full relative">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-gutter w-full bg-surface border-b border-outline-variant sticky top-0 z-20 shrink-0">
+<div class="flex items-center gap-4">
+<!-- Mobile Menu Button -->
+<button class="md:hidden p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-title-sm text-title-sm font-bold text-on-surface">CMS Dashboard</h2>
+</div>
+<!-- Search (Left aligned relative to trailing actions) -->
+<div class="flex-1 max-w-md ml-8 hidden sm:block">
+<div class="relative group focus-within:ring-2 focus-within:ring-secondary rounded-lg bg-surface-container-low transition-shadow">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-transparent border-none text-on-surface font-body-sm text-body-sm focus:ring-0 placeholder:text-outline rounded-lg outline-none" placeholder="Search trainings, certificates..." type="text">
+</div>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-2 ml-auto">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="w-px h-6 bg-outline-variant mx-2 hidden sm:block"></div>
+<button class="flex items-center gap-2 hover:bg-surface-container-high p-1.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-secondary">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant" data-alt="A small, professional headshot portrait of an administrator in a corporate setting. The lighting is bright and modern, conveying a clean and trustworthy corporate identity. The background is a soft, out-of-focus office environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVGFX_aCepTXW3i6cuT0RFYv1xt-oZQMbH4q2j8SJMfDqXkxzQ0IuygFVLe2J24V4wWw8lh9BrfxMPVSgipPqkE5dpMNxwHKfBDRsh6XQzLeZjMWLgFG781WOn7YoY2HmnPuOUfQzNrPcciYCd2oOqpdJFjRQKwE__9DEOHN3NyjwcwEOFWJK-B8yGfYZQgorldphmX5Qoxb0dLT1UWdy-MjpwBEKdUMqfEhqSBkmUWUQzEZuvX5F1wQ">
+<span class="material-symbols-outlined text-on-surface-variant">arrow_drop_down</span>
+</button>
+</div>
+</header>
+<!-- Page Content (Blurred/Dimmed for Modal Focus) -->
+<div class="flex-1 overflow-auto p-container-padding bg-background opacity-40 blur-sm pointer-events-none transition-all duration-300">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-stack-lg">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface mb-1">Training List</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage and monitor all active and upcoming training programs.</p>
+</div>
+<button class="bg-secondary text-on-secondary px-4 py-2 rounded-lg font-title-sm text-title-sm flex items-center gap-2 hover:opacity-90 transition-opacity pointer-events-auto shadow-sm ring-1 ring-inset ring-white/20">
+<span class="material-symbols-outlined text-sm">add</span>
+                        New Training
+                    </button>
+</div>
+<!-- Bento Grid / Data Representation -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-gutter">
+<!-- Stats Card 1 -->
+<div class="bg-surface rounded-xl p-6 border border-outline-variant flex flex-col gap-2">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-xl">event_available</span>
+<span class="font-label-caps text-label-caps">ACTIVE TRAININGS</span>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">24</div>
+<div class="font-body-sm text-body-sm text-secondary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +3 this month
+                        </div>
+</div>
+<!-- Stats Card 2 -->
+<div class="bg-surface rounded-xl p-6 border border-outline-variant flex flex-col gap-2">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-xl">group</span>
+<span class="font-label-caps text-label-caps">TOTAL PARTICIPANTS</span>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">1,204</div>
+<div class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+                            Across all batches
+                        </div>
+</div>
+<!-- Stats Card 3 -->
+<div class="bg-surface rounded-xl p-6 border border-outline-variant flex flex-col gap-2">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-xl">pending_actions</span>
+<span class="font-label-caps text-label-caps">PENDING CERTIFICATES</span>
+</div>
+<div class="font-display-lg text-display-lg text-on-surface">86</div>
+<div class="font-body-sm text-body-sm text-error flex items-center gap-1">
+                            Requires review
+                        </div>
+</div>
+<!-- Data Table Area -->
+<div class="xl:col-span-3 bg-surface rounded-xl border border-outline-variant overflow-hidden">
+<div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h3 class="font-title-sm text-title-sm text-on-surface">Recent Batches</h3>
+<button class="text-secondary font-title-sm text-title-sm hover:underline">View All</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant bg-surface-container-lowest">
+<th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant font-semibold">TRAINING NAME</th>
+<th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant font-semibold">BATCH</th>
+<th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant font-semibold">DATES</th>
+<th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant font-semibold">STATUS</th>
+<th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant font-semibold">PIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors h-12">
+<td class="px-4 py-2 font-body-md text-body-md font-medium text-on-surface">Advanced Welding Tech</td>
+<td class="px-4 py-2 font-mono-label text-mono-label text-on-surface-variant">BTH-2023-08</td>
+<td class="px-4 py-2 font-body-sm text-body-sm text-on-surface-variant">Oct 12 - Oct 16</td>
+<td class="px-4 py-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#D1FAE5] text-[#065F46]">Completed</span>
+</td>
+<td class="px-4 py-2 font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-bold text-on-surface">JS</div>
+                                            J. Smith
+                                        </td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors h-12">
+<td class="px-4 py-2 font-body-md text-body-md font-medium text-on-surface">Safety Inspection L2</td>
+<td class="px-4 py-2 font-mono-label text-mono-label text-on-surface-variant">BTH-2023-09</td>
+<td class="px-4 py-2 font-body-sm text-body-sm text-on-surface-variant">Oct 20 - Oct 25</td>
+<td class="px-4 py-2">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-primary-fixed text-on-primary-fixed">In Progress</span>
+</td>
+<td class="px-4 py-2 font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-bold text-on-surface">AD</div>
+                                            A. Davis
+                                        </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Modal Overlay Backdrop -->
+<div class="fixed inset-0 bg-on-surface/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" id="addTrainingModal">
+<!-- Modal Dialog -->
+<div class="bg-surface rounded-xl shadow-[0px_20px_25px_-5px_rgba(0,0,0,0.1)] w-full max-w-lg overflow-hidden flex flex-col max-h-full border border-outline-variant animate-in fade-in zoom-in-95 duration-200">
+<!-- Modal Header -->
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface">
+<div>
+<h3 class="font-title-sm text-title-sm font-semibold text-on-surface">Add New Training</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Enter details to create a new training batch.</p>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container p-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-secondary">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body (Form) -->
+<div class="p-6 overflow-y-auto bg-surface-bright flex-1 flex flex-col gap-stack-md">
+<!-- Field: Training Name -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-caps text-label-caps text-on-surface font-semibold" for="trainingName">TRAINING NAME <span class="text-error">*</span></label>
+<div class="relative focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary rounded-lg transition-shadow">
+<input class="w-full px-4 py-2.5 bg-surface border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface placeholder:text-outline outline-none focus:border-secondary focus:ring-2 focus:ring-secondary transition-all" id="trainingName" placeholder="e.g. Advanced Structural Analysis" type="text">
+</div>
+</div>
+<!-- Field: Batch Number -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-caps text-label-caps text-on-surface font-semibold" for="batchNumber">BATCH NUMBER <span class="text-error">*</span></label>
+<div class="relative focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary rounded-lg transition-shadow">
+<input class="w-full px-4 py-2.5 bg-surface border border-outline-variant rounded-lg font-mono text-body-md text-on-surface placeholder:text-outline outline-none focus:border-secondary focus:ring-2 focus:ring-secondary transition-all" id="batchNumber" placeholder="e.g. BTH-2024-01" type="text">
+</div>
+</div>
+<!-- Date Group -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Field: Start Date -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-caps text-label-caps text-on-surface font-semibold" for="startDate">START DATE <span class="text-error">*</span></label>
+<div class="relative focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary rounded-lg transition-shadow flex items-center bg-surface border border-outline-variant group">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant group-focus-within:text-secondary pointer-events-none">calendar_today</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-transparent border-none rounded-lg font-body-md text-body-md text-on-surface outline-none focus:ring-0" id="startDate" type="date">
+</div>
+</div>
+<!-- Field: End Date -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-caps text-label-caps text-on-surface font-semibold" for="endDate">END DATE <span class="text-error">*</span></label>
+<div class="relative focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary rounded-lg transition-shadow flex items-center bg-surface border border-outline-variant group">
+<span class="material-symbols-outlined absolute left-3 text-on-surface-variant group-focus-within:text-secondary pointer-events-none">calendar_month</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-transparent border-none rounded-lg font-body-md text-body-md text-on-surface outline-none focus:ring-0" id="endDate" type="date">
+</div>
+</div>
+</div>
+<!-- Field: PIC Selection -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-caps text-label-caps text-on-surface font-semibold" for="picSelect">PERSON IN CHARGE (PIC) <span class="text-error">*</span></label>
+<div class="relative focus-within:ring-2 focus-within:ring-secondary focus-within:border-secondary rounded-lg transition-shadow">
+<select class="w-full pl-4 pr-10 py-2.5 bg-surface border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary appearance-none transition-all" id="picSelect">
+<option disabled="" selected="" value="">Select an instructor or admin...</option>
+<option value="1">Dr. Robert Chen (Lead Instructor)</option>
+<option value="2">Sarah Jenkins (Training Coordinator)</option>
+<option value="3">Michael Chang (External Assessor)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Informational Alert/Hint -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-3 flex gap-3 items-start mt-2">
+<span class="material-symbols-outlined text-secondary text-xl shrink-0">info</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                        Creating a training batch will automatically generate placeholder certificate templates for enrolled participants.
+                    </p>
+</div>
+</div>
+<!-- Modal Footer (Actions) -->
+<div class="px-6 py-4 border-t border-outline-variant bg-surface-container-lowest flex justify-end gap-3"><button class="px-4 py-2 rounded-lg font-title-sm text-title-sm text-on-surface font-medium border border-outline-variant hover:bg-surface-container-low transition-colors focus:outline-none focus:ring-2 focus:ring-secondary" type="button">Cancel</button><button class="px-4 py-2 rounded-lg font-title-sm text-title-sm font-medium bg-secondary text-on-secondary shadow-sm ring-1 ring-inset ring-white/20 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2" type="button">Create Training</button></div>
+</div>
+</div>
+
+
+</body></html>

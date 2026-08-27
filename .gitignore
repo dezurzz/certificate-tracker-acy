@@ -1,0 +1,7 @@
+# Private credentials
+config.json
+.DS_Store
+testsprite_tests/tmp/
+testsprite_tests/tmp/config.json
+node_modules
+.next/

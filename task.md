@@ -1,0 +1,43 @@
+- [x] Refactor TopNavBar Header & Add Actions
+    - [x] Remove Title & Search from Header
+    - [x] Implement Notifications dropdown widget in Header
+    - [x] Implement Help Center dialog modal
+- [x] Implement Dashboard Cards & Export Interactivity
+    - [x] Connect KPI card redirect links
+    - [x] Implement dashboard CSV download trigger
+- [x] Implement Trainings Page Enhancements
+    - [x] Check query param for `openModal=true` on load
+    - [x] Add "More Filters" row toggle-collapse
+    - [x] Make row "Edit Batch" pre-fill modal and save changes
+- [x] Implement Training Detail Page Refinements
+    - [x] Make "Edit Details" open pre-filled training modal
+    - [x] Implement "Email Participants" composition modal
+    - [x] Implement Roster and Report CSV downloads
+    - [x] Add drag-and-drop features to the certificate Kanban board
+    - [x] Add clear color-coded distinctions for card types (Indigo/Teal)
+- [x] Implement Certificates Page Actions
+    - [x] Make header checkbox toggle all table rows
+    - [x] Add pre-selected query param filtering (e.g. ?filter=overdue)
+- [x] Implement Reports Page Period Toggle
+- [x] Implement Settings Pages Form Persistence (localStorage)
+- [x] Database Integration & Smart Parser UI
+    - [x] Create Supabase connector script with local storage fallback (shared/db.js)
+    - [x] Implement forward-fill parser & text date resolver in components JS
+    - [x] Add Data Normalization & Preview UI mapping modal
+    - [x] Add CSV template download function matching BKI Agenda layout
+    - [x] Add Supabase URL and Key inputs in System Configuration page
+    - [x] Add config.json / .gitignore private config setup
+- [x] User Authentication & Route Protection
+- [x] User Provisioning & Password Self-Service Reset
+- [x] Dynamic Page Bindings & Database Empty States
+- [x] Profile & Reports Auditing (Supabase Bindings)
+- [x] Dashboard Greetings & Sidebar Name Binding
+- [x] Dynamic Recent Activity Timeline
+- [x] Fix CSV Batch Grouping Parser Bug
+- [x] Trainings Delete & Bulk Actions Selector
+- [x] Verification and Walkthrough
+- [x] Implement Dynamic Audit History Screen (history-logs.html)
+    - [x] Create layout with topbar/sidebar injected components
+    - [x] Add real-time grouping by Time, PIC, and Training Batch
+    - [x] Implement instant client-side search indexing filter
+    - [x] Add "Export Audit Trail" CSV download function

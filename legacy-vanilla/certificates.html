@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Certificate Monitoring - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component (dynamically injected) -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component (dynamically injected) -->
+    <header id="header-container" data-title="Certificate Monitoring"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full">
+      <!-- Page Header -->
+      <div class="flex justify-between items-end mb-8">
+        <div>
+          <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Certificate Tracking</h2>
+          <p class="text-sm text-slate-500 mt-1">Monitor the lifecycle and status of all issued certificates.</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="downloadCertificatesReport()" class="cms-btn-secondary">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            Export
+          </button>
+          <a href="trainings.html?openModal=true" class="cms-btn-primary">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            New Batch
+          </a>
+        </div>
+      </div>
+
+      <!-- Filters with Search Integrated -->
+      <div class="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-4 items-center flex-wrap shadow-sm">
+        <div class="flex items-center gap-2 text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
+          <span class="material-symbols-outlined text-[18px]">filter_list</span>
+          Filters:
+        </div>
+        
+        <!-- Search bar inside table filter section -->
+        <div class="relative w-full md:w-60">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+          <input id="cert-search" class="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800" placeholder="Search certificates..." type="text">
+        </div>
+
+        <select id="train-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px] appearance-none pr-10 relative">
+          <option value="">All Trainings</option>
+          <option value="ISM">ISM Batch 116</option>
+          <option value="CSO">CSO Batch 53</option>
+        </select>
+        <select id="type-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px] appearance-none pr-10 relative">
+          <option value="">All Types</option>
+          <option value="Qualification">Qualification</option>
+          <option value="Attendance">Attendance</option>
+        </select>
+        <select id="state-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px] appearance-none pr-10 relative">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Processing">Processing</option>
+          <option value="Printing">Printing</option>
+          <option value="Completed">Completed</option>
+        </select>
+        <button onclick="clearFilters()" class="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">Clear Filters</button>
+      </div>
+
+      <!-- Data Table -->
+      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-8">
+        <div class="table-scroll overflow-x-auto w-full">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <th class="p-4 w-12 text-center">
+                  <input id="check-all" class="rounded border-slate-350 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer" type="checkbox">
+                </th>
+                <th class="p-4">Participant</th>
+                <th class="p-4">Training</th>
+                <th class="p-4">Type</th>
+                <th class="p-4">Status</th>
+                <th class="p-4">Age (Days)</th>
+                <th class="p-4">PIC</th>
+                <th class="p-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="cert-table-body" class="divide-y divide-slate-100 bg-white">
+              <!-- Dynamic rows loaded via shared/db.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Search and Filter controls logic
+    const certSearch = document.getElementById('cert-search');
+    const trainFilter = document.getElementById('train-filter');
+    const typeFilter = document.getElementById('type-filter');
+    const stateFilter = document.getElementById('state-filter');
+    const checkAll = document.getElementById('check-all');
+
+    // Handle check all toggle
+    if (checkAll) {
+      checkAll.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+          cb.checked = checked;
+        });
+      });
+    }
+
+    function filterTable() {
+      const searchVal = certSearch.value.toLowerCase();
+      const trainVal = trainFilter.value.toLowerCase();
+      const typeVal = typeFilter.value.toLowerCase();
+      const stateVal = stateFilter.value.toLowerCase();
+      const rows = document.querySelectorAll('#cert-table-body tr');
+
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const trainText = row.cells[2].textContent.toLowerCase();
+        const typeText = row.cells[3].textContent.toLowerCase();
+        const stateText = row.cells[4].textContent.toLowerCase();
+
+        const matchesSearch = text.includes(searchVal);
+        const matchesTrain = !trainVal || trainText.includes(trainVal);
+        const matchesType = !typeVal || typeText.includes(typeVal);
+        const matchesState = !stateVal || stateText.includes(stateVal);
+
+        if (matchesSearch && matchesTrain && matchesType && matchesState) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function clearFilters() {
+      certSearch.value = '';
+      trainFilter.value = '';
+      typeFilter.value = '';
+      stateFilter.value = '';
+      filterTable();
+    }
+
+    async function loadCertificateData() {
+      const list = await DB.getCertificates();
+      const tbody = document.getElementById('cert-table-body');
+      tbody.innerHTML = '';
+
+      if (list.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="px-6 py-12 text-center bg-white">
+              <div class="flex flex-col items-center justify-center gap-3">
+                <span class="material-symbols-outlined text-4xl text-slate-300">verified</span>
+                <p class="text-sm font-semibold text-slate-700">No certificates found</p>
+                <p class="text-xs text-slate-400">Try adjusting your filters or import new training agendas.</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      list.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors group';
+        
+        let badgeClass = 'cms-badge-pending';
+        let dotColor = 'bg-slate-400';
+        if (c.status === 'Processing') {
+          badgeClass = 'cms-badge-processing';
+          dotColor = 'bg-blue-500';
+        } else if (c.status === 'Printing') {
+          badgeClass = 'cms-badge-processing';
+          dotColor = 'bg-amber-500';
+        } else if (c.status === 'Completed') {
+          badgeClass = 'cms-badge-completed';
+          dotColor = 'bg-green-500';
+        }
+
+        const isOverdue = c.sla_age_days > 4;
+        const ageHtml = isOverdue 
+          ? `<div class="flex items-center gap-2">
+              <span class="text-red-600 font-bold">${c.sla_age_days} days</span>
+              <span class="material-symbols-outlined text-red-500 text-base" title="Overdue">warning</span>
+            </div>`
+          : `<span class="text-slate-500 font-medium">${c.sla_age_days} days</span>`;
+
+        let typeBadgeHtml = '';
+        if (c.certificate_type === 'Qualification') {
+          typeBadgeHtml = `
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider select-none">
+              <span class="material-symbols-outlined text-[10px] font-bold">workspace_premium</span>
+              Qualification
+            </span>
+          `;
+        } else {
+          typeBadgeHtml = `
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100 uppercase tracking-wider select-none">
+              <span class="material-symbols-outlined text-[10px] font-bold">assignment_turned_in</span>
+              Attendance
+            </span>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td class="p-4 text-center">
+            <input class="row-checkbox rounded border-slate-350 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer" type="checkbox">
+          </td>
+          <td class="p-4 font-semibold text-slate-900">${c.participants ? c.participants.name : 'Unknown'}</td>
+          <td class="p-4 text-slate-650 font-medium">${c.trainings ? c.trainings.program_name + ' ' + c.trainings.batch_code : 'Unknown'}</td>
+          <td class="p-4">${typeBadgeHtml}</td>
+          <td class="p-4">
+            <span class="cms-badge ${badgeClass}">
+              <span class="w-1.5 h-1.5 rounded-full ${dotColor} mr-1.5"></span>
+              ${c.status}
+            </span>
+          </td>
+          <td class="p-4">${ageHtml}</td>
+          <td class="p-4 text-slate-650 font-medium">${c.trainings ? c.trainings.pic || '-' : '-'}</td>
+          <td class="p-4 text-right" onclick="event.stopPropagation()">
+            <div class="relative inline-block text-left">
+              <button class="row-actions-btn text-slate-400 hover:text-slate-700 p-1.5 rounded transition-colors focus:outline-none">
+                <span class="material-symbols-outlined text-[18px]">more_vert</span>
+              </button>
+              <div class="row-actions-menu hidden absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                <a href="training-detail.html" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                  <span class="material-symbols-outlined text-sm">visibility</span> View Batch
+                </a>
+                <a href="#" onclick="alert('Email PIC (Mockup)')" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                  <span class="material-symbols-outlined text-sm">mail</span> Email PIC
+                </a>
+                <hr class="border-slate-100 my-1">
+                <a href="#" onclick="if(confirm('Are you sure you want to remove this record?')) { this.closest('tr').remove(); }" class="flex items-center gap-2 px-3 py-2 text-xs text-red-655 hover:bg-red-50 text-red-600">
+                  <span class="material-symbols-outlined text-sm">delete</span> Delete
+                </a>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Auto check and apply query filters (e.g. ?filter=overdue or ?filter=pending)
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadCertificateData();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const filterVal = urlParams.get('filter');
+      
+      if (filterVal === 'pending') {
+        stateFilter.value = 'Pending';
+        filterTable();
+      } else if (filterVal === 'overdue') {
+        const rows = document.querySelectorAll('#cert-table-body tr');
+        rows.forEach(row => {
+          const hasWarning = row.querySelector('.material-symbols-outlined[title="Overdue"]');
+          if (hasWarning) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      }
+    });
+
+    certSearch.addEventListener('keyup', filterTable);
+    trainFilter.addEventListener('change', filterTable);
+    typeFilter.addEventListener('change', filterTable);
+    stateFilter.addEventListener('change', filterTable);
+  </script>
+</body>
+</html>

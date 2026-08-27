@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Training List - BKI Academy CMS</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link rel="stylesheet" href="shared/design-system.css">
+  <script src="shared/db.js"></script>
+  <script src="shared/components.js" defer></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex">
+
+  <!-- SideNavBar Component (dynamically injected) -->
+  <aside id="sidebar-container"></aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="flex-1 ml-60 flex flex-col min-h-screen">
+    <!-- TopNavBar Component (dynamically injected) -->
+    <header id="header-container" data-title="Training List"></header>
+
+    <!-- Page Content -->
+    <main class="flex-grow p-6 max-w-[1440px] mx-auto w-full">
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h2 class="text-3xl font-bold text-slate-800 tracking-tight">Trainings</h2>
+          <p class="text-sm text-slate-500 mt-1">Manage and monitor all training programs.</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="openImportModal()" class="cms-btn-secondary h-10 shadow-sm">
+            <span class="material-symbols-outlined text-[18px]">upload_file</span>
+            Import Agenda CSV
+          </button>
+          <button id="open-modal-btn" class="cms-btn-primary h-10 shadow-md shadow-blue-500/10">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Add Training
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters & Controls -->
+      <div class="bg-white rounded-xl border border-slate-200 p-4 flex flex-col shadow-sm mb-6">
+        <div class="flex flex-col md:flex-row gap-4 items-center justify-between w-full">
+          <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <!-- Search input -->
+            <div class="relative w-full md:w-64">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+              <input id="training-search" class="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-850" placeholder="Search trainings..." type="text">
+            </div>
+            <!-- Status Dropdown -->
+            <select id="status-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-0 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 min-w-[130px] appearance-none cursor-pointer">
+              <option value="">All Status</option>
+              <option value="Completed">Completed</option>
+              <option value="Processing">Processing</option>
+            </select>
+            <!-- Date Filter Button -->
+            <div class="relative flex items-center">
+              <input id="date-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer" type="date">
+            </div>
+            <!-- PIC Filter -->
+            <select id="pic-filter" class="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-0 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 min-w-[130px] appearance-none cursor-pointer">
+              <option value="">All PICs</option>
+              <option value="Andi">Andi</option>
+              <option value="Budi">Budi</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+            <button onclick="toggleSecondaryFilters()" class="cms-btn-secondary h-9 py-0">
+              <span class="material-symbols-outlined text-[18px]">filter_list</span>
+              More Filters
+            </button>
+          </div>
+        </div>
+
+        <!-- More Filters secondary row -->
+        <div id="secondary-filters" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100 w-full animate-in fade-in duration-200">
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Department</label>
+            <select class="cms-input h-9 py-0 cursor-pointer">
+              <option value="">All Departments</option>
+              <option>Marine Services</option>
+              <option>Industrial Academy</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Location</label>
+            <select class="cms-input h-9 py-0 cursor-pointer">
+              <option value="">All Locations</option>
+              <option>Jakarta Training Center</option>
+              <option>Surabaya Hub</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SLA Priority</label>
+            <select class="cms-input h-9 py-0 cursor-pointer">
+              <option value="">All Priorities</option>
+              <option>Normal (14 Days)</option>
+              <option>Urgent (7 Days)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table Container -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col mb-8">
+        <div class="table-scroll overflow-x-auto w-full">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50">
+                <th class="px-6 py-4 w-12 text-center">
+                  <input id="select-all-trainings" type="checkbox" class="rounded border-slate-250 text-blue-600 focus:ring-blue-500/15 cursor-pointer">
+                </th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Training Name</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Batch</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Date</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap text-right">Participants</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Certificate Progress</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">PIC</th>
+                <th class="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="training-table-body" class="divide-y divide-slate-100">
+              <!-- Content loaded via db.js async script -->
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination Footer -->
+        <div class="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
+          <div class="text-xs text-slate-500">
+            Showing <span id="pag-start" class="font-medium text-slate-800">1</span> to <span id="pag-end" class="font-medium text-slate-800">2</span> of <span id="pag-total" class="font-medium text-slate-800">2</span> results
+          </div>
+          <div class="flex gap-1">
+            <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 disabled:opacity-40" disabled>
+              <span class="material-symbols-outlined text-[16px]">chevron_left</span>
+            </button>
+            <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs font-semibold">1</button>
+            <button class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 disabled:opacity-40" disabled>
+              <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- UPLOAD MODAL -->
+  <div id="upload-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeImportModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <h3 class="text-base font-bold text-slate-800">Import Agenda CSV</h3>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeImportModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-6 flex flex-col gap-4">
+        <!-- Drag-n-drop -->
+        <div id="upload-box" onclick="triggerCSVSelect()" class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-white">
+          <span class="material-symbols-outlined text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2">upload_file</span>
+          <p class="text-sm font-semibold text-slate-700">Drag & drop your Agenda CSV here</p>
+          <p class="text-xs text-slate-400 mt-1">Accepts denormalized CSV exports (Max 5MB)</p>
+          <input type="file" id="real-file-input" class="hidden" accept=".csv" onchange="handleFileSelect(event)">
+        </div>
+        <div class="bg-slate-50 rounded-lg p-3 border border-slate-100 flex gap-2.5 items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-slate-400 text-sm">download</span>
+            <span class="text-xs font-semibold text-slate-700">BKI Agenda Template</span>
+          </div>
+          <button onclick="downloadCSVTemplate()" class="text-xs font-bold text-blue-600 hover:underline">Download CSV</button>
+        </div>
+      </div>
+      <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <button class="cms-btn-secondary" onclick="closeImportModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT MANUAL MODAL -->
+  <div id="add-training-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4 hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-full border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
+        <div>
+          <h3 id="modal-title" class="text-base font-bold text-slate-800">Add New Training</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Enter details to create or modify a training batch.</p>
+        </div>
+        <button class="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onclick="closeModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <form id="add-training-form" onsubmit="submitForm(event)" class="flex-grow flex flex-col overflow-y-auto">
+        <div class="p-6 flex-grow flex flex-col gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="trainingName">TRAINING NAME <span class="text-red-500">*</span></label>
+            <input class="cms-input" id="trainingName" placeholder="e.g. Advanced Structural Analysis" type="text" required>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="batchNumber">BATCH NUMBER <span class="text-red-500">*</span></label>
+            <input class="cms-input font-mono" id="batchNumber" placeholder="e.g. BTH-2024-01" type="text" required>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="startDate">START DATE <span class="text-red-500">*</span></label>
+              <input class="cms-input" id="startDate" type="date" required>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="endDate">END DATE <span class="text-red-500">*</span></label>
+              <input class="cms-input" id="endDate" type="date" required>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" for="picSelect">PERSON IN CHARGE (PIC) <span class="text-red-500">*</span></label>
+            <input class="cms-input" id="picSelect" placeholder="e.g. Budi Santoso" type="text" required>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
+          <button class="cms-btn-secondary" type="button" onclick="closeModal()">Cancel</button>
+          <button id="submit-btn" class="cms-btn-primary" type="submit">Create Training</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById('add-training-modal');
+    const openBtn = document.getElementById('open-modal-btn');
+    let editingRow = null;
+
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', () => {
+        editingRow = null;
+        document.getElementById('modal-title').textContent = 'Add New Training';
+        document.getElementById('submit-btn').textContent = 'Create Training';
+        modal.classList.remove('hidden');
+      });
+    }
+
+    function showGlobalSpinner(message = "Deleting...") {
+      let overlay = document.getElementById('global-spinner-overlay');
+      if (overlay) overlay.remove();
+      
+      overlay = document.createElement('div');
+      overlay.id = 'global-spinner-overlay';
+      overlay.className = 'fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-50 flex items-center justify-center';
+      overlay.innerHTML = `
+        <div class="bg-white px-6 py-4 rounded-xl shadow-lg border border-slate-200 flex items-center gap-3 animate-in zoom-in-95 duration-150">
+          <span class="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+          <span class="text-sm font-semibold text-slate-800">${message}</span>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+    
+    function hideGlobalSpinner() {
+      const overlay = document.getElementById('global-spinner-overlay');
+      if (overlay) overlay.remove();
+    }
+
+    function updateBulkActionsBar() {
+      const checked = document.querySelectorAll('.training-select-checkbox:checked');
+      const bar = document.getElementById('bulk-actions-bar');
+      const count = document.getElementById('selected-count');
+      
+      if (checked.length > 0) {
+        count.textContent = checked.length;
+        bar.classList.remove('translate-y-28', 'opacity-0', 'pointer-events-none');
+        bar.classList.add('translate-y-0', 'opacity-100');
+      } else {
+        bar.classList.add('translate-y-28', 'opacity-0', 'pointer-events-none');
+        bar.classList.remove('translate-y-0', 'opacity-100');
+      }
+    }
+
+    async function deleteTrainingBatch(id) {
+      if (!confirm('Are you sure you want to delete this training batch and all associated certificates?')) return;
+      
+      showGlobalSpinner("Deleting batch...");
+      try {
+        if (typeof DB !== 'undefined') {
+          await DB.deleteTraining(id);
+          alert('Training batch deleted successfully.');
+          await loadTableData();
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete training batch: ' + err.message + '\n\nPlease ensure DELETE policies are enabled in your Supabase SQL editor.');
+      } finally {
+        hideGlobalSpinner();
+      }
+    }
+
+    async function deleteSelectedBatches() {
+      const checked = document.querySelectorAll('.training-select-checkbox:checked');
+      if (checked.length === 0) return;
+      
+      if (!confirm(`Are you sure you want to delete the ${checked.length} selected training batch(es) and all associated certificates?`)) return;
+      
+      showGlobalSpinner(`Deleting ${checked.length} batches...`);
+      try {
+        if (typeof DB !== 'undefined') {
+          for (let cb of checked) {
+            const id = cb.getAttribute('data-id');
+            await DB.deleteTraining(id);
+          }
+          alert('Selected training batches deleted successfully.');
+          
+          const selectAll = document.getElementById('select-all-trainings');
+          if (selectAll) selectAll.checked = false;
+          
+          await loadTableData();
+          updateBulkActionsBar();
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to delete selected batches: ' + err.message + '\n\nPlease ensure DELETE policies are enabled in your Supabase SQL editor.');
+      } finally {
+        hideGlobalSpinner();
+      }
+    }
+
+    // Time-ago helper
+    function timeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      if (days < 7) return `${days}d ago`;
+      return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+
+    // Load data dynamically from DB layer
+    async function loadTableData() {
+      const list = await DB.getTrainings();
+      const certificates = await DB.getCertificates();
+      const tbody = document.getElementById('training-table-body');
+      tbody.innerHTML = '';
+      
+      list.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/70 transition-colors group h-14 cursor-pointer animate-in fade-in duration-200';
+        tr.onclick = () => window.location.href = `training-detail.html?id=${t.id}`;
+        
+        const initials = t.pic ? t.pic.substring(0, 2).toUpperCase() : 'AN';
+        const start = new Date(t.start_date);
+        const end = new Date(t.end_date);
+        const options = { day: '2-digit', month: 'short', year: 'numeric' };
+        const dateText = start.toLocaleDateString('en-GB', { day: '2-digit' }) + '-' + end.toLocaleDateString('en-GB', options);
+
+        // Filter certificates and compute actual participants & progress
+        const batchCerts = certificates.filter(c => c.training_id === t.id);
+        const uniquePartIds = [...new Set(batchCerts.map(c => c.participant_id))];
+        const participantCount = uniquePartIds.length;
+
+        // Attendance stats
+        const attCerts = batchCerts.filter(c => c.certificate_type === 'Attendance');
+        const completedAtt = attCerts.filter(c => c.status === 'Completed').length;
+        const attPct = attCerts.length > 0 ? Math.round((completedAtt / attCerts.length) * 100) : 0;
+
+        // Qualification stats
+        const qualCerts = batchCerts.filter(c => c.certificate_type === 'Qualification');
+        const completedQual = qualCerts.filter(c => c.status === 'Completed').length;
+        const qualPct = qualCerts.length > 0 ? Math.round((completedQual / qualCerts.length) * 100) : 0;
+
+        // Last modified info from most recently updated certificate in this batch
+        const sortedCerts = [...batchCerts].filter(c => c.updated_at).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        const latestCert = sortedCerts[0];
+        const lastModifier = latestCert ? (latestCert.updated_by || latestCert.printed_by || latestCert.sent_by || null) : null;
+        const lastModTime = latestCert ? latestCert.updated_at : null;
+        const lastModText = lastModifier
+          ? `<span class="text-[9px] text-slate-400 leading-none">by ${lastModifier} &middot; ${timeAgo(lastModTime)}</span>`
+          : (lastModTime ? `<span class="text-[9px] text-slate-400 leading-none">${timeAgo(lastModTime)}</span>` : '');
+
+        tr.innerHTML = `
+          <td class="px-6 py-3 w-12 text-center" onclick="event.stopPropagation()">
+            <input type="checkbox" class="training-select-checkbox rounded border-slate-200 text-blue-600 focus:ring-blue-500/15 cursor-pointer" data-id="${t.id}">
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap">
+            <div class="text-sm font-semibold text-slate-900">${t.program_name}</div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap">
+            <div class="text-xs font-mono font-semibold text-slate-500">${t.batch_code}</div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap">
+            <div class="text-xs text-slate-500">${dateText}</div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap text-right">
+            <div class="text-sm text-slate-800 font-semibold">${participantCount}</div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap">
+            <div class="flex flex-col gap-1 min-w-[130px] select-none">
+              <!-- Attendance progress line -->
+              <div class="flex items-center justify-between text-[9px] leading-none">
+                <span class="text-slate-500 font-bold uppercase tracking-wider scale-95 origin-left">ATT</span>
+                <span class="font-extrabold text-teal-600">${attPct}%</span>
+              </div>
+              <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-teal-600 rounded-full transition-all duration-300" style="width: ${attPct}%"></div>
+              </div>
+              
+              <!-- Qualification progress line -->
+              <div class="flex items-center justify-between text-[9px] leading-none mt-1">
+                <span class="text-slate-500 font-bold uppercase tracking-wider scale-95 origin-left">QUAL</span>
+                <span class="font-extrabold text-indigo-600">${qualPct}%</span>
+              </div>
+              <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: ${qualPct}%"></div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-3">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">${initials}</div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-xs text-slate-700 font-semibold truncate">${t.pic || '-'}</span>
+                ${lastModText}
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-3 whitespace-nowrap text-right" onclick="event.stopPropagation()">
+            <div class="relative inline-block text-left">
+              <button class="row-actions-btn text-slate-400 hover:text-slate-600 p-1.5 rounded transition-colors focus:outline-none">
+                <span class="material-symbols-outlined text-[18px]">more_vert</span>
+              </button>
+              <div class="row-actions-menu hidden absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                <a href="training-detail.html?id=${t.id}" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                  <span class="material-symbols-outlined text-sm">visibility</span> View Detail
+                </a>
+                <a href="#" onclick="openEditModal('${t.id}', '${t.program_name}', '${t.batch_code}', '${t.start_date}', '${t.end_date}', '${t.pic}', this)" class="flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50">
+                  <span class="material-symbols-outlined text-sm">edit</span> Edit Batch
+                </a>
+                <hr class="border-slate-100 my-1">
+                <a href="#" onclick="deleteTrainingBatch('${t.id}')" class="flex items-center gap-2 px-3 py-2 text-xs text-red-650 hover:bg-red-50 text-red-600">
+                  <span class="material-symbols-outlined text-sm">delete</span> Delete
+                </a>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Bind listener to row checkboxes
+      document.querySelectorAll('.training-select-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateBulkActionsBar);
+      });
+
+      document.getElementById('pag-end').textContent = list.length;
+      document.getElementById('pag-total').textContent = list.length;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadTableData();
+      
+      const selectAll = document.getElementById('select-all-trainings');
+      if (selectAll) {
+        selectAll.addEventListener('change', (e) => {
+          const checkboxes = document.querySelectorAll('.training-select-checkbox');
+          checkboxes.forEach(cb => {
+            cb.checked = e.target.checked;
+          });
+          updateBulkActionsBar();
+        });
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('openModal') === 'true') {
+        editingRow = null;
+        modal.classList.remove('hidden');
+      }
+    });
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      document.getElementById('add-training-form').reset();
+      editingRow = null;
+    }
+
+    function toggleSecondaryFilters() {
+      const secFilters = document.getElementById('secondary-filters');
+      secFilters.classList.toggle('hidden');
+    }
+
+    // Modal Import triggers
+    function openImportModal() {
+      document.getElementById('upload-modal').classList.remove('hidden');
+    }
+
+    function closeImportModal() {
+      document.getElementById('upload-modal').classList.add('hidden');
+    }
+
+    function triggerCSVSelect() {
+      document.getElementById('real-file-input').click();
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const batches = normalizeAgendaCSV(text);
+          if (batches && batches.length > 0) {
+            closeImportModal();
+            showNormalizationPreview(batches);
+          } else {
+            alert('Could not parse any training records. Please check that headers match the BKI CSV template.');
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    let editingTrainingId = null;
+
+    function openEditModal(id, name, batch, start, end, pic, button) {
+      editingRow = button.closest('tr');
+      editingTrainingId = id;
+      document.getElementById('trainingName').value = name;
+      document.getElementById('batchNumber').value = batch;
+      document.getElementById('startDate').value = start;
+      document.getElementById('endDate').value = end;
+      document.getElementById('picSelect').value = pic;
+      
+      document.getElementById('modal-title').textContent = 'Edit Training Batch';
+      document.getElementById('submit-btn').textContent = 'Save Changes';
+      modal.classList.remove('hidden');
+    }
+
+    async function submitForm(event) {
+      event.preventDefault();
+      
+      const name = document.getElementById('trainingName').value;
+      const batch = document.getElementById('batchNumber').value;
+      const pic = document.getElementById('picSelect').value;
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+
+      if (editingRow && editingTrainingId) {
+        showGlobalSpinner("Saving changes...");
+        try {
+          await DB.updateTraining(editingTrainingId, {
+            program_name: name,
+            batch_code: batch,
+            pic: pic,
+            start_date: start,
+            end_date: end
+          });
+          alert('Training batch updated successfully!');
+          closeModal();
+          await loadTableData();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to update training: ' + err.message);
+        } finally {
+          hideGlobalSpinner();
+        }
+      } else {
+        showGlobalSpinner("Creating training...");
+        try {
+          await DB.insertTraining({
+            program_name: name,
+            batch_code: batch,
+            start_date: start,
+            end_date: end,
+            location: 'Jakarta Training Center',
+            pic: pic,
+            status: 'Processing'
+          });
+          alert('New training batch created successfully!');
+          closeModal();
+          await loadTableData();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to create training: ' + err.message);
+        } finally {
+          hideGlobalSpinner();
+        }
+      }
+    }
+
+    // Search and Filter controls
+    const tableSearch = document.getElementById('training-search');
+    const statusFilter = document.getElementById('status-filter');
+    const picFilter = document.getElementById('pic-filter');
+    const dateFilter = document.getElementById('date-filter');
+
+    function filterTable() {
+      const searchVal = tableSearch.value.toLowerCase();
+      const statusVal = statusFilter.value.toLowerCase();
+      const picVal = picFilter.value.toLowerCase();
+      const dateVal = dateFilter.value;
+      const rows = document.querySelectorAll('#training-table-body tr');
+
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        
+        const statusSpan = row.querySelector('.cms-badge');
+        const statusText = statusSpan ? statusSpan.textContent.toLowerCase() : '';
+        const picSpan = row.querySelector('td:nth-child(6) span');
+        const picText = picSpan ? picSpan.textContent.toLowerCase() : '';
+
+        const matchesSearch = text.includes(searchVal);
+        const matchesStatus = !statusVal || statusText.includes(statusVal);
+        const matchesPic = !picVal || picText.includes(picVal);
+        
+        let matchesDate = true;
+        if (dateVal) {
+          const dateText = row.cells[2].textContent.toLowerCase();
+          const targetYear = dateVal.substring(0, 4);
+          matchesDate = dateText.includes(targetYear);
+        }
+
+        if (matchesSearch && matchesStatus && matchesPic && matchesDate) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      document.getElementById('pag-end').textContent = visibleCount;
+      document.getElementById('pag-total').textContent = visibleCount;
+    }
+
+    tableSearch.addEventListener('keyup', filterTable);
+    statusFilter.addEventListener('change', filterTable);
+    picFilter.addEventListener('change', filterTable);
+    dateFilter.addEventListener('change', filterTable);
+  </script>
+  <!-- Floating Bulk Actions Card -->
+  <div id="bulk-actions-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-4 z-50 transform translate-y-28 opacity-0 transition-all duration-300 pointer-events-none">
+    <span class="text-xs font-semibold text-slate-300"><span id="selected-count">0</span> batches selected</span>
+    <div class="h-4 w-px bg-slate-700"></div>
+    <button onclick="deleteSelectedBatches()" class="flex items-center gap-1.5 text-xs text-red-450 hover:text-red-300 font-bold uppercase tracking-wider">
+      <span class="material-symbols-outlined text-sm">delete</span> Delete Selected
+    </button>
+  </div>
+</body>
+</html>
