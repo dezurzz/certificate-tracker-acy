@@ -5,3 +5,4 @@ testsprite_tests/tmp/
 testsprite_tests/tmp/config.json
 node_modules
 .next/
+.env.local
