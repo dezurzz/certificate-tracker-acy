@@ -113,11 +113,21 @@ export default function DashboardPage() {
 
       // Active trainings progress
       const activeTrainingsList = trainList.filter(t => t.status !== 'Completed').slice(0, 5);
+      const getProgressWeight = (status: string) => {
+        switch (status) {
+          case 'Pending': return 25;
+          case 'Processing': return 50;
+          case 'Printing': return 75;
+          case 'Completed': return 100;
+          default: return 0;
+        }
+      };
       const activeBatchesWithProgress = activeTrainingsList.map(t => {
         const tCerts = certList.filter(c => c.training_id === t.id);
         const totalCerts = tCerts.length;
         const completedCount = tCerts.filter(c => c.status === 'Completed').length;
-        const percentage = totalCerts > 0 ? Math.round((completedCount / totalCerts) * 100) : 0;
+        const progressSum = tCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
+        const percentage = totalCerts > 0 ? Math.round(progressSum / totalCerts) : 0;
         return {
           ...t,
           totalCerts,

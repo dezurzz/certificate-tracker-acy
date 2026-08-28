@@ -154,12 +154,25 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const totalParts = participantList.length;
   const qualCerts = certificates.filter(c => c.certificate_type === 'Qualification');
   const passedQual = qualCerts.filter(c => c.status === 'Completed').length;
-  const qualPercent = qualCerts.length > 0 ? Math.round((passedQual / qualCerts.length) * 100) : 0;
+  
+  const getProgressWeight = (status: string) => {
+    switch (status) {
+      case 'Pending': return 25;
+      case 'Processing': return 50;
+      case 'Printing': return 75;
+      case 'Completed': return 100;
+      default: return 0;
+    }
+  };
+
+  const qualProgressSum = qualCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
+  const qualPercent = qualCerts.length > 0 ? Math.round(qualProgressSum / qualCerts.length) : 0;
 
   const attCerts = certificates.filter(c => c.certificate_type === 'Attendance');
   const presentCount = attCerts.filter(c => c.status === 'Completed').length;
-  const attPercent = attCerts.length > 0 ? Math.round((presentCount / attCerts.length) * 150) : 100; // matching mockup
-  const displayAttPercent = attCerts.length > 0 ? Math.round((presentCount / attCerts.length) * 100) : 100;
+  const attProgressSum = attCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
+  const attPercent = attCerts.length > 0 ? Math.round((attProgressSum / attCerts.length) * 1.5) : 100; // matching mockup
+  const displayAttPercent = attCerts.length > 0 ? Math.round(attProgressSum / attCerts.length) : 100;
 
   // Actions
   const handleSaveDetails = async (e: React.FormEvent) => {
@@ -818,7 +831,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                 <div key={colStatus} className="flex flex-col gap-3 bg-slate-100 p-4 rounded-xl min-h-[450px]">
                   <div className="flex justify-between items-center px-1 relative">
                     <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      {colStatus === 'Processing' ? 'Processing QC' : colStatus === 'Printing' ? 'Printing / Signing' : colStatus === 'Completed' ? 'Completed / Sent' : colStatus}
+                      {colStatus === 'Processing' ? 'Processing QC' : colStatus === 'Printing' ? 'Printed' : colStatus === 'Completed' ? 'Completed / Sent' : colStatus}
                     </span>
                     <div className="flex items-center gap-1.5">
                       {/* Left arrow button */}

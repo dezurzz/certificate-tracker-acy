@@ -546,15 +546,26 @@ function TrainingsContent() {
                     const uniquePartIds = Array.from(new Set(batchCerts.map(c => c.participant_id)));
                     const participantCount = uniquePartIds.length;
 
+                    // Helper to get progress weight based on status
+                    const getProgressWeight = (status: string) => {
+                      switch (status) {
+                        case 'Pending': return 25;
+                        case 'Processing': return 50;
+                        case 'Printing': return 75;
+                        case 'Completed': return 100;
+                        default: return 0;
+                      }
+                    };
+
                     // Attendance stats
                     const attCerts = batchCerts.filter(c => c.certificate_type === 'Attendance');
-                    const completedAtt = attCerts.filter(c => c.status === 'Completed').length;
-                    const attPct = attCerts.length > 0 ? Math.round((completedAtt / attCerts.length) * 100) : 0;
+                    const attProgressSum = attCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
+                    const attPct = attCerts.length > 0 ? Math.round(attProgressSum / attCerts.length) : 0;
 
                     // Qualification stats
                     const qualCerts = batchCerts.filter(c => c.certificate_type === 'Qualification');
-                    const completedQual = qualCerts.filter(c => c.status === 'Completed').length;
-                    const qualPct = qualCerts.length > 0 ? Math.round((completedQual / qualCerts.length) * 100) : 0;
+                    const qualProgressSum = qualCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
+                    const qualPct = qualCerts.length > 0 ? Math.round(qualProgressSum / qualCerts.length) : 0;
 
                     // Last modifier info
                     const sortedCerts = [...batchCerts].filter(c => c.updated_at).sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
