@@ -85,3 +85,28 @@ CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_pic ON leads(pic_staff_name);
 CREATE INDEX IF NOT EXISTS idx_leads_next_follow_up ON leads(next_follow_up_date);
 CREATE INDEX IF NOT EXISTS idx_lead_activities_lead ON lead_activities(lead_id);
+
+-- ==============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ==============================================================================
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE training_programs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lead_activities ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all access to companies" ON companies;
+CREATE POLICY "Allow all access to companies" ON companies FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access to contacts" ON contacts;
+CREATE POLICY "Allow all access to contacts" ON contacts FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access to training_programs" ON training_programs;
+CREATE POLICY "Allow all access to training_programs" ON training_programs FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access to leads" ON leads;
+CREATE POLICY "Allow all access to leads" ON leads FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access to lead_activities" ON lead_activities;
+CREATE POLICY "Allow all access to lead_activities" ON lead_activities FOR ALL USING (true) WITH CHECK (true);
+

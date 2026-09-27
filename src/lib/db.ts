@@ -40,6 +40,11 @@ const notifyDbUpdate = () => {
   }
 };
 
+const isValidUUID = (str?: string): boolean => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+};
+
 export interface Training {
   id: string;
   program_name: string;
@@ -960,7 +965,9 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('companies').upsert([company]).select();
+      const payload: any = { ...company };
+      if (payload.id && !isValidUUID(payload.id)) delete payload.id;
+      const { data, error } = await supabase.from('companies').upsert([payload], { onConflict: 'name' }).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Company;
@@ -1001,7 +1008,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('contacts').upsert([contact]).select();
+      const payload: any = { ...contact };
+      if (payload.id && !isValidUUID(payload.id)) delete payload.id;
+      if (payload.company_id && !isValidUUID(payload.company_id)) delete payload.company_id;
+      const { data, error } = await supabase.from('contacts').upsert([payload]).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Contact;
@@ -1042,7 +1052,9 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('training_programs').upsert([prog]).select();
+      const payload: any = { ...prog };
+      if (payload.id && !isValidUUID(payload.id)) delete payload.id;
+      const { data, error } = await supabase.from('training_programs').upsert([payload], { onConflict: 'code' }).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as TrainingProgram;
@@ -1107,7 +1119,13 @@ export const DB = {
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('leads').insert([record]).select();
+      const payload: any = { ...leadData };
+      if (!isValidUUID(payload.contact_id)) delete payload.contact_id;
+      if (!isValidUUID(payload.company_id)) delete payload.company_id;
+      if (!isValidUUID(payload.program_id)) delete payload.program_id;
+      if (!isValidUUID(payload.batch_id)) delete payload.batch_id;
+
+      const { data, error } = await supabase.from('leads').insert([payload]).select();
       if (!error && data && data.length > 0) {
         // Log activity
         await this.insertLeadActivity({
@@ -1158,10 +1176,15 @@ export const DB = {
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead | null> {
     this.initMock();
     const now = new Date().toISOString();
-    const payload = { ...updates, updated_at: now };
+    const payload: any = { ...updates, updated_at: now };
 
     const supabase = getSupabaseClient();
-    if (supabase) {
+    if (supabase && isValidUUID(leadId)) {
+      if (payload.contact_id !== undefined && !isValidUUID(payload.contact_id)) delete payload.contact_id;
+      if (payload.company_id !== undefined && !isValidUUID(payload.company_id)) delete payload.company_id;
+      if (payload.program_id !== undefined && !isValidUUID(payload.program_id)) delete payload.program_id;
+      if (payload.batch_id !== undefined && !isValidUUID(payload.batch_id)) delete payload.batch_id;
+
       const { data, error } = await supabase.from('leads').update(payload).eq('id', leadId).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();
@@ -1319,8 +1342,9 @@ export const DB = {
     };
 
     const supabase = getSupabaseClient();
-    if (supabase) {
-      const { data, error } = await supabase.from('lead_activities').insert([record]).select();
+    if (supabase && isValidUUID(act.lead_id)) {
+      const payload: any = { ...act };
+      const { data, error } = await supabase.from('lead_activities').insert([payload]).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as LeadActivity;
