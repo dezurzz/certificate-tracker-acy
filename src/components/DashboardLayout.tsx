@@ -18,7 +18,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
         <Sidebar />
 
         {/* Main Content Wrapper */}
-        <div className="flex-1 ml-60 flex flex-col min-h-screen">
+        <div className="flex-1 ml-64 flex flex-col min-h-screen">
           {/* Header Component */}
           <Header pageTitle={pageTitle} />
 

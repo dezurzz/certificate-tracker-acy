@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Training, Certificate, CertificateHistory } from '@/lib/db';
+import { DB, Training, Certificate, CertificateHistory, Lead, LeadActivity } from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
 
 interface ActivityItem {
@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [activeModuleTab, setActiveModuleTab] = useState<'all' | 'leads' | 'certs'>('all');
   const [greeting, setGreeting] = useState('Good Morning');
   const [todayDate, setTodayDate] = useState('');
   
@@ -44,11 +46,16 @@ export default function DashboardPage() {
 
   async function loadData() {
     try {
-      const trainList = await DB.getTrainings();
-      const certList = await DB.getCertificates();
+      const [trainList, certList, leadList, leadActList] = await Promise.all([
+        DB.getTrainings(),
+        DB.getCertificates(),
+        DB.getLeads(),
+        DB.getLeadActivities()
+      ]);
       
       setTrainings(trainList);
       setCertificates(certList);
+      setLeads(leadList);
 
       // Retrieve SLA Threshold dynamically
       const slaThreshold = typeof window !== 'undefined' ? parseInt(localStorage.getItem('sys_sla') || '4', 10) : 4;
@@ -205,9 +212,37 @@ export default function DashboardPage() {
         });
       });
 
+      // Lead activities
+      leadActList.forEach(la => {
+        let dotColor = 'bg-blue-600';
+        let badgeClass = 'bg-blue-50 text-blue-700 border-blue-100';
+        if (la.action_type === 'link_sent') {
+          dotColor = 'bg-indigo-500';
+          badgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-100';
+        } else if (la.action_type === 'registered') {
+          dotColor = 'bg-emerald-500';
+          badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        } else if (la.action_type === 'rescheduled') {
+          dotColor = 'bg-amber-500';
+          badgeClass = 'bg-amber-50 text-amber-700 border-amber-100';
+        } else if (la.action_type === 'cancelled') {
+          dotColor = 'bg-red-500';
+          badgeClass = 'bg-red-50 text-red-700 border-red-100';
+        }
+
+        acts.push({
+          type: 'lead_activity',
+          title: `CRM (${la.actor})`,
+          desc: la.note,
+          time: new Date(la.created_at),
+          dotColor: dotColor,
+          badgeHtml: <span className={`cms-badge ${badgeClass}`}>{la.action_type}</span>
+        });
+      });
+
       // Sort descending by time
       acts.sort((a, b) => b.time.getTime() - a.time.getTime());
-      setActivities(acts.slice(0, 4));
+      setActivities(acts.slice(0, 5));
 
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
@@ -273,52 +308,189 @@ export default function DashboardPage() {
   };
 
   const totalCerts = certificates.length;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const totalActiveLeads = leads.filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal').length;
+  const totalEstimatedSeats = leads.reduce((sum, l) => sum + (l.estimated_seats || 1), 0);
+  const totalWaitingSeats = leads.filter(l => l.status === 'Waiting List').reduce((sum, l) => sum + (l.estimated_seats || 1), 0);
+  const totalOverdueFollowUps = leads.filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal' && l.next_follow_up_date < todayIso).length;
+  const totalTodayFollowUps = leads.filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal' && l.next_follow_up_date === todayIso).length;
+
+  const urgentFollowUps = leads
+    .filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal' && l.next_follow_up_date <= todayIso)
+    .sort((a, b) => a.next_follow_up_date.localeCompare(b.next_follow_up_date))
+    .slice(0, 5);
+
+  const demandByProgram = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    leads.forEach(l => {
+      if (l.status !== 'Selesai Training' && l.status !== 'Batal') {
+        const prog = l.program_name || 'Program Umum';
+        map[prog] = (map[prog] || 0) + (l.estimated_seats || 1);
+      }
+    });
+    return Object.entries(map)
+      .map(([name, seats]) => ({ name, seats }))
+      .sort((a, b) => b.seats - a.seats)
+      .slice(0, 5);
+  }, [leads]);
+
+  const filteredActivities = activeModuleTab === 'leads'
+    ? activities.filter(a => a.type === 'lead_activity')
+    : activeModuleTab === 'certs'
+    ? activities.filter(a => a.type !== 'lead_activity')
+    : activities;
 
   return (
-    <DashboardLayout pageTitle="CMS Dashboard">
+    <DashboardLayout pageTitle="BKI Academy Platform Dashboard">
       {/* Page Header */}
-      <div className="flex justify-between items-end mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight mb-1">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">
             {greeting}, {user?.name || 'Admin'}
           </h2>
-          <p className="text-sm text-slate-500 flex items-center gap-2">
+          <p className="text-xs md:text-sm text-slate-500 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">calendar_today</span>
             <span>{todayDate}</span>
           </p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={downloadDashboardReport} className="cms-btn-secondary">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={downloadDashboardReport} className="cms-btn-secondary text-xs">
             <span className="material-symbols-outlined text-sm">download</span>
             Export Report
           </button>
-          <Link href="/trainings?openModal=true" className="cms-btn-primary">
+          <Link href="/crm/leads" className="cms-btn-primary bg-amber-600 hover:bg-amber-700 text-xs">
+            <span className="material-symbols-outlined text-sm">person_add</span>
+            Input Lead Baru
+          </Link>
+          <Link href="/trainings?openModal=true" className="cms-btn-primary text-xs">
             <span className="material-symbols-outlined text-sm">add</span>
             New Batch
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* KPI 1: Training Completed */}
-        <Link href="/trainings" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                <span className="material-symbols-outlined">task_alt</span>
-              </div>
-              <span className="bg-green-50 text-green-700 border border-green-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                +12% Month
-              </span>
-            </div>
-            <div>
-              <h3 className="text-3xl font-bold text-slate-900 mb-1">{completedTrainings}</h3>
-              <p className="text-sm text-slate-500 font-semibold">Training Completed</p>
-            </div>
+      {/* Module View Tabs */}
+      <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
+        <button
+          onClick={() => setActiveModuleTab('all')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            activeModuleTab === 'all'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">dashboard</span>
+          Ringkasan Terpadu
+        </button>
+        <button
+          onClick={() => setActiveModuleTab('leads')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            activeModuleTab === 'leads'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">person_search</span>
+          Pipeline Leads & Waiting List
+        </button>
+        <button
+          onClick={() => setActiveModuleTab('certs')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            activeModuleTab === 'certs'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span className="material-symbols-outlined text-sm">verified</span>
+          Certificate Tracker (SLA)
+        </button>
+      </div>
+
+      {/* CRM Leads & Waiting List Bento Cards */}
+      {(activeModuleTab === 'all' || activeModuleTab === 'leads') && (
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+              Pipeline Prospek & Waiting List (CRM)
+            </h3>
+            <Link href="/crm/leads" className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1">
+              Buka Semua Leads <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
           </div>
-          <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Total batches finished</p>
-        </Link>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Link href="/crm/leads" className="cms-card cms-card-interactive p-4 hover:border-blue-400">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Peluang Aktif</span>
+                <span className="p-1 rounded bg-blue-50 text-blue-600"><span className="material-symbols-outlined text-base">person_search</span></span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 mt-2">{totalActiveLeads}</p>
+              <p className="text-[11px] text-blue-600 font-medium mt-1">Estimasi {totalEstimatedSeats} total kursi</p>
+            </Link>
+
+            <Link href="/crm/waiting-list" className="cms-card cms-card-interactive p-4 hover:border-amber-400">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Waiting List</span>
+                <span className="p-1 rounded bg-amber-50 text-amber-600"><span className="material-symbols-outlined text-base">hourglass_top</span></span>
+              </div>
+              <p className="text-2xl font-bold text-amber-700 mt-2">{totalWaitingSeats} <span className="text-xs font-normal text-slate-500">Pax</span></p>
+              <p className="text-[11px] text-slate-500 mt-1">Menunggu jadwal / reschedule</p>
+            </Link>
+
+            <Link href="/crm/follow-ups" className="cms-card cms-card-interactive p-4 hover:border-red-400">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Follow-up Overdue</span>
+                <span className="p-1 rounded bg-red-50 text-red-600"><span className="material-symbols-outlined text-base">warning</span></span>
+              </div>
+              <p className="text-2xl font-bold text-red-700 mt-2">{totalOverdueFollowUps}</p>
+              <p className="text-[11px] text-slate-500 mt-1">{totalTodayFollowUps} tugas jatuh tempo hari ini</p>
+            </Link>
+
+            <Link href="/crm/reports" className="cms-card cms-card-interactive p-4 hover:border-emerald-400">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Rekap Peminat</span>
+                <span className="p-1 rounded bg-emerald-50 text-emerald-600"><span className="material-symbols-outlined text-base">bar_chart</span></span>
+              </div>
+              <p className="text-sm font-bold text-slate-800 mt-2">Course Demand Ranking</p>
+              <p className="text-[11px] text-slate-500 mt-1">Analisis kebutuhan batch baru →</p>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Cards Row (Certificate Tracker) */}
+      {(activeModuleTab === 'all' || activeModuleTab === 'certs') && (
+        <>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              Siklus Hidup Sertifikat & Monitoring SLA
+            </h3>
+            <Link href="/certificates" className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1">
+              Buka Semua Sertifikat <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* KPI 1: Training Completed */}
+            <Link href="/trainings" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                    <span className="material-symbols-outlined">task_alt</span>
+                  </div>
+                  <span className="bg-green-50 text-green-700 border border-green-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
+                    +12% Month
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-bold text-slate-900 mb-1">{completedTrainings}</h3>
+                  <p className="text-sm text-slate-500 font-semibold">Training Completed</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Total batches finished</p>
+            </Link>
 
         {/* KPI 2: Certificate Pending */}
         <Link href="/certificates?filter=pending" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
@@ -373,8 +545,11 @@ export default function DashboardPage() {
           <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Delivered vs total tasks</p>
         </div>
       </div>
+      </>
+      )}
 
       {/* Main Grid: Pipeline and Output Trend Chart */}
+      {(activeModuleTab === 'all' || activeModuleTab === 'certs') && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Left Column: Certificate Pipeline */}
         <div className="cms-card lg:col-span-2 flex flex-col bg-white">
@@ -514,125 +689,228 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Row 2 Grid: Actionable Overdue, Active Batches, and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Row 2 Left & Center (lg:col-span-2): Active Batches and Overdue Lists */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Active Batches Progress Tracker */}
-          <div className="cms-card flex flex-col bg-white h-[350px]">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
-              <div>
-                <h3 className="font-bold text-slate-800 text-sm">Active Batches Progress</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">Certificates completion rates for active training batches.</p>
-              </div>
-              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">In Progress</span>
-            </div>
-            
-            <div className="overflow-y-auto flex-grow table-scroll pr-1">
-              {activeBatches.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                  <span className="material-symbols-outlined text-3xl text-slate-400">inbox</span>
-                  <p className="text-xs font-semibold text-slate-700">No active batches</p>
-                  <p className="text-[9px] text-slate-400">All training batches are currently completed.</p>
+        {/* Row 2 Left & Center (lg:col-span-2): Leads View or Certificate Ops View */}
+        {activeModuleTab === 'leads' ? (
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Urgent Follow-ups */}
+            <div className="cms-card flex flex-col bg-white h-[350px]">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Antrean Follow-up Mendesak</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Leads jatuh tempo hari ini atau terlewat.</p>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {activeBatches.map((b) => {
-                    const isDone = b.percentage === 100;
-                    return (
-                      <div key={b.id} className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center text-left">
-                          <div className="min-w-0 flex-grow pr-2">
-                            <Link href={`/trainings/${b.id}`} className="text-xs font-bold text-slate-800 hover:text-blue-600 hover:underline truncate block">
-                              {b.program_name} ({b.batch_code})
+                <Link href="/crm/follow-ups" className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold hover:bg-red-100">
+                  Buka Queue
+                </Link>
+              </div>
+
+              <div className="overflow-y-auto flex-grow table-scroll pr-1">
+                {urgentFollowUps.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-emerald-500">task_alt</span>
+                    <p className="text-xs font-semibold text-slate-700">Semua follow-up beres!</p>
+                    <p className="text-[9px] text-slate-400">Tidak ada lead yang tertunda hari ini.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {urgentFollowUps.map(lead => {
+                      const isOverdue = lead.next_follow_up_date < todayIso;
+                      const cleanPhone = lead.contact_phone ? lead.contact_phone.replace(/\D/g, '') : '';
+                      return (
+                        <div key={lead.id} className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-all flex justify-between items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-800 truncate">{lead.contact_name}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{lead.company_name} • {lead.program_name}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                                isOverdue ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {isOverdue ? 'Overdue' : 'Hari Ini'}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-semibold">PIC: {lead.pic_staff_name}</span>
+                            </div>
+                          </div>
+                          {cleanPhone && (
+                            <Link
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0"
+                              title="Chat WhatsApp"
+                            >
+                              <span className="material-symbols-outlined text-base">chat</span>
                             </Link>
-                            <p className="text-[9px] text-slate-400 font-semibold mt-0.5">
-                              Method: {b.learning_method} | PIC: {b.pic || 'Not Set'}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <span className={`text-xs font-bold ${isDone ? 'text-green-600' : 'text-slate-700'}`}>{b.percentage}%</span>
-                            <p className="text-[9px] text-slate-400 font-semibold">{b.completedCount}/{b.totalCerts}</p>
-                          </div>
+                          )}
                         </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-green-500' : 'bg-blue-600'}`}
-                            style={{ width: `${b.percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Actionable Overdue List */}
-          <div className="cms-card flex flex-col bg-white h-[350px]">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
-              <div>
-                <h3 className="font-bold text-slate-800 text-sm">Actionable Overdue List</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">Certificates breaching standard SLA thresholds.</p>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Immediate Action</span>
             </div>
 
-            <div className="overflow-y-auto flex-grow table-scroll pr-1">
-              {overdueList.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                  <span className="material-symbols-outlined text-3xl text-green-500">verified</span>
-                  <p className="text-xs font-semibold text-slate-700">All caught up!</p>
-                  <p className="text-[9px] text-slate-400">No overdue certificates in queue.</p>
+            {/* Demand by Program */}
+            <div className="cms-card flex flex-col bg-white h-[350px]">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Peminat per Program Pelatihan</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Top program dengan akumulasi peminat.</p>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {overdueList.map((c) => {
-                    const name = c.participants?.name || 'Unknown';
-                    const program = `${c.trainings?.program_name} ${c.trainings?.batch_code}`;
-                    return (
-                      <div key={c.id} className="flex justify-between items-center p-3 rounded-lg border border-red-100 bg-red-50/10 hover:bg-red-50/20 transition-all gap-3">
-                        <div className="text-left min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-800 truncate">{name}</p>
-                          <p className="text-[10px] text-slate-500 truncate mt-0.5">{program}</p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.2 rounded uppercase">
-                              {c.sla_age_days}d overdue
-                            </span>
-                            <span className="text-[9px] text-slate-400 font-semibold">{c.certificate_type}</span>
+                <Link href="/crm/waiting-list" className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold hover:bg-blue-100">
+                  Waiting List
+                </Link>
+              </div>
+
+              <div className="overflow-y-auto flex-grow table-scroll pr-1">
+                {demandByProgram.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-slate-300">query_stats</span>
+                    <p className="text-xs font-semibold text-slate-700">Belum ada data peminat</p>
+                    <p className="text-[9px] text-slate-400">Data akan terakumulasi dari leads.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3.5">
+                    {demandByProgram.map(item => {
+                      const maxDemand = Math.max(...demandByProgram.map(d => d.seats), 1);
+                      const pct = Math.min(100, Math.round((item.seats / maxDemand) * 100));
+                      return (
+                        <div key={item.name} className="flex flex-col gap-1.5">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-800 truncate pr-2">{item.name}</span>
+                            <span className="font-bold text-blue-600 shrink-0">{item.seats} Kursi</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-600 rounded-full transition-all duration-300" style={{ width: `${pct}%` }}></div>
                           </div>
                         </div>
-                        <div className="shrink-0">
-                          <select
-                            value={c.status}
-                            onChange={async (e) => {
-                              const nextStatus = e.target.value;
-                              try {
-                                await DB.updateCertificateStatus(c.id, nextStatus);
-                                loadData();
-                              } catch (err) {
-                                console.error('Failed to update certificate status:', err);
-                              }
-                            }}
-                            className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Printing">Printing</option>
-                            <option value="Shipping">Shipping</option>
-                            <option value="Completed">Completed</option>
-                          </select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Active Batches Progress Tracker */}
+            <div className="cms-card flex flex-col bg-white h-[350px]">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Active Batches Progress</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Certificates completion rates for active training batches.</p>
+                </div>
+                <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">In Progress</span>
+              </div>
+              
+              <div className="overflow-y-auto flex-grow table-scroll pr-1">
+                {activeBatches.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-slate-400">inbox</span>
+                    <p className="text-xs font-semibold text-slate-700">No active batches</p>
+                    <p className="text-[9px] text-slate-400">All training batches are currently completed.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {activeBatches.map((b) => {
+                      const isDone = b.percentage === 100;
+                      return (
+                        <div key={b.id} className="flex flex-col gap-2">
+                          <div className="flex justify-between items-center text-left">
+                            <div className="min-w-0 flex-grow pr-2">
+                              <Link href={`/trainings/${b.id}`} className="text-xs font-bold text-slate-800 hover:text-blue-600 hover:underline truncate block">
+                                {b.program_name} ({b.batch_code})
+                              </Link>
+                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">
+                                Method: {b.learning_method} | PIC: {b.pic || 'Not Set'}
+                              </p>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <span className={`text-xs font-bold ${isDone ? 'text-green-600' : 'text-slate-700'}`}>{b.percentage}%</span>
+                              <p className="text-[9px] text-slate-400 font-semibold">{b.completedCount}/{b.totalCerts}</p>
+                            </div>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-green-500' : 'bg-blue-600'}`}
+                              style={{ width: `${b.percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actionable Overdue List */}
+            <div className="cms-card flex flex-col bg-white h-[350px]">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">Actionable Overdue List</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Certificates breaching standard SLA thresholds.</p>
+                </div>
+                <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Immediate Action</span>
+              </div>
+
+              <div className="overflow-y-auto flex-grow table-scroll pr-1">
+                {overdueList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-green-500">verified</span>
+                    <p className="text-xs font-semibold text-slate-700">All caught up!</p>
+                    <p className="text-[9px] text-slate-400">No overdue certificates in queue.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {overdueList.map((c) => {
+                      const name = c.participants?.name || 'Unknown';
+                      const program = `${c.trainings?.program_name} ${c.trainings?.batch_code}`;
+                      return (
+                        <div key={c.id} className="flex justify-between items-center p-3 rounded-lg border border-red-100 bg-red-50/10 hover:bg-red-50/20 transition-all gap-3">
+                          <div className="text-left min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-800 truncate">{name}</p>
+                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{program}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.2 rounded uppercase">
+                                {c.sla_age_days}d overdue
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-semibold">{c.certificate_type}</span>
+                            </div>
+                          </div>
+                          <div className="shrink-0">
+                            <select
+                              value={c.status}
+                              onChange={async (e) => {
+                                const nextStatus = e.target.value;
+                                try {
+                                  await DB.updateCertificateStatus(c.id, nextStatus);
+                                  loadData();
+                                } catch (err) {
+                                  console.error('Failed to update certificate status:', err);
+                                }
+                              }}
+                              className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Processing">Processing</option>
+                              <option value="Printing">Printing</option>
+                              <option value="Shipping">Shipping</option>
+                              <option value="Completed">Completed</option>
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Row 2 Right Column: Recent Activity */}
         <div className="cms-card flex flex-col h-[350px] p-0 overflow-hidden bg-white">
@@ -642,7 +920,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-y-auto p-4 flex-grow table-scroll bg-white">
-            {activities.length === 0 ? (
+            {filteredActivities.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
                 <span className="material-symbols-outlined text-3xl">history</span>
                 <p className="text-xs font-semibold text-slate-700">No recent activity</p>
@@ -650,7 +928,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200">
-                {activities.map((act, index) => (
+                {filteredActivities.map((act, index) => (
                   <div key={index} className="relative pl-8 mb-6 animate-in fade-in slide-in-from-bottom-1 duration-150">
                     <div className={`absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${act.dotColor} ring-4 ring-white`}></div>
                     <p className="text-sm text-slate-700">

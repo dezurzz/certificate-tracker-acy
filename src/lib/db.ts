@@ -96,6 +96,79 @@ export interface CertificateHistory {
   created_at: string;
 }
 
+export type LeadStatus = 'Baru' | 'Waiting List' | 'Jadwal Ditawarkan' | 'Link Terkirim' | 'Terdaftar' | 'Selesai Training' | 'Batal';
+export type LeadSource = 'WA Bisnis' | 'WA Pribadi' | 'Website' | 'Referral' | 'Event' | 'Lainnya';
+export type WaitingReason = 'Belum Ada Jadwal' | 'Reschedule' | 'Menunggu Konfirmasi Internal' | 'Budgeting' | 'Lainnya';
+
+export interface Company {
+  id: string;
+  name: string;
+  alias?: string;
+  industry?: string;
+  address?: string;
+  created_at?: string;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  company_id?: string;
+  company_name?: string;
+  position?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface TrainingProgram {
+  id: string;
+  name: string;
+  code: string;
+  category?: string;
+  duration_days?: number;
+  description?: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface Lead {
+  id: string;
+  contact_id?: string;
+  contact_name: string;
+  contact_phone: string;
+  contact_email?: string;
+  company_id?: string;
+  company_name: string;
+  program_id?: string;
+  program_name: string;
+  batch_id?: string;
+  batch_code?: string;
+  estimated_seats: number;
+  confirmed_seats?: number;
+  status: LeadStatus;
+  waiting_reason?: WaitingReason;
+  cancel_reason?: string;
+  source: LeadSource;
+  pic_staff_name: string;
+  next_follow_up_date: string; // YYYY-MM-DD
+  notes?: string;
+  previous_batch_info?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface LeadActivity {
+  id: string;
+  lead_id: string;
+  action_type: 'created' | 'status_changed' | 'link_sent' | 'registered' | 'follow_up' | 'rescheduled' | 'cancelled' | 'note_added';
+  note: string;
+  actor: string;
+  previous_status?: LeadStatus;
+  new_status?: LeadStatus;
+  created_at: string;
+}
+
 export const DB = {
   // Check if Supabase client is active
   isSupabaseConfigured(): boolean {
@@ -259,6 +332,180 @@ export const DB = {
         }
       ];
       localStorage.setItem('bki_certificate_history', JSON.stringify(mockHistory));
+    }
+
+    if (!localStorage.getItem('bki_companies')) {
+      const mockCompanies: Company[] = [
+        { id: "comp-1", name: "PT Pertamina International Shipping", alias: "Pertamina Shipping", industry: "Maritime & Oil/Gas", created_at: new Date().toISOString() },
+        { id: "comp-2", name: "PT Pelabuhan Indonesia (Pelindo)", alias: "Pelindo II", industry: "Port Operations", created_at: new Date().toISOString() },
+        { id: "comp-3", name: "PT Meratus Line", alias: "Meratus", industry: "Shipping & Logistics", created_at: new Date().toISOString() },
+        { id: "comp-4", name: "PT Samudera Indonesia Tbk", alias: "Samudera Indonesia", industry: "Shipping", created_at: new Date().toISOString() },
+        { id: "comp-5", name: "PT Bumi Resources", alias: "Bumi Resources", industry: "Mining & Energy", created_at: new Date().toISOString() }
+      ];
+      localStorage.setItem('bki_companies', JSON.stringify(mockCompanies));
+    }
+
+    if (!localStorage.getItem('bki_contacts')) {
+      const mockContacts: Contact[] = [
+        { id: "cnt-1", name: "Hendra Wijaya", phone: "081234567890", email: "hendra.w@pertamina.com", company_name: "PT Pertamina International Shipping", position: "Crewing & Training Manager", created_at: new Date().toISOString() },
+        { id: "cnt-2", name: "Maya Kartika", phone: "081398765432", email: "maya.k@pelindo.co.id", company_name: "PT Pelabuhan Indonesia (Pelindo)", position: "HR & People Development", created_at: new Date().toISOString() },
+        { id: "cnt-3", name: "Doni Prasetyo", phone: "081122334455", email: "doni.p@meratus.com", company_name: "PT Meratus Line", position: "HSE Specialist", created_at: new Date().toISOString() },
+        { id: "cnt-4", name: "Citra Dewi", phone: "085711223344", email: "citra.dewi@gmail.com", company_name: "PRIBADI", position: "Marine Surveyor Independent", created_at: new Date().toISOString() },
+        { id: "cnt-5", name: "Rahmat Hidayat", phone: "081299887766", email: "rahmat.h@samudera.id", company_name: "PT Samudera Indonesia Tbk", position: "QHSE Manager", created_at: new Date().toISOString() }
+      ];
+      localStorage.setItem('bki_contacts', JSON.stringify(mockContacts));
+    }
+
+    if (!localStorage.getItem('bki_programs')) {
+      const mockPrograms: TrainingProgram[] = [
+        { id: "prog-1", name: "Internal Auditor ISM", code: "ISM-AUD", category: "Statutory & Safety", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+        { id: "prog-2", name: "CSO Training", code: "CSO", category: "Security & ISPS", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+        { id: "prog-3", name: "Maritime Cyber Security", code: "MCS", category: "Cyber & Digital", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
+        { id: "prog-4", name: "Ship Safety Officer", code: "SSO", category: "Safety Operations", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+        { id: "prog-5", name: "Basic Marine Surveyor", code: "BMS", category: "Survey & Inspection", duration_days: 5, is_active: true, created_at: new Date().toISOString() }
+      ];
+      localStorage.setItem('bki_programs', JSON.stringify(mockPrograms));
+    }
+
+    if (!localStorage.getItem('bki_leads')) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const overdueDate = new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString().split('T')[0];
+      const tomorrowDate = new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString().split('T')[0];
+
+      const mockLeads: Lead[] = [
+        {
+          id: "lead-101",
+          contact_id: "cnt-1",
+          contact_name: "Hendra Wijaya",
+          contact_phone: "081234567890",
+          contact_email: "hendra.w@pertamina.com",
+          company_name: "PT Pertamina International Shipping",
+          program_name: "Internal Auditor ISM",
+          estimated_seats: 5,
+          status: "Baru",
+          source: "WA Bisnis",
+          pic_staff_name: "System Admin",
+          next_follow_up_date: todayStr,
+          notes: "Menanyakan kuota 5 orang untuk tim inspeksi kapal tanker. Meminta penawaran resmi.",
+          created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "lead-102",
+          contact_id: "cnt-2",
+          contact_name: "Maya Kartika",
+          contact_phone: "081398765432",
+          contact_email: "maya.k@pelindo.co.id",
+          company_name: "PT Pelabuhan Indonesia (Pelindo)",
+          program_name: "CSO Training",
+          estimated_seats: 3,
+          status: "Waiting List",
+          waiting_reason: "Reschedule",
+          source: "WA Pribadi",
+          pic_staff_name: "Andi",
+          next_follow_up_date: todayStr,
+          notes: "Awalnya mendaftar batch Agustus, namun reschedule karena berbenturan dengan agenda audit internal Pelindo. Menunggu batch Oktober.",
+          previous_batch_info: "Batch 53 (Agustus 2026)",
+          created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "lead-103",
+          contact_id: "cnt-3",
+          contact_name: "Doni Prasetyo",
+          contact_phone: "081122334455",
+          contact_email: "doni.p@meratus.com",
+          company_name: "PT Meratus Line",
+          program_name: "Maritime Cyber Security",
+          estimated_seats: 2,
+          status: "Link Terkirim",
+          source: "Website",
+          pic_staff_name: "System Admin",
+          next_follow_up_date: overdueDate,
+          notes: "Link formulir pendaftaran sudah dikirimkan via WA 2 hari lalu. Belum mengisi data.",
+          created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "lead-104",
+          contact_id: "cnt-4",
+          contact_name: "Citra Dewi",
+          contact_phone: "085711223344",
+          contact_email: "citra.dewi@gmail.com",
+          company_name: "PRIBADI",
+          program_name: "Ship Safety Officer",
+          batch_id: "t-116",
+          batch_code: "Batch 116",
+          estimated_seats: 1,
+          confirmed_seats: 1,
+          status: "Terdaftar",
+          source: "Referral",
+          pic_staff_name: "Budi",
+          next_follow_up_date: tomorrowDate,
+          notes: "Sudah melengkapi formulir dan diverifikasi PIC.",
+          created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "lead-105",
+          contact_id: "cnt-5",
+          contact_name: "Rahmat Hidayat",
+          contact_phone: "081299887766",
+          contact_email: "rahmat.h@samudera.id",
+          company_name: "PT Samudera Indonesia Tbk",
+          program_name: "Basic Marine Surveyor",
+          estimated_seats: 4,
+          status: "Waiting List",
+          waiting_reason: "Belum Ada Jadwal",
+          source: "WA Bisnis",
+          pic_staff_name: "System Admin",
+          next_follow_up_date: tomorrowDate,
+          notes: "Sangat berminat jika ada jadwal kelas weekend atau offline di Surabaya.",
+          created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()
+        }
+      ];
+      localStorage.setItem('bki_leads', JSON.stringify(mockLeads));
+    }
+
+    if (!localStorage.getItem('bki_lead_activities')) {
+      const mockActivities: LeadActivity[] = [
+        {
+          id: "act-1",
+          lead_id: "lead-101",
+          action_type: "created",
+          note: "Lead baru dibuat dari WA Bisnis dengan estimasi 5 peserta.",
+          actor: "System Admin",
+          new_status: "Baru",
+          created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "act-2",
+          lead_id: "lead-102",
+          action_type: "rescheduled",
+          note: "Status dialihkan ke Waiting List dengan alasan Reschedule dari Batch 53.",
+          actor: "Andi",
+          previous_status: "Jadwal Ditawarkan",
+          new_status: "Waiting List",
+          created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "act-3",
+          lead_id: "lead-103",
+          action_type: "link_sent",
+          note: "Link formulir pendaftaran berhasil dikirim ke nomor 081122334455.",
+          actor: "System Admin",
+          previous_status: "Baru",
+          new_status: "Link Terkirim",
+          created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString()
+        },
+        {
+          id: "act-4",
+          lead_id: "lead-104",
+          action_type: "registered",
+          note: "Pendaftaran dikonfirmasi untuk 1 peserta pada Batch 116.",
+          actor: "Budi",
+          previous_status: "Link Terkirim",
+          new_status: "Terdaftar",
+          created_at: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+        }
+      ];
+      localStorage.setItem('bki_lead_activities', JSON.stringify(mockActivities));
     }
   },
 
@@ -690,5 +937,402 @@ export const DB = {
       return data;
     }
     return { success: true };
+  },
+
+  // --- CRM & LEADS METHODS ---
+
+  // Fetch all companies
+  async getCompanies(): Promise<Company[]> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('companies').select('*').order('name');
+      if (!error && data) return data as Company[];
+    }
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('bki_companies') || '[]');
+    }
+    return [];
+  },
+
+  // Upsert company
+  async upsertCompany(company: Omit<Company, 'id'> & { id?: string }): Promise<Company> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('companies').upsert([company]).select();
+      if (!error && data && data.length > 0) {
+        notifyDbUpdate();
+        return data[0] as Company;
+      }
+    }
+    const newId = company.id || "comp-" + Date.now();
+    const record: Company = { id: newId, created_at: new Date().toISOString(), ...company };
+    if (typeof window !== 'undefined') {
+      const list: Company[] = JSON.parse(localStorage.getItem('bki_companies') || '[]');
+      const idx = list.findIndex(c => c.name.toLowerCase() === company.name.toLowerCase() || (company.id && c.id === company.id));
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...record };
+      } else {
+        list.push(record);
+      }
+      localStorage.setItem('bki_companies', JSON.stringify(list));
+      notifyDbUpdate();
+    }
+    return record;
+  },
+
+  // Fetch all contacts
+  async getContacts(): Promise<Contact[]> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('contacts').select('*').order('name');
+      if (!error && data) return data as Contact[];
+    }
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('bki_contacts') || '[]');
+    }
+    return [];
+  },
+
+  // Upsert contact
+  async upsertContact(contact: Omit<Contact, 'id'> & { id?: string }): Promise<Contact> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('contacts').upsert([contact]).select();
+      if (!error && data && data.length > 0) {
+        notifyDbUpdate();
+        return data[0] as Contact;
+      }
+    }
+    const newId = contact.id || "cnt-" + Date.now();
+    const record: Contact = { id: newId, created_at: new Date().toISOString(), ...contact };
+    if (typeof window !== 'undefined') {
+      const list: Contact[] = JSON.parse(localStorage.getItem('bki_contacts') || '[]');
+      const idx = list.findIndex(c => (c.phone && c.phone === contact.phone) || (contact.id && c.id === contact.id));
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...record };
+      } else {
+        list.push(record);
+      }
+      localStorage.setItem('bki_contacts', JSON.stringify(list));
+      notifyDbUpdate();
+    }
+    return record;
+  },
+
+  // Fetch all training programs
+  async getTrainingPrograms(): Promise<TrainingProgram[]> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('training_programs').select('*').order('name');
+      if (!error && data) return data as TrainingProgram[];
+    }
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('bki_programs') || '[]');
+    }
+    return [];
+  },
+
+  // Upsert training program
+  async upsertTrainingProgram(prog: Omit<TrainingProgram, 'id'> & { id?: string }): Promise<TrainingProgram> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('training_programs').upsert([prog]).select();
+      if (!error && data && data.length > 0) {
+        notifyDbUpdate();
+        return data[0] as TrainingProgram;
+      }
+    }
+    const newId = prog.id || "prog-" + Date.now();
+    const record: TrainingProgram = { id: newId, created_at: new Date().toISOString(), ...prog };
+    if (typeof window !== 'undefined') {
+      const list: TrainingProgram[] = JSON.parse(localStorage.getItem('bki_programs') || '[]');
+      const idx = list.findIndex(p => p.name.toLowerCase() === prog.name.toLowerCase() || (prog.id && p.id === prog.id));
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...record };
+      } else {
+        list.push(record);
+      }
+      localStorage.setItem('bki_programs', JSON.stringify(list));
+      notifyDbUpdate();
+    }
+    return record;
+  },
+
+  // Fetch all leads
+  async getLeads(): Promise<Lead[]> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+      if (!error && data) return data as Lead[];
+    }
+    if (typeof window !== 'undefined') {
+      return JSON.parse(localStorage.getItem('bki_leads') || '[]');
+    }
+    return [];
+  },
+
+  // Get lead by ID
+  async getLeadById(leadId: string): Promise<Lead | null> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).single();
+      if (!error && data) return data as Lead;
+    }
+    if (typeof window !== 'undefined') {
+      const list: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
+      return list.find(l => l.id === leadId) || null;
+    }
+    return null;
+  },
+
+  // Insert a new lead
+  async insertLead(leadData: Omit<Lead, 'id' | 'created_at' | 'updated_at'>): Promise<Lead> {
+    this.initMock();
+    const newId = "lead-" + Date.now() + Math.random().toString(36).substr(2, 4);
+    const now = new Date().toISOString();
+    const record: Lead = {
+      id: newId,
+      created_at: now,
+      updated_at: now,
+      ...leadData
+    };
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('leads').insert([record]).select();
+      if (!error && data && data.length > 0) {
+        // Log activity
+        await this.insertLeadActivity({
+          lead_id: data[0].id,
+          action_type: 'created',
+          note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
+          actor: leadData.pic_staff_name || 'System',
+          new_status: leadData.status
+        });
+        notifyDbUpdate();
+        return data[0] as Lead;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const list: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
+      list.unshift(record);
+      localStorage.setItem('bki_leads', JSON.stringify(list));
+
+      // Also upsert company & contact automatically for master directory
+      if (leadData.company_name && leadData.company_name !== 'PRIBADI') {
+        await this.upsertCompany({ name: leadData.company_name });
+      }
+      if (leadData.contact_name && leadData.contact_phone) {
+        await this.upsertContact({
+          name: leadData.contact_name,
+          phone: leadData.contact_phone,
+          email: leadData.contact_email,
+          company_name: leadData.company_name
+        });
+      }
+
+      // Log activity
+      await this.insertLeadActivity({
+        lead_id: newId,
+        action_type: 'created',
+        note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
+        actor: leadData.pic_staff_name || 'System',
+        new_status: leadData.status
+      });
+
+      notifyDbUpdate();
+    }
+    return record;
+  },
+
+  // Update lead
+  async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead | null> {
+    this.initMock();
+    const now = new Date().toISOString();
+    const payload = { ...updates, updated_at: now };
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('leads').update(payload).eq('id', leadId).select();
+      if (!error && data && data.length > 0) {
+        notifyDbUpdate();
+        return data[0] as Lead;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const list: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
+      const idx = list.findIndex(l => l.id === leadId);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...payload };
+        localStorage.setItem('bki_leads', JSON.stringify(list));
+        notifyDbUpdate();
+        return list[idx];
+      }
+    }
+    return null;
+  },
+
+  // Update lead status with automatic activity audit logging
+  async updateLeadStatus(
+    leadId: string,
+    newStatus: LeadStatus,
+    options?: {
+      note?: string;
+      reason?: WaitingReason;
+      cancelReason?: string;
+      batchId?: string;
+      batchCode?: string;
+      confirmedSeats?: number;
+      nextFollowUp?: string;
+      actor?: string;
+    }
+  ): Promise<Lead | null> {
+    this.initMock();
+    const current = await this.getLeadById(leadId);
+    if (!current) return null;
+
+    let profileName = options?.actor || 'Admin';
+    if (!options?.actor && typeof window !== 'undefined') {
+      profileName = localStorage.getItem('profileName') || 'System Admin';
+    }
+
+    const previousStatus = current.status;
+    const updates: Partial<Lead> = {
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    let actionType: LeadActivity['action_type'] = 'status_changed';
+    let activityNote = options?.note || `Status berubah dari ${previousStatus} menjadi ${newStatus}`;
+
+    if (newStatus === 'Link Terkirim') {
+      actionType = 'link_sent';
+      activityNote = options?.note || 'Link formulir pendaftaran telah dikirimkan ke calon peserta/PIC.';
+    } else if (newStatus === 'Terdaftar') {
+      actionType = 'registered';
+      if (options?.batchId) updates.batch_id = options.batchId;
+      if (options?.batchCode) updates.batch_code = options.batchCode;
+      if (options?.confirmedSeats) updates.confirmed_seats = options.confirmedSeats;
+      activityNote = options?.note || `Pendaftaran berhasil dikonfirmasi untuk ${options?.confirmedSeats || current.estimated_seats} peserta (Batch: ${options?.batchCode || current.batch_code || '-'}).`;
+    } else if (newStatus === 'Waiting List') {
+      if (options?.reason === 'Reschedule') {
+        actionType = 'rescheduled';
+        updates.waiting_reason = 'Reschedule';
+        if (current.batch_code) {
+          updates.previous_batch_info = current.batch_code;
+        }
+        activityNote = options?.note || `Dialihkan ke Waiting List karena Reschedule (sebelumnya: ${current.batch_code || 'Belum ada batch'}).`;
+      } else {
+        updates.waiting_reason = options?.reason || 'Belum Ada Jadwal';
+      }
+    } else if (newStatus === 'Batal') {
+      actionType = 'cancelled';
+      updates.cancel_reason = options?.cancelReason || options?.note || 'Dibatalkan oleh PIC / Calon Peserta';
+      activityNote = `Peluang dibatalkan. Alasan: ${updates.cancel_reason}`;
+    }
+
+    if (options?.nextFollowUp) {
+      updates.next_follow_up_date = options.nextFollowUp;
+    }
+
+    const updatedLead = await this.updateLead(leadId, updates);
+
+    // Record activity log
+    await this.insertLeadActivity({
+      lead_id: leadId,
+      action_type: actionType,
+      note: activityNote,
+      actor: profileName,
+      previous_status: previousStatus,
+      new_status: newStatus
+    });
+
+    return updatedLead;
+  },
+
+  // Delete lead
+  async deleteLead(leadId: string): Promise<{ success: boolean }> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.from('lead_activities').delete().eq('lead_id', leadId);
+      const { error } = await supabase.from('leads').delete().eq('id', leadId);
+      if (!error) {
+        notifyDbUpdate();
+        return { success: true };
+      }
+    }
+    if (typeof window !== 'undefined') {
+      const leads: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
+      const filteredLeads = leads.filter(l => l.id !== leadId);
+      localStorage.setItem('bki_leads', JSON.stringify(filteredLeads));
+
+      const acts: LeadActivity[] = JSON.parse(localStorage.getItem('bki_lead_activities') || '[]');
+      const filteredActs = acts.filter(a => a.lead_id !== leadId);
+      localStorage.setItem('bki_lead_activities', JSON.stringify(filteredActs));
+
+      notifyDbUpdate();
+    }
+    return { success: true };
+  },
+
+  // Fetch lead activities
+  async getLeadActivities(leadId?: string): Promise<LeadActivity[]> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      let query = supabase.from('lead_activities').select('*').order('created_at', { ascending: false });
+      if (leadId) {
+        query = query.eq('lead_id', leadId);
+      }
+      const { data, error } = await query;
+      if (!error && data) return data as LeadActivity[];
+    }
+    if (typeof window !== 'undefined') {
+      const list: LeadActivity[] = JSON.parse(localStorage.getItem('bki_lead_activities') || '[]');
+      if (leadId) {
+        return list.filter(a => a.lead_id === leadId);
+      }
+      return list;
+    }
+    return [];
+  },
+
+  // Insert lead activity
+  async insertLeadActivity(act: Omit<LeadActivity, 'id' | 'created_at'>): Promise<LeadActivity> {
+    this.initMock();
+    const newId = "act-" + Date.now() + Math.random().toString(36).substr(2, 4);
+    const record: LeadActivity = {
+      id: newId,
+      created_at: new Date().toISOString(),
+      ...act
+    };
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('lead_activities').insert([record]).select();
+      if (!error && data && data.length > 0) {
+        notifyDbUpdate();
+        return data[0] as LeadActivity;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const list: LeadActivity[] = JSON.parse(localStorage.getItem('bki_lead_activities') || '[]');
+      list.unshift(record);
+      localStorage.setItem('bki_lead_activities', JSON.stringify(list));
+      notifyDbUpdate();
+    }
+    return record;
   }
 };
