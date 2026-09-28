@@ -34,50 +34,46 @@ async def run_test():
 
         # Interact with the page elements to simulate user flow
         # -> navigate
-        await page.goto("http://localhost:3001")
+        await page.goto("http://localhost:3000")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
             pass
         
-        # -> Fill the 'Email Address' and 'Password' fields and click the 'Sign In' button to authenticate.
+        # -> Fill the 'Email Address' field with dzaky@bki.academy, fill the 'Password' field with Dzaky123, then click the 'Sign In' button.
         # admin@bkiacademy.edu email field
-        elem = page.locator('[id="email"]')
+        elem = page.get_by_role("textbox", name="Email Address")
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("dzaky@bki.academy")
         
-        # -> Fill the 'Email Address' and 'Password' fields and click the 'Sign In' button to authenticate.
+        # -> Fill the 'Email Address' field with dzaky@bki.academy, fill the 'Password' field with Dzaky123, then click the 'Sign In' button.
         # •••••••• password field
-        elem = page.locator('[id="password"]')
+        elem = page.get_by_role("textbox", name="Password")
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("Dzaky123")
         
-        # -> Fill the 'Email Address' and 'Password' fields and click the 'Sign In' button to authenticate.
+        # -> Fill the 'Email Address' field with dzaky@bki.academy, fill the 'Password' field with Dzaky123, then click the 'Sign In' button.
         # Sign In button
-        elem = page.get_by_role('button', name='Sign In', exact=True)
+        elem = page.get_by_role("button", name="Sign In")
         await elem.click(timeout=10000)
         
-        # -> Click the 'History Logs' link in the left navigation to open the system history view.
-        # history History Logs link
-        elem = page.get_by_role('link', name='history History Logs', exact=True)
+        # -> Open the profile menu by clicking the top-right profile button labeled 'Dzaky' to reveal the Sign Out control.
+        # person Dzaky expand_more button
+        elem = page.get_by_role("button", name="person Dzaky expand_more")
         await elem.click(timeout=10000)
         
-        # -> Click the first audit entry shown under the 'TODAY' list to open its details and verify the activity details are visible.
-        # Today
-        elem = page.get_by_text('Today', exact=True)
+        # -> Click the 'Sign Out' button in the profile menu to sign out and return to the login page.
+        # logout Sign Out button
+        elem = page.get_by_role("button", name="logout Sign Out")
         await elem.click(timeout=10000)
         
         # --> Assertions to verify final state
         
-        # --> The Audit History Logs page shows the 'Today' group header.
+        # --> The login page is displayed showing the sign-in form and Sign In button.
+        await page.get_by_role("button", name="Sign In").nth(0).scroll_into_view_if_needed()
         # Assert-outcome: passed
-        # Assert: Verifies the 'Today' group header is present.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div/div[1]/span[1]").nth(0)).to_have_text("Today", timeout=15000), "Verifies the 'Today' group header is present."
-        
-        # --> An audit entry displays a status badge (example: 'Printing').
-        # Assert-outcome: passed
-        # Assert: Verifies an audit entry status badge with text 'Printing' is visible.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div/div[2]/div/div[1]/div[2]/p[2]/span[1]").nth(0)).to_have_text("Printing", timeout=15000), "Verifies an audit entry status badge with text 'Printing' is visible."
+        # Assert: The Sign In button is visible on the login form.
+        await expect(page.get_by_role("button", name="Sign In").nth(0)).to_be_visible(timeout=15000), "The Sign In button is visible on the login form."
         await asyncio.sleep(5)
 
     finally:

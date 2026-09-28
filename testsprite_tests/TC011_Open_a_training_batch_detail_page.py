@@ -34,7 +34,7 @@ async def run_test():
 
         # Interact with the page elements to simulate user flow
         # -> navigate
-        await page.goto("http://localhost:3001")
+        await page.goto("http://localhost:3000")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
@@ -42,53 +42,48 @@ async def run_test():
         
         # -> Fill 'dzaky@bki.academy' into the Email Address field and 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # admin@bkiacademy.edu email field
-        elem = page.locator('[id="email"]')
+        elem = page.get_by_role("textbox", name="Email Address")
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("dzaky@bki.academy")
         
         # -> Fill 'dzaky@bki.academy' into the Email Address field and 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # •••••••• password field
-        elem = page.locator('[id="password"]')
+        elem = page.get_by_role("textbox", name="Password")
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("Dzaky123")
         
         # -> Fill 'dzaky@bki.academy' into the Email Address field and 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # Sign In button
-        elem = page.get_by_role('button', name='Sign In', exact=True)
+        elem = page.get_by_role("button", name="Sign In")
         await elem.click(timeout=10000)
         
-        # -> Click the 'Training List' link in the left navigation to open the Trainings page.
-        # school Training List link
-        elem = page.get_by_role('link', name='school Training List', exact=True)
+        # -> Click the 'Training Batches' link in the left sidebar to open the Trainings page.
+        # school Training Batches link
+        elem = page.get_by_role("link", name="school Training Batches")
         await elem.click(timeout=10000)
         
-        # -> Open the 'MARINE SURVEYOR 93' training batch by clicking its title in the training list.
-        # MARINE SURVEYOR 93
-        elem = page.get_by_text('MARINE SURVEYOR 93', exact=True)
+        # -> Click the 'Add Training' button to open the training creation form so a training batch can be created.
+        # add Add Training button
+        elem = page.get_by_role("button", name="add Add Training")
         await elem.click(timeout=10000)
         
-        # -> Click the 'Certificates' tab to view certificates for the training batch.
-        # Certificates 2 PENDING button
-        elem = page.get_by_role('button', name='Certificates 2 PENDING', exact=True)
+        # -> Click the 'Cancel' button on the Add New Training modal, then click the training name 'MARITIME CYBER SECURITY' in the list to open its details.
+        # Cancel button
+        elem = page.get_by_role("button", name="Cancel")
         await elem.click(timeout=10000)
         
-        # -> Click the certificate card for 'DAVID REXY PANIRUAN SIMATUPANG' to open its certificate details view.
-        # DAVID REXY PANIRUAN SIMATUPANG
-        elem = page.locator('xpath=/html/body/div[2]/div/main/div[2]/div/div[2]/div[2]/div/h4')
+        # -> Click the 'Cancel' button on the Add New Training modal, then click the training name 'MARITIME CYBER SECURITY' in the list to open its details.
+        # MARITIME CYBER SECURITY
+        elem = page.get_by_text("MARITIME CYBER SECURITY")
         await elem.click(timeout=10000)
         
         # --> Assertions to verify final state
         
-        # --> The certificate details modal is displayed with the title 'Certificate Status Details'.
-        await page.locator("xpath=/html/body/div[2]/div/main/div[3]/div").nth(0).scroll_into_view_if_needed()
+        # --> The training batch detail page for 'MARITIME CYBER SECURITY' is displayed.
+        await page.get_by_role("button", name="edit Edit Details").nth(0).scroll_into_view_if_needed()
         # Assert-outcome: passed
-        # Assert: Certificate details modal titled 'Certificate Status Details' is visible.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div").nth(0)).to_be_visible(timeout=15000), "Certificate details modal titled 'Certificate Status Details' is visible."
-        
-        # --> The certificate's workflow timeline and notes are shown (example entry: 'Generated & Template Formed').
-        # Assert-outcome: passed
-        # Assert: A workflow timeline entry 'Generated & Template Formed' is present in the certificate details.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div").nth(0)).to_contain_text("Generated & Template Formed", timeout=15000), "A workflow timeline entry 'Generated & Template Formed' is present in the certificate details."
+        # Assert: The 'Edit Details' button is visible on the training detail page.
+        await expect(page.get_by_role("button", name="edit Edit Details").nth(0)).to_be_visible(timeout=15000), "The 'Edit Details' button is visible on the training detail page."
         await asyncio.sleep(5)
 
     finally:

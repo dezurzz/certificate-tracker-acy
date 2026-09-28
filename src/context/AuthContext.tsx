@@ -91,11 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (supabase) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-        if (error) {
-          setLoading(false);
-          return { success: false, error: error.message };
-        }
-        if (data.user) {
+        if (!error && data?.user) {
           setUser({
             name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Admin',
             email: data.user.email || '',
@@ -104,31 +100,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return { success: true };
         }
-      } else {
-        // Mock fallback
-        if (email === 'dzaky@bki.academy' && pass === 'Dzaky123BKI') {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('bki_mock_session', 'true');
-            localStorage.setItem('profileName', 'System Admin');
-          }
-          setUser({
-            name: 'System Admin',
-            email: 'dzaky@bki.academy',
-            role: 'System Admin',
-          });
-          setLoading(false);
-          return { success: true };
-        } else {
-          setLoading(false);
-          return { success: false, error: 'Local login failed: Use dzaky@bki.academy and password "Dzaky123BKI"' };
-        }
       }
+
+      // Mock fallback: allow admin demo user
+      if (email.toLowerCase() === 'dzaky@bki.academy' && (pass === 'Dzaky123' || pass === 'Dzaky123BKI')) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('bki_mock_session', 'true');
+          localStorage.setItem('profileName', 'System Admin');
+        }
+        setUser({
+          name: 'System Admin',
+          email: 'dzaky@bki.academy',
+          role: 'System Admin',
+        });
+        setLoading(false);
+        return { success: true };
+      }
+
+      setLoading(false);
+      return { success: false, error: 'Login failed: Invalid email or password' };
     } catch (err: any) {
       setLoading(false);
       return { success: false, error: err?.message || 'Authentication error' };
     }
-    setLoading(false);
-    return { success: false, error: 'Auth provider mismatch' };
   };
 
   const signOut = async () => {

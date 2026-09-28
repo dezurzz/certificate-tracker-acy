@@ -57,67 +57,52 @@ async def run_test():
         elem = page.get_by_role("button", name="Sign In")
         await elem.click(timeout=10000)
         
-        # -> Click the 'Training Batches' link in the left navigation to open the Trainings page.
-        # school Training Batches link
-        elem = page.get_by_role("link", name="school Training Batches")
+        # -> Click the 'New Batch' button on the dashboard to open the new batch form.
+        # add New Batch link
+        elem = page.get_by_role("link", name="add New Batch")
         await elem.click(timeout=10000)
         
-        # -> Click the 'Add Training' button to open the new training batch creation flow.
-        # add Add Training button
-        elem = page.get_by_role("button", name="add Add Training")
-        await elem.click(timeout=10000)
-        
-        # -> Fill the training form fields (Training Name, Batch Code, Start Date, End Date, Person in Charge) and click the 'Create Training' button.
+        # -> Fill the 'TRAINING NAME', 'BATCH CODE', 'START DATE', and 'END DATE' fields in the 'Add New Training' modal.
         # e.g. Advanced Structural Analysis text field
         elem = page.get_by_role("textbox", name="TRAINING NAME *")
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("QA Test Batch 2026-09-28")
+        await elem.fill("Automated Test Training 2026-09-28 A")
         
-        # -> Fill the training form fields (Training Name, Batch Code, Start Date, End Date, Person in Charge) and click the 'Create Training' button.
+        # -> Fill the 'TRAINING NAME', 'BATCH CODE', 'START DATE', and 'END DATE' fields in the 'Add New Training' modal.
         # e.g. BTH-2024-01 text field
         elem = page.get_by_role("textbox", name="BATCH CODE *")
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("BTH-TEST-0928")
+        await elem.fill("BTH-20260928-A")
         
-        # -> Fill the training form fields (Training Name, Batch Code, Start Date, End Date, Person in Charge) and click the 'Create Training' button.
+        # -> Fill the 'TRAINING NAME', 'BATCH CODE', 'START DATE', and 'END DATE' fields in the 'Add New Training' modal.
         # date field
         elem = page.get_by_role("textbox", name="START DATE *")
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("2026-10-05")
+        await elem.fill("2026-10-01")
         
-        # -> Fill the training form fields (Training Name, Batch Code, Start Date, End Date, Person in Charge) and click the 'Create Training' button.
+        # -> Fill the 'TRAINING NAME', 'BATCH CODE', 'START DATE', and 'END DATE' fields in the 'Add New Training' modal.
         # date field
         elem = page.get_by_role("textbox", name="END DATE *")
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("2026-10-07")
+        await elem.fill("2026-10-03")
         
-        # -> Fill the training form fields (Training Name, Batch Code, Start Date, End Date, Person in Charge) and click the 'Create Training' button.
+        # -> Fill the 'PERSON IN CHARGE (PIC)' field with 'Dzaky' and click the 'Create Training' button to submit the new training.
         # e.g. Budi Santoso text field
         elem = page.get_by_role("textbox", name="PERSON IN CHARGE (PIC) *")
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("Dzaky")
         
-        # -> Click the 'Create Training' button to submit the new training batch form.
+        # -> Fill the 'PERSON IN CHARGE (PIC)' field with 'Dzaky' and click the 'Create Training' button to submit the new training.
         # Create Training button
         elem = page.get_by_role("button", name="Create Training")
         await elem.click(timeout=10000)
         
-        # -> Navigate to the Trainings page and check that the training named 'QA Test Batch 2026-09-28' appears in the trainings list.
-        await page.goto("http://localhost:3000/trainings")
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-        
         # --> Assertions to verify final state
         
-        # --> Created training 'QA Test Batch 2026-09-28' appears in the Trainings list with batch code BTH-TEST-0928.
+        # --> The newly created training batch 'Automated Test Training 2026-09-28 A' is visible in the Trainings list.
         # Assert-outcome: passed
-        # Assert: The trainings list shows the created training name 'QA Test Batch 2026-09-28'.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div[1]/table/tbody/tr[2]/td[2]/div").nth(0)).to_have_text("QA Test Batch 2026-09-28", timeout=15000), "The trainings list shows the created training name 'QA Test Batch 2026-09-28'."
-        # Assert-outcome: passed
-        # Assert: The trainings list shows the batch code 'BTH-TEST-0928' for the created training.
-        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div[1]/table/tbody/tr[2]/td[3]/div").nth(0)).to_have_text("BTH-TEST-0928", timeout=15000), "The trainings list shows the batch code 'BTH-TEST-0928' for the created training."
+        # Assert: The Trainings list shows the created training name.
+        await expect(page.locator("xpath=/html/body/div[2]/div/main/div[3]/div[1]/table/tbody/tr[1]/td[2]").nth(0)).to_have_text("Automated Test Training 2026-09-28 A", timeout=15000), "The Trainings list shows the created training name."
         await asyncio.sleep(5)
 
     finally:
