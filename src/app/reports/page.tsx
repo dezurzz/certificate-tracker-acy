@@ -187,21 +187,38 @@ export default function ReportsPage() {
                 e.stopPropagation();
                 setPeriodDropdownOpen(!periodDropdownOpen);
               }}
-              className="cms-btn-secondary flex items-center gap-2 h-10"
+              className="cms-btn-secondary flex items-center gap-2.5 h-10 px-3.5 shadow-xs"
             >
-              <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-              <span>{activePeriod}</span>
-              <span className="material-symbols-outlined text-sm">expand_more</span>
+              <span className="material-symbols-outlined text-[18px] text-slate-500 shrink-0 leading-none">calendar_today</span>
+              <span className="font-medium text-xs text-slate-700">{activePeriod}</span>
+              <svg
+                className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                  periodDropdownOpen ? 'rotate-180 text-slate-600' : ''
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
             {periodDropdownOpen && (
-              <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+              <div className="absolute right-0 mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-30 text-left animate-in fade-in zoom-in-95 duration-150">
                 {['Last 7 Days', 'Last 30 Days', 'Last 6 Months'].map(label => (
                   <button
                     key={label}
                     onClick={() => changePeriod(label)}
-                    className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    className={`w-full text-left px-3 py-2 text-xs rounded-lg flex items-center justify-between transition-colors ${
+                      activePeriod === label
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
                   >
-                    {label}
+                    <span>{label}</span>
+                    {activePeriod === label && (
+                      <span className="material-symbols-outlined text-[16px] text-blue-600 shrink-0">check</span>
+                    )}
                   </button>
                 ))}
               </div>

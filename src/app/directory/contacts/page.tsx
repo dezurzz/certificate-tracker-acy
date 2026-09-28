@@ -150,10 +150,10 @@ export default function ContactsDirectoryPage() {
                       <td className="py-3.5 px-4 text-center">
                         <button
                           onClick={() => handleOpenWA(cnt.phone, cnt.name)}
-                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 mx-auto transition"
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-2 mx-auto transition"
                         >
-                          <span className="material-symbols-outlined text-sm">chat</span>
-                          Chat WhatsApp
+                          <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">chat</span>
+                          <span className="leading-none whitespace-nowrap">Chat WhatsApp</span>
                         </button>
                       </td>
                     </tr>

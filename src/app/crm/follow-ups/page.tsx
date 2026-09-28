@@ -294,29 +294,29 @@ export default function FollowUpsPage() {
                     <button
                       onClick={() => handleOpenWA(lead)}
                       title="Hubungi via WhatsApp"
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
                     >
-                      <span className="material-symbols-outlined text-sm">chat</span>
-                      WA Pengingat
+                      <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">chat</span>
+                      <span className="leading-none whitespace-nowrap">WA Pengingat</span>
                     </button>
 
                     {/* Quick Postpone to Tomorrow */}
                     <button
                       onClick={() => handlePostponeTomorrow(lead)}
                       title="Tunda follow-up ke besok"
-                      className="px-3 py-2 bg-slate-50 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                      className="px-3.5 py-2 bg-slate-50 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
                     >
-                      <span className="material-symbols-outlined text-sm">snooze</span>
-                      Besok
+                      <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">snooze</span>
+                      <span className="leading-none whitespace-nowrap">Besok</span>
                     </button>
 
                     {/* Record Follow-up */}
                     <button
                       onClick={() => openFollowUpModal(lead)}
-                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition shadow-xs"
                     >
-                      <span className="material-symbols-outlined text-sm">check</span>
-                      Selesai Follow-up
+                      <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">check</span>
+                      <span className="leading-none whitespace-nowrap">Selesai Follow-up</span>
                     </button>
                   </div>
                 </div>

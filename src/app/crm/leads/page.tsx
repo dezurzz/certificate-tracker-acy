@@ -733,7 +733,7 @@ export default function LeadsPage() {
 
                         {/* Actions (WhatsApp, Status, and Options) */}
                         <td className="py-3.5 px-4 text-right pr-4">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-2">
                             {/* 1. WhatsApp Button with Click-to-Open Dropdown */}
                             <button
                               type="button"
@@ -754,20 +754,30 @@ export default function LeadsPage() {
                                   });
                                 }
                               }}
-                              className={`h-8 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs ${
+                              className={`h-8 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-2 transition-all shadow-xs group ${
                                 dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa'
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-200'
                                   : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-600 hover:text-white'
                               }`}
                               title="Buka Pilihan Pesan WhatsApp"
                             >
-                              <span className="material-symbols-outlined text-sm">chat</span>
-                              <span>WA</span>
-                              <span className="material-symbols-outlined text-xs">
-                                {dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa' && dropdownState.opensUpward
-                                  ? 'expand_less'
-                                  : 'expand_more'}
-                              </span>
+                              <svg className="w-3.5 h-3.5 shrink-0 fill-current" viewBox="0 0 24 24">
+                                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.15C10.57 20.15 9.12 19.75 7.85 19L7.55 18.82L4.43 19.64L5.26 16.6L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.05 20.15ZM16.57 14.39C16.32 14.27 15.1 13.67 14.88 13.58C14.65 13.5 14.49 13.46 14.32 13.7C14.16 13.95 13.69 14.51 13.54 14.67C13.4 14.83 13.25 14.85 13 14.73C12.75 14.61 11.72 14.27 10.5 13.18C9.55 12.33 8.91 11.28 8.78 11.03C8.66 10.79 8.77 10.65 8.89 10.53C9 10.42 9.14 10.24 9.26 10.1C9.38 9.96 9.42 9.86 9.5 9.7C9.58 9.53 9.54 9.39 9.48 9.27C9.42 9.14 8.93 7.94 8.73 7.44C8.53 6.96 8.33 7.02 8.18 7.01C8.04 7.01 7.87 7.01 7.71 7.01C7.54 7.01 7.28 7.07 7.05 7.32C6.82 7.57 6.18 8.17 6.18 9.39C6.18 10.61 7.07 11.79 7.19 11.95C7.32 12.12 8.95 14.62 11.43 15.69C12.02 15.95 12.48 16.1 12.84 16.21C13.43 16.4 13.97 16.37 14.4 16.31C14.87 16.24 15.85 15.71 16.06 15.14C16.26 14.57 16.26 14.08 16.2 13.98C16.14 13.88 15.99 13.82 15.74 13.7L16.57 14.39Z" />
+                              </svg>
+                              <span className="leading-none font-bold">WA</span>
+                              <svg
+                                className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                                  dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa'
+                                    ? 'rotate-180'
+                                    : 'opacity-70 group-hover:opacity-100'
+                                }`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
                             </button>
 
                             {/* 2. Primary Status Progression Action */}
@@ -775,11 +785,11 @@ export default function LeadsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleMarkLinkSent(lead)}
-                                className="h-8 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs"
+                                className="h-8 px-3.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
                                 title="Tandai Formulir Registrasi Telah Dikirim"
                               >
-                                <span className="material-symbols-outlined text-sm">send</span>
-                                <span>Kirim Link</span>
+                                <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">send</span>
+                                <span className="leading-none whitespace-nowrap">Kirim Link</span>
                               </button>
                             )}
 
@@ -787,11 +797,11 @@ export default function LeadsPage() {
                               <button
                                 type="button"
                                 onClick={() => openRegisterModal(lead)}
-                                className="h-8 px-2.5 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs"
+                                className="h-8 px-3.5 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
                                 title="Konfirmasi Pendaftaran ke Batch Training"
                               >
-                                <span className="material-symbols-outlined text-sm">how_to_reg</span>
-                                <span>Konfirmasi</span>
+                                <span className="material-symbols-outlined text-[16px] shrink-0 leading-none">how_to_reg</span>
+                                <span className="leading-none whitespace-nowrap">Konfirmasi</span>
                               </button>
                             )}
 
@@ -799,11 +809,11 @@ export default function LeadsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleCompleteTraining(lead)}
-                                className="h-8 px-2.5 rounded-lg bg-green-50 hover:bg-green-600 hover:text-white text-green-700 border border-green-200 text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs"
+                                className="h-8 px-3.5 rounded-lg bg-green-50 hover:bg-green-600 hover:text-white text-green-700 border border-green-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
                                 title="Tandai Pelatihan Selesai & Lanjut ke Cetak Sertifikat"
                               >
-                                <span className="material-symbols-outlined text-sm">school</span>
-                                <span>Selesai</span>
+                                <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">school</span>
+                                <span className="leading-none whitespace-nowrap">Selesai</span>
                               </button>
                             )}
 
@@ -827,14 +837,14 @@ export default function LeadsPage() {
                                   });
                                 }
                               }}
-                              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition shadow-xs ${
+                              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all shadow-xs ${
                                 dropdownState?.lead.id === lead.id && dropdownState?.type === 'menu'
-                                  ? 'bg-slate-800 text-white border-slate-800'
+                                  ? 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-300'
                                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                               }`}
                               title="Pilihan Aksi Lainnya"
                             >
-                              <span className="material-symbols-outlined text-base">more_horiz</span>
+                              <span className="material-symbols-outlined text-[18px] shrink-0 leading-none">more_horiz</span>
                             </button>
 
                             {/* 4. Quick Detail Drawer Button */}
@@ -844,7 +854,7 @@ export default function LeadsPage() {
                               className="h-8 w-8 rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-blue-600 flex items-center justify-center transition shrink-0"
                               title="Buka Panel Detail"
                             >
-                              <span className="material-symbols-outlined text-lg">chevron_right</span>
+                              <span className="material-symbols-outlined text-lg shrink-0 leading-none">chevron_right</span>
                             </button>
                           </div>
                         </td>
@@ -877,12 +887,12 @@ export default function LeadsPage() {
               className="bg-white border border-slate-200/90 rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5"
             >
               {dropdownState.type === 'wa' ? (
-                <div className="w-64">
-                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                <div className="w-72">
+                  <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
                     <span>Pilih Template WhatsApp</span>
-                    <span className="text-emerald-600 font-mono text-[9px]">{dropdownState.lead.contact_phone}</span>
+                    <span className="text-emerald-600 font-mono text-[10px] font-semibold">{dropdownState.lead.contact_phone}</span>
                   </div>
-                  <div className="py-1 space-y-0.5">
+                  <div className="py-1.5 space-y-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -890,14 +900,14 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         handleOpenWA(l, 'offer');
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                     >
-                      <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-sm">event_available</span>
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[16px] leading-none">event_available</span>
                       </div>
-                      <div>
-                        <p className="font-semibold leading-none">1. Tawarkan Jadwal</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Penawaran info jadwal training</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-xs leading-none">1. Tawarkan Jadwal</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Penawaran info jadwal training</p>
                       </div>
                     </button>
                     <button
@@ -907,14 +917,14 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         handleOpenWA(l, 'link');
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                     >
-                      <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-sm">link</span>
+                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[16px] leading-none">link</span>
                       </div>
-                      <div>
-                        <p className="font-semibold leading-none">2. Kirim Link Formulir</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Tautan formulir registrasi</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-xs leading-none">2. Kirim Link Formulir</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Tautan formulir registrasi</p>
                       </div>
                     </button>
                     <button
@@ -924,14 +934,14 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         handleOpenWA(l, 'reminder');
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                     >
-                      <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-sm">notifications_active</span>
+                      <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[16px] leading-none">notifications_active</span>
                       </div>
-                      <div>
-                        <p className="font-semibold leading-none">3. Pengingat Pendaftaran</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Follow-up pengisian formulir</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-xs leading-none">3. Pengingat Pendaftaran</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Follow-up pengisian formulir</p>
                       </div>
                     </button>
                     <button
@@ -941,25 +951,25 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         handleOpenWA(l, 'confirmed');
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                     >
-                      <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[16px] leading-none">check_circle</span>
                       </div>
-                      <div>
-                        <p className="font-semibold leading-none">4. Konfirmasi Terdaftar</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Pemberitahuan telah terdata</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-xs leading-none">4. Konfirmasi Terdaftar</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Pemberitahuan telah terdata</p>
                       </div>
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="w-56">
-                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                <div className="w-60">
+                  <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
                     <span>Aksi Lead</span>
-                    <span className="text-slate-500 font-medium text-[10px] truncate max-w-[100px]">{dropdownState.lead.contact_name}</span>
+                    <span className="text-slate-500 font-medium text-[10px] truncate max-w-[120px]">{dropdownState.lead.contact_name}</span>
                   </div>
-                  <div className="py-1 space-y-0.5">
+                  <div className="py-1.5 space-y-1">
                     {dropdownState.lead.status !== 'Selesai Training' && dropdownState.lead.status !== 'Batal' && (
                       <>
                         <button
@@ -969,10 +979,12 @@ export default function LeadsPage() {
                             setDropdownState(null);
                             openFollowUpModal(l);
                           }}
-                          className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                          className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                         >
-                          <span className="material-symbols-outlined text-sm text-blue-500">calendar_clock</span>
-                          <span>Jadwalkan Follow-up</span>
+                          <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
+                            <span className="material-symbols-outlined text-[15px] leading-none">calendar_clock</span>
+                          </div>
+                          <span className="font-medium text-slate-700">Jadwalkan Follow-up</span>
                         </button>
 
                         {dropdownState.lead.status !== 'Waiting List' && (
@@ -983,10 +995,12 @@ export default function LeadsPage() {
                               setDropdownState(null);
                               openRescheduleModal(l);
                             }}
-                            className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                            className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                           >
-                            <span className="material-symbols-outlined text-sm text-amber-500">hourglass_top</span>
-                            <span>Pindah ke Waiting List</span>
+                            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
+                              <span className="material-symbols-outlined text-[15px] leading-none">hourglass_top</span>
+                            </div>
+                            <span className="font-medium text-slate-700">Pindah ke Waiting List</span>
                           </button>
                         )}
 
@@ -997,10 +1011,12 @@ export default function LeadsPage() {
                             setDropdownState(null);
                             openCancelModal(l);
                           }}
-                          className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                          className="w-full px-3 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                         >
-                          <span className="material-symbols-outlined text-sm text-red-500">cancel</span>
-                          <span>Tandai Batal</span>
+                          <div className="w-6 h-6 rounded-md bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:bg-red-600 group-hover:text-white transition">
+                            <span className="material-symbols-outlined text-[15px] leading-none">cancel</span>
+                          </div>
+                          <span className="font-medium text-red-600">Tandai Batal</span>
                         </button>
 
                         <div className="my-1 border-t border-slate-100"></div>
@@ -1014,10 +1030,12 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         openLeadDetail(l);
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition font-medium"
+                      className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group font-medium"
                     >
-                      <span className="material-symbols-outlined text-sm text-slate-500">visibility</span>
-                      <span>Lihat Detail Lengkap</span>
+                      <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-slate-700 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[15px] leading-none">visibility</span>
+                      </div>
+                      <span className="text-slate-700">Lihat Detail Lengkap</span>
                     </button>
 
                     <button
@@ -1027,10 +1045,12 @@ export default function LeadsPage() {
                         setDropdownState(null);
                         handleDeleteLead(l.id);
                       }}
-                      className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                      className="w-full px-3 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-3 transition group"
                     >
-                      <span className="material-symbols-outlined text-sm text-red-400">delete</span>
-                      <span>Hapus Lead</span>
+                      <div className="w-6 h-6 rounded-md bg-red-50 text-red-500 flex items-center justify-center shrink-0 group-hover:bg-red-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-[15px] leading-none">delete</span>
+                      </div>
+                      <span className="text-red-600 font-medium">Hapus Lead</span>
                     </button>
                   </div>
                 </div>
@@ -1543,31 +1563,31 @@ export default function LeadsPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleOpenWA(selectedLead, 'offer')}
-                      className="px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 flex items-center justify-center gap-1.5 transition text-[11px] font-medium"
+                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
                     >
-                      <span className="material-symbols-outlined text-sm">schedule</span>
-                      Kirim Jadwal
+                      <span className="material-symbols-outlined text-base shrink-0 leading-none">schedule</span>
+                      <span className="leading-none whitespace-nowrap">Kirim Jadwal</span>
                     </button>
                     <button
                       onClick={() => handleOpenWA(selectedLead, 'link')}
-                      className="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200 flex items-center justify-center gap-1.5 transition text-[11px] font-medium"
+                      className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
                     >
-                      <span className="material-symbols-outlined text-sm">link</span>
-                      Kirim Link Form
+                      <span className="material-symbols-outlined text-base shrink-0 leading-none">link</span>
+                      <span className="leading-none whitespace-nowrap">Kirim Link Form</span>
                     </button>
                     <button
                       onClick={() => handleOpenWA(selectedLead, 'reminder')}
-                      className="px-2.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200 flex items-center justify-center gap-1.5 transition text-[11px] font-medium"
+                      className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
                     >
-                      <span className="material-symbols-outlined text-sm">notifications</span>
-                      Follow-up Reminder
+                      <span className="material-symbols-outlined text-base shrink-0 leading-none">notifications</span>
+                      <span className="leading-none whitespace-nowrap">Follow-up Reminder</span>
                     </button>
                     <button
                       onClick={() => handleOpenWA(selectedLead, 'confirmed')}
-                      className="px-2.5 py-2 bg-green-50 hover:bg-green-100 text-green-800 rounded-lg border border-green-200 flex items-center justify-center gap-1.5 transition text-[11px] font-medium"
+                      className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-800 rounded-lg border border-green-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
                     >
-                      <span className="material-symbols-outlined text-sm">check_circle</span>
-                      Konfirmasi Terdaftar
+                      <span className="material-symbols-outlined text-base shrink-0 leading-none">check_circle</span>
+                      <span className="leading-none whitespace-nowrap">Konfirmasi Terdaftar</span>
                     </button>
                   </div>
                 </div>

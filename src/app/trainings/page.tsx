@@ -647,25 +647,28 @@ function TrainingsContent() {
                               <span className="material-symbols-outlined text-[18px]">more_vert</span>
                             </button>
                             {activeMenuId === t.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
+                              <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 z-30 text-left">
                                 <button
                                   onClick={() => router.push(`/trainings/${t.id}`)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
                                 >
-                                  <span className="material-symbols-outlined text-sm">visibility</span> View Detail
+                                  <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0 leading-none">visibility</span>
+                                  <span>View Detail</span>
                                 </button>
                                 <button
                                   onClick={() => openEditModal(t)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
                                 >
-                                  <span className="material-symbols-outlined text-sm">edit</span> Edit Batch
+                                  <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0 leading-none">edit</span>
+                                  <span>Edit Batch</span>
                                 </button>
-                                <hr className="border-slate-100 my-1" />
+                                <div className="border-t border-slate-100 my-1"></div>
                                 <button
                                   onClick={() => handleDelete(t.id)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 >
-                                  <span className="material-symbols-outlined text-sm">delete</span> Delete
+                                  <span className="material-symbols-outlined text-[16px] text-red-500 shrink-0 leading-none">delete</span>
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             )}
