@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, LeadStatus, LeadSource, WaitingReason, TrainingProgram, Training, LeadActivity } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
@@ -35,9 +36,15 @@ export default function LeadsPage() {
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
-  // Active dropdown states for table action buttons
-  const [activeWaDropdownId, setActiveWaDropdownId] = useState<string | null>(null);
-  const [activeMenuDropdownId, setActiveMenuDropdownId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Floating dropdown state for table action buttons (rendered via React Portal to prevent table clipping)
+  const [dropdownState, setDropdownState] = useState<{
+    type: 'wa' | 'menu';
+    lead: Lead;
+    rect: { top: number; bottom: number; left: number; right: number };
+    opensUpward: boolean;
+  } | null>(null);
 
   // Action fields
   const [actionBatchId, setActionBatchId] = useState('');
@@ -102,6 +109,7 @@ export default function LeadsPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     loadData();
 
     // Default next follow-up to tomorrow
@@ -112,20 +120,22 @@ export default function LeadsPage() {
     const handleUpdate = () => loadData();
     window.addEventListener('bki-db-update', handleUpdate);
 
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.crm-dropdown-container')) {
-        setActiveWaDropdownId(null);
-        setActiveMenuDropdownId(null);
-      }
-    };
-    window.addEventListener('click', handleOutsideClick);
-
     return () => {
       window.removeEventListener('bki-db-update', handleUpdate);
-      window.removeEventListener('click', handleOutsideClick);
     };
   }, []);
+
+  // Dismiss floating dropdown on any scroll or window resize
+  useEffect(() => {
+    if (!dropdownState) return;
+    const handleClose = () => setDropdownState(null);
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('resize', handleClose);
+    return () => {
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('resize', handleClose);
+    };
+  }, [dropdownState]);
 
   // Quick Open Drawer
   const openLeadDetail = async (lead: Lead) => {
@@ -613,7 +623,7 @@ export default function LeadsPage() {
 
         {/* Main Leads Table */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto table-scroll">
+          <div className="overflow-x-auto table-scroll min-h-[160px]">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
@@ -725,87 +735,40 @@ export default function LeadsPage() {
                         <td className="py-3.5 px-4 text-right pr-4">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* 1. WhatsApp Button with Click-to-Open Dropdown */}
-                            <div className="relative crm-dropdown-container">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuDropdownId(null);
-                                  setActiveWaDropdownId(activeWaDropdownId === lead.id ? null : lead.id);
-                                }}
-                                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs ${
-                                  activeWaDropdownId === lead.id
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-600 hover:text-white'
-                                }`}
-                                title="Buka Pilihan Pesan WhatsApp"
-                              >
-                                <span className="material-symbols-outlined text-sm">chat</span>
-                                <span>WA</span>
-                                <span className="material-symbols-outlined text-xs">expand_more</span>
-                              </button>
-
-                              {activeWaDropdownId === lead.id && (
-                                <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 w-60 z-50 text-left animate-in fade-in zoom-in-95 duration-100">
-                                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
-                                    <span>Pilih Template WhatsApp</span>
-                                    <span className="text-emerald-600 font-mono text-[9px]">{lead.contact_phone}</span>
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      handleOpenWA(lead, 'offer');
-                                      setActiveWaDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-blue-500">event_available</span>
-                                    <div>
-                                      <p className="font-semibold leading-none">1. Tawarkan Jadwal</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Penawaran info jadwal training</p>
-                                    </div>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      handleOpenWA(lead, 'link');
-                                      setActiveWaDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-indigo-500">link</span>
-                                    <div>
-                                      <p className="font-semibold leading-none">2. Kirim Link Formulir</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Tautan formulir registrasi</p>
-                                    </div>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      handleOpenWA(lead, 'reminder');
-                                      setActiveWaDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-amber-500">notifications_active</span>
-                                    <div>
-                                      <p className="font-semibold leading-none">3. Pengingat Pendaftaran</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Follow-up pengisian formulir</p>
-                                    </div>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      handleOpenWA(lead, 'confirmed');
-                                      setActiveWaDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
-                                    <div>
-                                      <p className="font-semibold leading-none">4. Konfirmasi Terdaftar</p>
-                                      <p className="text-[10px] text-slate-400 mt-0.5">Pemberitahuan telah terdata</p>
-                                    </div>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa') {
+                                  setDropdownState(null);
+                                } else {
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  const spaceBelow = window.innerHeight - r.bottom;
+                                  const spaceAbove = r.top;
+                                  const opensUpward = spaceBelow < 280 && spaceAbove > spaceBelow;
+                                  setDropdownState({
+                                    type: 'wa',
+                                    lead,
+                                    rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
+                                    opensUpward,
+                                  });
+                                }
+                              }}
+                              className={`h-8 px-2.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-xs ${
+                                dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa'
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-600 hover:text-white'
+                              }`}
+                              title="Buka Pilihan Pesan WhatsApp"
+                            >
+                              <span className="material-symbols-outlined text-sm">chat</span>
+                              <span>WA</span>
+                              <span className="material-symbols-outlined text-xs">
+                                {dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa' && dropdownState.opensUpward
+                                  ? 'expand_less'
+                                  : 'expand_more'}
+                              </span>
+                            </button>
 
                             {/* 2. Primary Status Progression Action */}
                             {lead.status === 'Baru' && (
@@ -844,92 +807,35 @@ export default function LeadsPage() {
                               </button>
                             )}
 
-                            {/* 3. More Actions Dropdown (•••) */}
-                            <div className="relative crm-dropdown-container">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveWaDropdownId(null);
-                                  setActiveMenuDropdownId(activeMenuDropdownId === lead.id ? null : lead.id);
-                                }}
-                                className={`h-8 w-8 rounded-lg border flex items-center justify-center transition shadow-xs ${
-                                  activeMenuDropdownId === lead.id
-                                    ? 'bg-slate-800 text-white border-slate-800'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                                }`}
-                                title="Pilihan Aksi Lainnya"
-                              >
-                                <span className="material-symbols-outlined text-base">more_horiz</span>
-                              </button>
-
-                              {activeMenuDropdownId === lead.id && (
-                                <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 w-52 z-50 text-left animate-in fade-in zoom-in-95 duration-100">
-                                  {lead.status !== 'Selesai Training' && lead.status !== 'Batal' && (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          openFollowUpModal(lead);
-                                          setActiveMenuDropdownId(null);
-                                        }}
-                                        className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                      >
-                                        <span className="material-symbols-outlined text-sm text-blue-500">calendar_clock</span>
-                                        <span>Jadwalkan Follow-up</span>
-                                      </button>
-
-                                      {lead.status !== 'Waiting List' && (
-                                        <button
-                                          onClick={() => {
-                                            openRescheduleModal(lead);
-                                            setActiveMenuDropdownId(null);
-                                          }}
-                                          className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                        >
-                                          <span className="material-symbols-outlined text-sm text-amber-500">hourglass_top</span>
-                                          <span>Pindah ke Waiting List</span>
-                                        </button>
-                                      )}
-
-                                      <button
-                                        onClick={() => {
-                                          openCancelModal(lead);
-                                          setActiveMenuDropdownId(null);
-                                        }}
-                                        className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                      >
-                                        <span className="material-symbols-outlined text-sm text-red-500">cancel</span>
-                                        <span>Tandai Batal</span>
-                                      </button>
-
-                                      <div className="my-1 border-t border-slate-100"></div>
-                                    </>
-                                  )}
-
-                                  <button
-                                    onClick={() => {
-                                      openLeadDetail(lead);
-                                      setActiveMenuDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition font-medium"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-slate-500">visibility</span>
-                                    <span>Lihat Detail Lengkap</span>
-                                  </button>
-
-                                  <button
-                                    onClick={() => {
-                                      handleDeleteLead(lead.id);
-                                      setActiveMenuDropdownId(null);
-                                    }}
-                                    className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
-                                  >
-                                    <span className="material-symbols-outlined text-sm text-red-400">delete</span>
-                                    <span>Hapus Lead</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            {/* 3. More Actions Button (•••) */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (dropdownState?.lead.id === lead.id && dropdownState?.type === 'menu') {
+                                  setDropdownState(null);
+                                } else {
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  const spaceBelow = window.innerHeight - r.bottom;
+                                  const spaceAbove = r.top;
+                                  const opensUpward = spaceBelow < 260 && spaceAbove > spaceBelow;
+                                  setDropdownState({
+                                    type: 'menu',
+                                    lead,
+                                    rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
+                                    opensUpward,
+                                  });
+                                }
+                              }}
+                              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition shadow-xs ${
+                                dropdownState?.lead.id === lead.id && dropdownState?.type === 'menu'
+                                  ? 'bg-slate-800 text-white border-slate-800'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                              title="Pilihan Aksi Lainnya"
+                            >
+                              <span className="material-symbols-outlined text-base">more_horiz</span>
+                            </button>
 
                             {/* 4. Quick Detail Drawer Button */}
                             <button
@@ -950,6 +856,189 @@ export default function LeadsPage() {
             </table>
           </div>
         </div>
+
+        {/* Floating Action Dropdown Menu (Mounted in document.body via Portal to prevent any container clipping) */}
+        {mounted && typeof document !== 'undefined' && dropdownState && createPortal(
+          <div
+            className="fixed inset-0 z-[9998] bg-transparent"
+            onClick={() => setDropdownState(null)}
+          >
+            <div
+              id="bki-floating-dropdown"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                right: `${Math.max(12, window.innerWidth - dropdownState.rect.right)}px`,
+                ...(dropdownState.opensUpward
+                  ? { bottom: `${window.innerHeight - dropdownState.rect.top + 6}px` }
+                  : { top: `${dropdownState.rect.bottom + 6}px` }),
+                zIndex: 9999,
+              }}
+              className="bg-white border border-slate-200/90 rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5"
+            >
+              {dropdownState.type === 'wa' ? (
+                <div className="w-64">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                    <span>Pilih Template WhatsApp</span>
+                    <span className="text-emerald-600 font-mono text-[9px]">{dropdownState.lead.contact_phone}</span>
+                  </div>
+                  <div className="py-1 space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        handleOpenWA(l, 'offer');
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                    >
+                      <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-sm">event_available</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold leading-none">1. Tawarkan Jadwal</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Penawaran info jadwal training</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        handleOpenWA(l, 'link');
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                    >
+                      <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-sm">link</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold leading-none">2. Kirim Link Formulir</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Tautan formulir registrasi</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        handleOpenWA(l, 'reminder');
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                    >
+                      <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-sm">notifications_active</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold leading-none">3. Pengingat Pendaftaran</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Follow-up pengisian formulir</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        handleOpenWA(l, 'confirmed');
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs rounded-lg text-left flex items-center gap-2.5 transition group"
+                    >
+                      <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold leading-none">4. Konfirmasi Terdaftar</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Pemberitahuan telah terdata</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-56">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                    <span>Aksi Lead</span>
+                    <span className="text-slate-500 font-medium text-[10px] truncate max-w-[100px]">{dropdownState.lead.contact_name}</span>
+                  </div>
+                  <div className="py-1 space-y-0.5">
+                    {dropdownState.lead.status !== 'Selesai Training' && dropdownState.lead.status !== 'Batal' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const l = dropdownState.lead;
+                            setDropdownState(null);
+                            openFollowUpModal(l);
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                        >
+                          <span className="material-symbols-outlined text-sm text-blue-500">calendar_clock</span>
+                          <span>Jadwalkan Follow-up</span>
+                        </button>
+
+                        {dropdownState.lead.status !== 'Waiting List' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const l = dropdownState.lead;
+                              setDropdownState(null);
+                              openRescheduleModal(l);
+                            }}
+                            className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                          >
+                            <span className="material-symbols-outlined text-sm text-amber-500">hourglass_top</span>
+                            <span>Pindah ke Waiting List</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const l = dropdownState.lead;
+                            setDropdownState(null);
+                            openCancelModal(l);
+                          }}
+                          className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                        >
+                          <span className="material-symbols-outlined text-sm text-red-500">cancel</span>
+                          <span>Tandai Batal</span>
+                        </button>
+
+                        <div className="my-1 border-t border-slate-100"></div>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        openLeadDetail(l);
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-2 transition font-medium"
+                    >
+                      <span className="material-symbols-outlined text-sm text-slate-500">visibility</span>
+                      <span>Lihat Detail Lengkap</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const l = dropdownState.lead;
+                        setDropdownState(null);
+                        handleDeleteLead(l.id);
+                      }}
+                      className="w-full px-2.5 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-2 transition"
+                    >
+                      <span className="material-symbols-outlined text-sm text-red-400">delete</span>
+                      <span>Hapus Lead</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
 
         {/* Modal: Input Lead Baru */}
         {isAddModalOpen && (
