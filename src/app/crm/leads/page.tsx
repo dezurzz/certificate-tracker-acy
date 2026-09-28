@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import DashboardLayout from '@/components/DashboardLayout';
+import Button from '@/components/Button';
+import DropdownButton from '@/components/DropdownButton';
+import ActionMenu from '@/components/ActionMenu';
 import { DB, Lead, LeadStatus, LeadSource, WaitingReason, TrainingProgram, Training, LeadActivity, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -35,16 +37,6 @@ export default function LeadsPage() {
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-
-  const [mounted, setMounted] = useState(false);
-
-  // Floating dropdown state for table action buttons (rendered via React Portal to prevent table clipping)
-  const [dropdownState, setDropdownState] = useState<{
-    type: 'wa' | 'menu';
-    lead: Lead;
-    rect: { top: number; bottom: number; left: number; right: number };
-    opensUpward: boolean;
-  } | null>(null);
 
   // Action fields
   const [actionBatchId, setActionBatchId] = useState('');
@@ -109,7 +101,6 @@ export default function LeadsPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
     loadData();
 
     // Default next follow-up to tomorrow
@@ -124,18 +115,6 @@ export default function LeadsPage() {
       window.removeEventListener('bki-db-update', handleUpdate);
     };
   }, []);
-
-  // Dismiss floating dropdown on any scroll or window resize
-  useEffect(() => {
-    if (!dropdownState) return;
-    const handleClose = () => setDropdownState(null);
-    window.addEventListener('scroll', handleClose, true);
-    window.addEventListener('resize', handleClose);
-    return () => {
-      window.removeEventListener('scroll', handleClose, true);
-      window.removeEventListener('resize', handleClose);
-    };
-  }, [dropdownState]);
 
   // Quick Open Drawer
   const openLeadDetail = async (lead: Lead) => {
@@ -178,25 +157,64 @@ export default function LeadsPage() {
   // Unique PICs for filter
   const uniquePics = Array.from(new Set(leads.map(l => l.pic_staff_name).filter(Boolean)));
 
-  // Status Badge Styling
+  // Status Badge Styling matching BKI Academy design system
   const getStatusBadge = (status: LeadStatus) => {
     switch (status) {
       case 'Baru':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-200">Baru</span>;
+        return (
+          <span className="cms-badge bg-blue-50 text-blue-700 border border-blue-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5" />
+            Baru
+          </span>
+        );
       case 'Waiting List':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200">Waiting List</span>;
+        return (
+          <span className="cms-badge cms-badge-processing">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />
+            Waiting List
+          </span>
+        );
       case 'Jadwal Ditawarkan':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-700 border border-purple-200">Jadwal Ditawarkan</span>;
+        return (
+          <span className="cms-badge bg-purple-50 text-purple-700 border border-purple-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 mr-1.5" />
+            Ditawarkan
+          </span>
+        );
       case 'Link Terkirim':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">Link Terkirim</span>;
+        return (
+          <span className="cms-badge bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5" />
+            Link Terkirim
+          </span>
+        );
       case 'Terdaftar':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Terdaftar</span>;
+        return (
+          <span className="cms-badge cms-badge-completed">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
+            Terdaftar
+          </span>
+        );
       case 'Selesai Training':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">Selesai Training</span>;
+        return (
+          <span className="cms-badge cms-badge-completed">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5" />
+            Selesai
+          </span>
+        );
       case 'Batal':
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-500 border border-slate-200">Batal</span>;
+        return (
+          <span className="cms-badge cms-badge-pending">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1.5" />
+            Batal
+          </span>
+        );
       default:
-        return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">{status}</span>;
+        return (
+          <span className="cms-badge cms-badge-pending">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -452,26 +470,22 @@ export default function LeadsPage() {
   return (
     <DashboardLayout pageTitle="Leads & Waiting List Management">
       <div className="space-y-6">
-        {/* Top Header Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">person_search</span>
-              Leads & Opportunity Pipeline
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Kelola prospek dari WhatsApp dan form pendaftaran, jadwalkan follow-up harian, dan pantau kebutuhan waiting list.
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Leads & Waiting List</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Kelola prospek dari WhatsApp dan form pendaftaran, follow-up harian, dan pantau waiting list.
             </p>
           </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
+          <div className="flex gap-3">
+            <Button
+              variant="primary"
+              icon="add"
               onClick={() => setIsAddModalOpen(true)}
-              className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-3.5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition"
             >
-              <span className="material-symbols-outlined text-base">add_circle</span>
               Input Lead Baru
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -538,116 +552,123 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* Filter and Search Bar */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {/* Search Input */}
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">search</span>
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Cari kontak, PT, WA, program..."
-                className="cms-input pl-9 text-xs"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="cms-input text-xs"
-              >
-                <option value="">Semua Status</option>
-                <option value="Baru">Baru</option>
-                <option value="Waiting List">Waiting List</option>
-                <option value="Jadwal Ditawarkan">Jadwal Ditawarkan</option>
-                <option value="Link Terkirim">Link Terkirim</option>
-                <option value="Terdaftar">Terdaftar</option>
-                <option value="Selesai Training">Selesai Training</option>
-                <option value="Batal">Batal</option>
-              </select>
-            </div>
-
-            {/* PIC Filter */}
-            <div>
-              <select
-                value={picFilter}
-                onChange={e => setPicFilter(e.target.value)}
-                className="cms-input text-xs"
-              >
-                <option value="">Semua PIC Staf</option>
-                {uniquePics.map(pic => (
-                  <option key={pic} value={pic}>{pic}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Program Filter */}
-            <div>
-              <select
-                value={programFilter}
-                onChange={e => setProgramFilter(e.target.value)}
-                className="cms-input text-xs"
-              >
-                <option value="">Semua Program Training</option>
-                {BKI_TRAINING_PROGRAMS.map(progName => (
-                  <option key={progName} value={progName}>{progName}</option>
-                ))}
-              </select>
-            </div>
+        {/* Filters with Search Integrated */}
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex gap-3 items-center flex-wrap">
+          <div className="flex items-center gap-2 text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
+            <span className="material-symbols-outlined text-[18px]">filter_list</span>
+            Filters:
           </div>
 
+          {/* Search bar */}
+          <div className="relative w-full md:w-64">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Cari kontak, PT, WA, program..."
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
+          >
+            <option value="">Semua Status</option>
+            <option value="Baru">Baru</option>
+            <option value="Waiting List">Waiting List</option>
+            <option value="Jadwal Ditawarkan">Ditawarkan</option>
+            <option value="Link Terkirim">Link Terkirim</option>
+            <option value="Terdaftar">Terdaftar</option>
+            <option value="Selesai Training">Selesai</option>
+            <option value="Batal">Batal</option>
+          </select>
+
+          {/* PIC Filter */}
+          <select
+            value={picFilter}
+            onChange={e => setPicFilter(e.target.value)}
+            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
+          >
+            <option value="">Semua PIC</option>
+            {uniquePics.map(pic => (
+              <option key={pic} value={pic}>{pic}</option>
+            ))}
+          </select>
+
+          {/* Program Filter */}
+          <select
+            value={programFilter}
+            onChange={e => setProgramFilter(e.target.value)}
+            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer max-w-[220px] truncate"
+          >
+            <option value="">Semua Program Training</option>
+            {BKI_TRAINING_PROGRAMS.map(progName => (
+              <option key={progName} value={progName}>{progName}</option>
+            ))}
+          </select>
+
+          {/* Overdue Quick Toggle */}
+          <button
+            type="button"
+            onClick={() => setOnlyOverdue(!onlyOverdue)}
+            className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+              onlyOverdue
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">warning</span>
+            Overdue
+          </button>
+
           {(searchTerm || statusFilter || picFilter || programFilter || onlyOverdue) && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-              <span className="text-slate-500">
-                Menampilkan <b>{filteredLeads.length}</b> dari {leads.length} leads
-              </span>
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('');
-                  setPicFilter('');
-                  setProgramFilter('');
-                  setOnlyOverdue(false);
-                }}
-                className="text-blue-600 hover:underline font-medium"
-              >
-                Reset Filter
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('');
+                setPicFilter('');
+                setProgramFilter('');
+                setOnlyOverdue(false);
+              }}
+              className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+            >
+              Clear Filters
+            </button>
           )}
         </div>
 
         {/* Main Leads Table */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-8">
           <div className="overflow-x-auto table-scroll min-h-[160px]">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse bg-white">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Kontak / Perusahaan</th>
-                  <th className="py-3.5 px-4">Program & Kursi</th>
-                  <th className="py-3.5 px-4">Status & Alasan</th>
-                  <th className="py-3.5 px-4">Jadwal Follow-up</th>
-                  <th className="py-3.5 px-4">PIC Staf</th>
-                  <th className="py-3.5 px-4 text-right pr-6">Tindakan</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="p-4">Kontak / Perusahaan</th>
+                  <th className="p-4">Program & Kursi</th>
+                  <th className="p-4">Status & Alasan</th>
+                  <th className="p-4">Jadwal Follow-up</th>
+                  <th className="p-4">PIC Staf</th>
+                  <th className="p-4 text-right pr-6">Tindakan</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <td colSpan={6} className="p-12 text-center text-slate-400">
                       <div className="flex justify-center items-center gap-2">
-                        <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>
+                        <span className="material-symbols-outlined animate-spin text-xl text-blue-600">progress_activity</span>
                         <span>Memuat data leads...</span>
                       </div>
                     </td>
                   </tr>
                 ) : filteredLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <td colSpan={6} className="p-12 text-center text-slate-400">
                       <span className="material-symbols-outlined text-3xl mb-1 text-slate-300">inbox</span>
                       <p className="font-medium text-slate-600">Tidak ada lead yang cocok dengan filter</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">Coba ubah filter pencarian atau input lead baru.</p>
@@ -661,7 +682,7 @@ export default function LeadsPage() {
                     return (
                       <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
                         {/* Contact & Company */}
-                        <td className="py-3.5 px-4">
+                        <td className="p-4">
                           <div className="font-semibold text-slate-900 flex items-center gap-1.5">
                             {lead.contact_name}
                             <span className="text-[10px] text-slate-400 font-normal">({lead.source})</span>
@@ -676,7 +697,7 @@ export default function LeadsPage() {
                         </td>
 
                         {/* Program & Seats */}
-                        <td className="py-3.5 px-4">
+                        <td className="p-4">
                           <p className="font-medium text-slate-900">{lead.program_name}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-semibold border border-blue-100">
@@ -694,7 +715,7 @@ export default function LeadsPage() {
                         </td>
 
                         {/* Status */}
-                        <td className="py-3.5 px-4">
+                        <td className="p-4">
                           <div>{getStatusBadge(lead.status)}</div>
                           {lead.waiting_reason && (
                             <p className="text-[10px] text-amber-700 font-medium mt-1 flex items-center gap-1">
@@ -708,7 +729,7 @@ export default function LeadsPage() {
                         </td>
 
                         {/* Follow-up Date */}
-                        <td className="py-3.5 px-4">
+                        <td className="p-4">
                           <div className="flex items-center gap-1.5">
                             <span className={`text-xs font-semibold ${overdue ? 'text-red-600' : isToday ? 'text-amber-600 font-bold' : 'text-slate-700'}`}>
                               {lead.next_follow_up_date || '-'}
@@ -727,135 +748,135 @@ export default function LeadsPage() {
                         </td>
 
                         {/* PIC */}
-                        <td className="py-3.5 px-4">
+                        <td className="p-4">
                           <p className="font-medium text-slate-800 text-xs">{lead.pic_staff_name}</p>
                         </td>
 
-                        {/* Actions (WhatsApp, Status, and Options) */}
-                        <td className="py-3.5 px-4 text-right pr-4">
+                        {/* Actions (WhatsApp Dropdown, Progression Button, and ActionMenu) */}
+                        <td className="p-4 text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            {/* 1. WhatsApp Button with Click-to-Open Dropdown */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa') {
-                                  setDropdownState(null);
-                                } else {
-                                  const r = e.currentTarget.getBoundingClientRect();
-                                  const spaceBelow = window.innerHeight - r.bottom;
-                                  const spaceAbove = r.top;
-                                  const opensUpward = spaceBelow < 280 && spaceAbove > spaceBelow;
-                                  setDropdownState({
-                                    type: 'wa',
-                                    lead,
-                                    rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
-                                    opensUpward,
-                                  });
-                                }
-                              }}
-                              className={`h-8 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-2 transition-all shadow-xs group ${
-                                dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa'
-                                  ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-200'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-600 hover:text-white'
-                              }`}
-                              title="Buka Pilihan Pesan WhatsApp"
+                            {/* 1. Standardized WhatsApp DropdownButton */}
+                            <DropdownButton
+                              variant="secondary"
+                              size="sm"
+                              menuWidth="w-64"
+                              align="right"
+                              icon={
+                                <svg className="w-3.5 h-3.5 fill-emerald-600" viewBox="0 0 24 24">
+                                  <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.15C10.57 20.15 9.12 19.75 7.85 19L7.55 18.82L4.43 19.64L5.26 16.6L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.05 20.15ZM16.57 14.39C16.32 14.27 15.1 13.67 14.88 13.58C14.65 13.5 14.49 13.46 14.32 13.7C14.16 13.95 13.69 14.51 13.54 14.67C13.4 14.83 13.25 14.85 13 14.73C12.75 14.61 11.72 14.27 10.5 13.18C9.55 12.33 8.91 11.28 8.78 11.03C8.66 10.79 8.77 10.65 8.89 10.53C9 10.42 9.14 10.24 9.26 10.1C9.38 9.96 9.42 9.86 9.5 9.7C9.58 9.53 9.54 9.39 9.48 9.27C9.42 9.14 8.93 7.94 8.73 7.44C8.53 6.96 8.33 7.02 8.18 7.01C8.04 7.01 7.87 7.01 7.71 7.01C7.54 7.01 7.28 7.07 7.05 7.32C6.82 7.57 6.18 8.17 6.18 9.39C6.18 10.61 7.07 11.79 7.19 11.95C7.32 12.12 8.95 14.62 11.43 15.69C12.02 15.95 12.48 16.1 12.84 16.21C13.43 16.4 13.97 16.37 14.4 16.31C14.87 16.24 15.85 15.71 16.06 15.14C16.26 14.57 16.26 14.08 16.2 13.98C16.14 13.88 15.99 13.82 15.74 13.7L16.57 14.39Z" />
+                                </svg>
+                              }
+                              headerTitle="Pesan WhatsApp"
+                              headerSubtitle={lead.contact_phone}
+                              items={[
+                                {
+                                  label: '1. Tawarkan Jadwal',
+                                  description: 'Info jadwal training',
+                                  icon: 'event_available',
+                                  onClick: () => handleOpenWA(lead, 'offer'),
+                                },
+                                {
+                                  label: '2. Kirim Link Formulir',
+                                  description: 'Tautan form registrasi',
+                                  icon: 'link',
+                                  onClick: () => handleOpenWA(lead, 'link'),
+                                },
+                                {
+                                  label: '3. Follow-up Reminder',
+                                  description: 'Pengingat isi formulir',
+                                  icon: 'notifications_active',
+                                  onClick: () => handleOpenWA(lead, 'reminder'),
+                                },
+                                {
+                                  label: '4. Konfirmasi Terdaftar',
+                                  description: 'Notifikasi terdata resmi',
+                                  icon: 'check_circle',
+                                  onClick: () => handleOpenWA(lead, 'confirmed'),
+                                },
+                              ]}
                             >
-                              <svg className="w-3.5 h-3.5 shrink-0 fill-current" viewBox="0 0 24 24">
-                                <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.15C10.57 20.15 9.12 19.75 7.85 19L7.55 18.82L4.43 19.64L5.26 16.6L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.05 20.15ZM16.57 14.39C16.32 14.27 15.1 13.67 14.88 13.58C14.65 13.5 14.49 13.46 14.32 13.7C14.16 13.95 13.69 14.51 13.54 14.67C13.4 14.83 13.25 14.85 13 14.73C12.75 14.61 11.72 14.27 10.5 13.18C9.55 12.33 8.91 11.28 8.78 11.03C8.66 10.79 8.77 10.65 8.89 10.53C9 10.42 9.14 10.24 9.26 10.1C9.38 9.96 9.42 9.86 9.5 9.7C9.58 9.53 9.54 9.39 9.48 9.27C9.42 9.14 8.93 7.94 8.73 7.44C8.53 6.96 8.33 7.02 8.18 7.01C8.04 7.01 7.87 7.01 7.71 7.01C7.54 7.01 7.28 7.07 7.05 7.32C6.82 7.57 6.18 8.17 6.18 9.39C6.18 10.61 7.07 11.79 7.19 11.95C7.32 12.12 8.95 14.62 11.43 15.69C12.02 15.95 12.48 16.1 12.84 16.21C13.43 16.4 13.97 16.37 14.4 16.31C14.87 16.24 15.85 15.71 16.06 15.14C16.26 14.57 16.26 14.08 16.2 13.98C16.14 13.88 15.99 13.82 15.74 13.7L16.57 14.39Z" />
-                              </svg>
-                              <span className="leading-none font-bold">WA</span>
-                              <svg
-                                className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
-                                  dropdownState?.lead.id === lead.id && dropdownState?.type === 'wa'
-                                    ? 'rotate-180'
-                                    : 'opacity-70 group-hover:opacity-100'
-                                }`}
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2.5}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                              </svg>
-                            </button>
+                              WA
+                            </DropdownButton>
 
-                            {/* 2. Primary Status Progression Action */}
+                            {/* 2. Primary Progression Button */}
                             {lead.status === 'Baru' && (
-                              <button
-                                type="button"
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                icon="send"
                                 onClick={() => handleMarkLinkSent(lead)}
-                                className="h-8 px-3.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
+                                className="!text-indigo-600 !border-indigo-200 hover:!bg-indigo-50"
                                 title="Tandai Formulir Registrasi Telah Dikirim"
                               >
-                                <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">send</span>
-                                <span className="leading-none whitespace-nowrap">Kirim Link</span>
-                              </button>
+                                Kirim Link
+                              </Button>
                             )}
 
                             {(lead.status === 'Link Terkirim' || lead.status === 'Waiting List' || lead.status === 'Jadwal Ditawarkan') && (
-                              <button
-                                type="button"
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                icon="how_to_reg"
                                 onClick={() => openRegisterModal(lead)}
-                                className="h-8 px-3.5 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
                                 title="Konfirmasi Pendaftaran ke Batch Training"
                               >
-                                <span className="material-symbols-outlined text-[16px] shrink-0 leading-none">how_to_reg</span>
-                                <span className="leading-none whitespace-nowrap">Konfirmasi</span>
-                              </button>
+                                Konfirmasi
+                              </Button>
                             )}
 
                             {lead.status === 'Terdaftar' && (
-                              <button
-                                type="button"
+                              <Button
+                                size="sm"
+                                variant="success"
+                                icon="school"
                                 onClick={() => handleCompleteTraining(lead)}
-                                className="h-8 px-3.5 rounded-lg bg-green-50 hover:bg-green-600 hover:text-white text-green-700 border border-green-200 text-xs font-semibold inline-flex items-center gap-2 transition shadow-xs"
                                 title="Tandai Pelatihan Selesai & Lanjut ke Cetak Sertifikat"
                               >
-                                <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">school</span>
-                                <span className="leading-none whitespace-nowrap">Selesai</span>
-                              </button>
+                                Selesai
+                              </Button>
                             )}
 
-                            {/* 3. More Actions Button (•••) */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (dropdownState?.lead.id === lead.id && dropdownState?.type === 'menu') {
-                                  setDropdownState(null);
-                                } else {
-                                  const r = e.currentTarget.getBoundingClientRect();
-                                  const spaceBelow = window.innerHeight - r.bottom;
-                                  const spaceAbove = r.top;
-                                  const opensUpward = spaceBelow < 260 && spaceAbove > spaceBelow;
-                                  setDropdownState({
-                                    type: 'menu',
-                                    lead,
-                                    rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
-                                    opensUpward,
-                                  });
-                                }
-                              }}
-                              className={`h-8 w-8 rounded-lg border flex items-center justify-center transition-all shadow-xs ${
-                                dropdownState?.lead.id === lead.id && dropdownState?.type === 'menu'
-                                  ? 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-300'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                              }`}
-                              title="Pilihan Aksi Lainnya"
-                            >
-                              <span className="material-symbols-outlined text-[18px] shrink-0 leading-none">more_horiz</span>
-                            </button>
-
-                            {/* 4. Quick Detail Drawer Button */}
-                            <button
-                              type="button"
-                              onClick={() => openLeadDetail(lead)}
-                              className="h-8 w-8 rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-blue-600 flex items-center justify-center transition shrink-0"
-                              title="Buka Panel Detail"
-                            >
-                              <span className="material-symbols-outlined text-lg shrink-0 leading-none">chevron_right</span>
-                            </button>
+                            {/* 3. Standardized ActionMenu (matches certificates more_vert) */}
+                            <ActionMenu
+                              align="right"
+                              menuWidth="w-52"
+                              items={[
+                                ...(lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                  {
+                                    label: 'Jadwalkan Follow-up',
+                                    icon: 'calendar_clock',
+                                    onClick: () => openFollowUpModal(lead),
+                                  },
+                                ] : []),
+                                ...(lead.status !== 'Waiting List' && lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                  {
+                                    label: 'Pindah ke Waiting List',
+                                    icon: 'hourglass_top',
+                                    onClick: () => openRescheduleModal(lead),
+                                  },
+                                ] : []),
+                                {
+                                  label: 'Lihat Detail Lengkap',
+                                  icon: 'visibility',
+                                  onClick: () => openLeadDetail(lead),
+                                },
+                                'divider',
+                                ...(lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                  {
+                                    label: 'Tandai Batal',
+                                    icon: 'cancel',
+                                    variant: 'danger' as const,
+                                    onClick: () => openCancelModal(lead),
+                                  },
+                                ] : []),
+                                {
+                                  label: 'Hapus Lead',
+                                  icon: 'delete',
+                                  variant: 'danger' as const,
+                                  onClick: () => handleDeleteLead(lead.id),
+                                },
+                              ]}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -866,199 +887,6 @@ export default function LeadsPage() {
             </table>
           </div>
         </div>
-
-        {/* Floating Action Dropdown Menu (Mounted in document.body via Portal to prevent any container clipping) */}
-        {mounted && typeof document !== 'undefined' && dropdownState && createPortal(
-          <div
-            className="fixed inset-0 z-[9998] bg-transparent"
-            onClick={() => setDropdownState(null)}
-          >
-            <div
-              id="bki-floating-dropdown"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'fixed',
-                right: `${Math.max(12, window.innerWidth - dropdownState.rect.right)}px`,
-                ...(dropdownState.opensUpward
-                  ? { bottom: `${window.innerHeight - dropdownState.rect.top + 6}px` }
-                  : { top: `${dropdownState.rect.bottom + 6}px` }),
-                zIndex: 9999,
-              }}
-              className="bg-white border border-slate-200/90 rounded-xl shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/5"
-            >
-              {dropdownState.type === 'wa' ? (
-                <div className="w-72">
-                  <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
-                    <span>Pilih Template WhatsApp</span>
-                    <span className="text-emerald-600 font-mono text-[10px] font-semibold">{dropdownState.lead.contact_phone}</span>
-                  </div>
-                  <div className="py-1.5 space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        handleOpenWA(l, 'offer');
-                      }}
-                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[16px] leading-none">event_available</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-xs leading-none">1. Tawarkan Jadwal</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Penawaran info jadwal training</p>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        handleOpenWA(l, 'link');
-                      }}
-                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[16px] leading-none">link</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-xs leading-none">2. Kirim Link Formulir</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Tautan formulir registrasi</p>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        handleOpenWA(l, 'reminder');
-                      }}
-                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[16px] leading-none">notifications_active</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-xs leading-none">3. Pengingat Pendaftaran</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Follow-up pengisian formulir</p>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        handleOpenWA(l, 'confirmed');
-                      }}
-                      className="w-full px-3 py-2.5 hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[16px] leading-none">check_circle</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-xs leading-none">4. Konfirmasi Terdaftar</p>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">Pemberitahuan telah terdata</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-60">
-                  <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
-                    <span>Aksi Lead</span>
-                    <span className="text-slate-500 font-medium text-[10px] truncate max-w-[120px]">{dropdownState.lead.contact_name}</span>
-                  </div>
-                  <div className="py-1.5 space-y-1">
-                    {dropdownState.lead.status !== 'Selesai Training' && dropdownState.lead.status !== 'Batal' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const l = dropdownState.lead;
-                            setDropdownState(null);
-                            openFollowUpModal(l);
-                          }}
-                          className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                        >
-                          <div className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition">
-                            <span className="material-symbols-outlined text-[15px] leading-none">calendar_clock</span>
-                          </div>
-                          <span className="font-medium text-slate-700">Jadwalkan Follow-up</span>
-                        </button>
-
-                        {dropdownState.lead.status !== 'Waiting List' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const l = dropdownState.lead;
-                              setDropdownState(null);
-                              openRescheduleModal(l);
-                            }}
-                            className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                          >
-                            <div className="w-6 h-6 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition">
-                              <span className="material-symbols-outlined text-[15px] leading-none">hourglass_top</span>
-                            </div>
-                            <span className="font-medium text-slate-700">Pindah ke Waiting List</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const l = dropdownState.lead;
-                            setDropdownState(null);
-                            openCancelModal(l);
-                          }}
-                          className="w-full px-3 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                        >
-                          <div className="w-6 h-6 rounded-md bg-red-50 text-red-600 flex items-center justify-center shrink-0 group-hover:bg-red-600 group-hover:text-white transition">
-                            <span className="material-symbols-outlined text-[15px] leading-none">cancel</span>
-                          </div>
-                          <span className="font-medium text-red-600">Tandai Batal</span>
-                        </button>
-
-                        <div className="my-1 border-t border-slate-100"></div>
-                      </>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        openLeadDetail(l);
-                      }}
-                      className="w-full px-3 py-2 hover:bg-slate-50 text-slate-700 text-xs rounded-lg text-left flex items-center gap-3 transition group font-medium"
-                    >
-                      <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 group-hover:bg-slate-700 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[15px] leading-none">visibility</span>
-                      </div>
-                      <span className="text-slate-700">Lihat Detail Lengkap</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const l = dropdownState.lead;
-                        setDropdownState(null);
-                        handleDeleteLead(l.id);
-                      }}
-                      className="w-full px-3 py-2 hover:bg-red-50 text-red-600 text-xs rounded-lg text-left flex items-center gap-3 transition group"
-                    >
-                      <div className="w-6 h-6 rounded-md bg-red-50 text-red-500 flex items-center justify-center shrink-0 group-hover:bg-red-600 group-hover:text-white transition">
-                        <span className="material-symbols-outlined text-[15px] leading-none">delete</span>
-                      </div>
-                      <span className="text-red-600 font-medium">Hapus Lead</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
 
         {/* Modal: Input Lead Baru */}
         {isAddModalOpen && (
@@ -1197,19 +1025,22 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsAddModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-medium"
                   >
                     Batal
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
+                    variant="primary"
+                    size="sm"
+                    icon="save"
                   >
                     Simpan Lead
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1276,19 +1107,22 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsRegisterModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
                   >
                     Batal
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="cms-btn-primary bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
+                    variant="success"
+                    size="sm"
+                    icon="check"
                   >
                     Konfirmasi Terdaftar
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1347,19 +1181,23 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsRescheduleModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
                   >
                     Tutup
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="cms-btn-primary bg-amber-600 hover:bg-amber-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
+                    variant="primary"
+                    size="sm"
+                    icon="hourglass_top"
+                    className="!bg-amber-600 hover:!bg-amber-700"
                   >
                     Simpan ke Waiting List
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1410,19 +1248,22 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsFollowUpModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
                   >
                     Batal
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
+                    variant="primary"
+                    size="sm"
+                    icon="check"
                   >
                     Simpan Catatan
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1461,19 +1302,22 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsCancelModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
                   >
                     Batal
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="cms-btn-primary bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
+                    variant="danger"
+                    size="sm"
+                    icon="cancel"
                   >
                     Konfirmasi Batal
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -1561,34 +1405,42 @@ export default function LeadsPage() {
                 <div className="space-y-1.5">
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Aksi Cepat WhatsApp</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="schedule"
                       onClick={() => handleOpenWA(selectedLead, 'offer')}
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
+                      className="!w-full !justify-start !text-emerald-800 !bg-emerald-50 hover:!bg-emerald-100 !border-emerald-200"
                     >
-                      <span className="material-symbols-outlined text-base shrink-0 leading-none">schedule</span>
-                      <span className="leading-none whitespace-nowrap">Kirim Jadwal</span>
-                    </button>
-                    <button
+                      Kirim Jadwal
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="link"
                       onClick={() => handleOpenWA(selectedLead, 'link')}
-                      className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
+                      className="!w-full !justify-start !text-indigo-800 !bg-indigo-50 hover:!bg-indigo-100 !border-indigo-200"
                     >
-                      <span className="material-symbols-outlined text-base shrink-0 leading-none">link</span>
-                      <span className="leading-none whitespace-nowrap">Kirim Link Form</span>
-                    </button>
-                    <button
+                      Kirim Link Form
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="notifications"
                       onClick={() => handleOpenWA(selectedLead, 'reminder')}
-                      className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
+                      className="!w-full !justify-start !text-amber-800 !bg-amber-50 hover:!bg-amber-100 !border-amber-200"
                     >
-                      <span className="material-symbols-outlined text-base shrink-0 leading-none">notifications</span>
-                      <span className="leading-none whitespace-nowrap">Follow-up Reminder</span>
-                    </button>
-                    <button
+                      Follow-up Reminder
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon="check_circle"
                       onClick={() => handleOpenWA(selectedLead, 'confirmed')}
-                      className="px-3 py-2 bg-green-50 hover:bg-green-100 text-green-800 rounded-lg border border-green-200 flex items-center justify-center gap-2 transition text-xs font-semibold"
+                      className="!w-full !justify-start !text-green-800 !bg-green-50 hover:!bg-green-100 !border-green-200"
                     >
-                      <span className="material-symbols-outlined text-base shrink-0 leading-none">check_circle</span>
-                      <span className="leading-none whitespace-nowrap">Konfirmasi Terdaftar</span>
-                    </button>
+                      Konfirmasi Terdaftar
+                    </Button>
                   </div>
                 </div>
 
@@ -1638,28 +1490,32 @@ export default function LeadsPage() {
 
               {/* Drawer Footer Actions */}
               <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon="cancel"
                   onClick={() => openCancelModal(selectedLead)}
-                  className="text-red-600 hover:text-red-700 hover:underline text-xs font-semibold flex items-center gap-1"
+                  className="!text-red-600 hover:!bg-red-50"
                 >
-                  <span className="material-symbols-outlined text-sm">cancel</span>
                   Tandai Batal
-                </button>
+                </Button>
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon="delete"
                     onClick={() => handleDeleteLead(selectedLead.id)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 rounded transition"
+                    className="!text-slate-400 hover:!text-red-600"
                     title="Hapus Data Lead"
-                  >
-                    <span className="material-symbols-outlined text-base">delete</span>
-                  </button>
-                  <button
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => setIsDetailDrawerOpen(false)}
-                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium"
                   >
                     Selesai
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
