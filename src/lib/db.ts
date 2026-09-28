@@ -1,7 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Retrieves the Supabase client dynamically, checking localStorage overrides first, then environment variables.
-export const getSupabaseClient = () => {
+// Cache singleton client instance to avoid recreating GoTrueClient instances
+let cachedClient: SupabaseClient | null = null;
+let lastUrl = '';
+let lastKey = '';
+
+// Retrieves the Supabase client dynamically as a singleton, checking localStorage overrides first, then environment variables.
+export const getSupabaseClient = (): SupabaseClient | null => {
   let url = '';
   let key = '';
 
@@ -16,14 +21,24 @@ export const getSupabaseClient = () => {
   }
 
   if (url && key) {
+    // Return cached singleton instance if url & key haven't changed
+    if (cachedClient && lastUrl === url && lastKey === key) {
+      return cachedClient;
+    }
     try {
-      return createClient(url, key);
+      cachedClient = createClient(url, key);
+      lastUrl = url;
+      lastKey = key;
+      return cachedClient;
     } catch (e) {
       console.error('Failed to create Supabase client:', e);
       return null;
     }
   }
 
+  cachedClient = null;
+  lastUrl = '';
+  lastKey = '';
   return null;
 };
 
