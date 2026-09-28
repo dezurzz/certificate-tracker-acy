@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Lead, LeadStatus, LeadSource, WaitingReason, TrainingProgram, Training, LeadActivity } from '@/lib/db';
+import { DB, Lead, LeadStatus, LeadSource, WaitingReason, TrainingProgram, Training, LeadActivity, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { useAuth } from '@/context/AuthContext';
@@ -593,8 +593,8 @@ export default function LeadsPage() {
                 className="cms-input text-xs"
               >
                 <option value="">Semua Program Training</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.name}>{p.name}</option>
+                {BKI_TRAINING_PROGRAMS.map(progName => (
+                  <option key={progName} value={progName}>{progName}</option>
                 ))}
               </select>
             </div>
@@ -1108,21 +1108,22 @@ export default function LeadsPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <label className="block font-semibold text-slate-700 mb-1">Program Training Diminati *</label>
-                    <input
-                      type="text"
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Program Training Diminati <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       required
-                      list="programSuggestions"
-                      placeholder="Pilih atau ketik program..."
                       value={newProgramName}
                       onChange={e => setNewProgramName(e.target.value)}
-                      className="cms-input text-xs"
-                    />
-                    <datalist id="programSuggestions">
-                      {programs.map(p => (
-                        <option key={p.id} value={p.name} />
+                      className="cms-input text-xs font-medium text-slate-800"
+                    >
+                      <option value="">-- Pilih Program Training --</option>
+                      {BKI_TRAINING_PROGRAMS.map((progName) => (
+                        <option key={progName} value={progName}>
+                          {progName}
+                        </option>
                       ))}
-                    </datalist>
+                    </select>
                   </div>
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Estimasi Kursi</label>

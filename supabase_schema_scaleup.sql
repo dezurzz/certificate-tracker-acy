@@ -110,3 +110,30 @@ CREATE POLICY "Allow all access to leads" ON leads FOR ALL USING (true) WITH CHE
 DROP POLICY IF EXISTS "Allow all access to lead_activities" ON lead_activities;
 CREATE POLICY "Allow all access to lead_activities" ON lead_activities FOR ALL USING (true) WITH CHECK (true);
 
+-- ==============================================================================
+-- SEED DATA: 21 OFFICIAL BKI ACADEMY TRAINING PROGRAMS
+-- ==============================================================================
+INSERT INTO training_programs (name, code, category, duration_days, is_active) VALUES
+('Internal Auditor ISM Code', 'ISM-AUD', 'ISM Code & Safety', 3, true),
+('DPA ISM Code', 'ISM-DPA', 'ISM Code & Safety', 3, true),
+('Risk Assessment ISM Code', 'ISM-RA', 'ISM Code & Safety', 2, true),
+('Marine Accident and Investigation', 'MAI', 'Maritime Investigation', 4, true),
+('Jetty and Loading Master', 'JLM', 'Port & Terminal Operations', 3, true),
+('Maritime Cyber Security', 'MCS', 'Cyber & Digital Security', 2, true),
+('Internal Auditor ISPS Code', 'ISPS-AUD', 'ISPS Code & Port Security', 3, true),
+('CSO ISPS Code', 'ISPS-CSO', 'ISPS Code & Port Security', 3, true),
+('PFSO ISPS Code', 'ISPS-PFSO', 'ISPS Code & Port Security', 3, true),
+('3.24 Security Awareness (Designated Security Duties)', 'IMO-3.24', 'ISPS Code & Port Security', 1, true),
+('3.25 Security Awareness (All Port Facility Personnel)', 'IMO-3.25', 'ISPS Code & Port Security', 1, true),
+('Marine Surveyor', 'MS', 'Survey & Inspection', 5, true),
+('New Building Supervision', 'NBS', 'Survey & Inspection', 4, true),
+('Marine Superintendent', 'MSUP', 'Technical & Ship Operations', 4, true),
+('Container Inspector', 'CI', 'Survey & Inspection', 3, true),
+('Welding Inspector', 'WI', 'Welding & NDT', 5, true),
+('Ship Welding Inspector', 'SWI', 'Welding & NDT', 5, true),
+('Welder Certification', 'WC', 'Welding & NDT', 3, true),
+('Maritime Labour Convention', 'MLC', 'Statutory & Compliance', 2, true),
+('Ballast Water Management', 'BWM', 'Statutory & Compliance', 2, true),
+('Ship-Design Engineering Review Workshop', 'SDER', 'Ship Design & Engineering', 3, true)
+ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category;
+

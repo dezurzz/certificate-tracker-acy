@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Lead, Training, TrainingProgram } from '@/lib/db';
+import { DB, Lead, Training, TrainingProgram, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { useAuth } from '@/context/AuthContext';
@@ -281,9 +281,9 @@ export default function WaitingListPage() {
               onChange={e => setProgramFilter(e.target.value)}
               className="cms-input text-xs"
             >
-              <option value="">Semua Program</option>
-              {programs.map(p => (
-                <option key={p.id} value={p.name}>{p.name}</option>
+              <option value="">Semua Program Training</option>
+              {BKI_TRAINING_PROGRAMS.map(progName => (
+                <option key={progName} value={progName}>{progName}</option>
               ))}
             </select>
           </div>

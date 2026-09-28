@@ -141,6 +141,33 @@ export interface Contact {
   created_at?: string;
 }
 
+// Official 21 Training Programs of BKI Academy
+export const BKI_TRAINING_PROGRAMS = [
+  'Internal Auditor ISM Code',
+  'DPA ISM Code',
+  'Risk Assessment ISM Code',
+  'Marine Accident and Investigation',
+  'Jetty and Loading Master',
+  'Maritime Cyber Security',
+  'Internal Auditor ISPS Code',
+  'CSO ISPS Code',
+  'PFSO ISPS Code',
+  '3.24 Security Awareness (Designated Security Duties)',
+  '3.25 Security Awareness (All Port Facility Personnel)',
+  'Marine Surveyor',
+  'New Building Supervision',
+  'Marine Superintendent',
+  'Container Inspector',
+  'Welding Inspector',
+  'Ship Welding Inspector',
+  'Welder Certification',
+  'Maritime Labour Convention',
+  'Ballast Water Management',
+  'Ship-Design Engineering Review Workshop',
+] as const;
+
+export type BkiTrainingProgramName = (typeof BKI_TRAINING_PROGRAMS)[number];
+
 export interface TrainingProgram {
   id: string;
   name: string;
@@ -203,7 +230,7 @@ export const DB = {
       const mockTrainings: Training[] = [
         { 
           id: "t-116", 
-          program_name: "Internal Auditor ISM", 
+          program_name: "Internal Auditor ISM Code", 
           batch_code: "Batch 116", 
           service_type: "PUBLIC TRAINING", 
           learning_method: "OFFLINE", 
@@ -216,7 +243,7 @@ export const DB = {
         },
         { 
           id: "t-53", 
-          program_name: "CSO Training", 
+          program_name: "CSO ISPS Code", 
           batch_code: "Batch 53", 
           service_type: "PUBLIC TRAINING", 
           learning_method: "OFFLINE", 
@@ -376,14 +403,39 @@ export const DB = {
       localStorage.setItem('bki_contacts', JSON.stringify(mockContacts));
     }
 
-    if (!localStorage.getItem('bki_programs')) {
-      const mockPrograms: TrainingProgram[] = [
-        { id: "prog-1", name: "Internal Auditor ISM", code: "ISM-AUD", category: "Statutory & Safety", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
-        { id: "prog-2", name: "CSO Training", code: "CSO", category: "Security & ISPS", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
-        { id: "prog-3", name: "Maritime Cyber Security", code: "MCS", category: "Cyber & Digital", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
-        { id: "prog-4", name: "Ship Safety Officer", code: "SSO", category: "Safety Operations", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
-        { id: "prog-5", name: "Basic Marine Surveyor", code: "BMS", category: "Survey & Inspection", duration_days: 5, is_active: true, created_at: new Date().toISOString() }
-      ];
+    const mockPrograms: TrainingProgram[] = [
+      { id: "prog-1", name: "Internal Auditor ISM Code", code: "ISM-AUD", category: "ISM Code & Safety", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-2", name: "DPA ISM Code", code: "ISM-DPA", category: "ISM Code & Safety", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-3", name: "Risk Assessment ISM Code", code: "ISM-RA", category: "ISM Code & Safety", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-4", name: "Marine Accident and Investigation", code: "MAI", category: "Maritime Investigation", duration_days: 4, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-5", name: "Jetty and Loading Master", code: "JLM", category: "Port & Terminal Operations", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-6", name: "Maritime Cyber Security", code: "MCS", category: "Cyber & Digital Security", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-7", name: "Internal Auditor ISPS Code", code: "ISPS-AUD", category: "ISPS Code & Port Security", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-8", name: "CSO ISPS Code", code: "ISPS-CSO", category: "ISPS Code & Port Security", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-9", name: "PFSO ISPS Code", code: "ISPS-PFSO", category: "ISPS Code & Port Security", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-10", name: "3.24 Security Awareness (Designated Security Duties)", code: "IMO-3.24", category: "ISPS Code & Port Security", duration_days: 1, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-11", name: "3.25 Security Awareness (All Port Facility Personnel)", code: "IMO-3.25", category: "ISPS Code & Port Security", duration_days: 1, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-12", name: "Marine Surveyor", code: "MS", category: "Survey & Inspection", duration_days: 5, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-13", name: "New Building Supervision", code: "NBS", category: "Survey & Inspection", duration_days: 4, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-14", name: "Marine Superintendent", code: "MSUP", category: "Technical & Ship Operations", duration_days: 4, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-15", name: "Container Inspector", code: "CI", category: "Survey & Inspection", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-16", name: "Welding Inspector", code: "WI", category: "Welding & NDT", duration_days: 5, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-17", name: "Ship Welding Inspector", code: "SWI", category: "Welding & NDT", duration_days: 5, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-18", name: "Welder Certification", code: "WC", category: "Welding & NDT", duration_days: 3, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-19", name: "Maritime Labour Convention", code: "MLC", category: "Statutory & Compliance", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-20", name: "Ballast Water Management", code: "BWM", category: "Statutory & Compliance", duration_days: 2, is_active: true, created_at: new Date().toISOString() },
+      { id: "prog-21", name: "Ship-Design Engineering Review Workshop", code: "SDER", category: "Ship Design & Engineering", duration_days: 3, is_active: true, created_at: new Date().toISOString() }
+    ];
+
+    const currentProgRaw = localStorage.getItem('bki_programs');
+    let currentProgs: TrainingProgram[] = [];
+    try {
+      currentProgs = currentProgRaw ? JSON.parse(currentProgRaw) : [];
+    } catch {
+      currentProgs = [];
+    }
+
+    if (!currentProgRaw || currentProgs.length < 15) {
       localStorage.setItem('bki_programs', JSON.stringify(mockPrograms));
     }
 
@@ -400,7 +452,7 @@ export const DB = {
           contact_phone: "081234567890",
           contact_email: "hendra.w@pertamina.com",
           company_name: "PT Pertamina International Shipping",
-          program_name: "Internal Auditor ISM",
+          program_name: "Internal Auditor ISM Code",
           estimated_seats: 5,
           status: "Baru",
           source: "WA Bisnis",
@@ -416,7 +468,7 @@ export const DB = {
           contact_phone: "081398765432",
           contact_email: "maya.k@pelindo.co.id",
           company_name: "PT Pelabuhan Indonesia (Pelindo)",
-          program_name: "CSO Training",
+          program_name: "CSO ISPS Code",
           estimated_seats: 3,
           status: "Waiting List",
           waiting_reason: "Reschedule",
