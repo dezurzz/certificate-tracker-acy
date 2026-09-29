@@ -104,13 +104,13 @@ export default function ContactsDirectoryPage() {
         {/* Search */}
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
           <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
             <input
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Cari nama kontak, nomor telepon, atau perusahaan..."
-              className="cms-input pl-9 text-xs"
+              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
             />
           </div>
         </div>

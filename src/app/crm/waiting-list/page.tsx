@@ -250,15 +250,15 @@ export default function WaitingListPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3">
-          <div className="flex-1 relative">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">search</span>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+          <div className="flex-1 relative w-full">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
             <input
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Cari kontak, perusahaan, atau catatan..."
-              className="cms-input pl-9 text-xs"
+              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
             />
           </div>
 
@@ -266,7 +266,7 @@ export default function WaitingListPage() {
             <select
               value={reasonFilter}
               onChange={e => setReasonFilter(e.target.value)}
-              className="cms-input text-xs"
+              className="cms-select-filter w-full text-xs"
             >
               <option value="">Semua Alasan Waiting List</option>
               <option value="Reschedule">Reschedule</option>
@@ -279,7 +279,7 @@ export default function WaitingListPage() {
             <select
               value={programFilter}
               onChange={e => setProgramFilter(e.target.value)}
-              className="cms-input text-xs"
+              className="cms-select-filter w-full text-xs"
             >
               <option value="">Semua Program Training</option>
               {BKI_TRAINING_PROGRAMS.map(progName => (
@@ -287,6 +287,20 @@ export default function WaitingListPage() {
               ))}
             </select>
           </div>
+
+          {(searchTerm || reasonFilter || programFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setReasonFilter('');
+                setProgramFilter('');
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap cursor-pointer shrink-0"
+            >
+              Reset Filter
+            </button>
+          )}
         </div>
 
         {/* Waiting List Table */}
@@ -430,7 +444,9 @@ export default function WaitingListPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Pilih Batch Pelatihan yang Tersedia *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Pilih Batch Pelatihan yang Tersedia <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <select
                     required
                     value={selectedBatchId}
@@ -447,7 +463,9 @@ export default function WaitingListPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jumlah Kursi Terkonfirmasi</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Jumlah Kursi Terkonfirmasi <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <input
                     type="number"
                     min={1}

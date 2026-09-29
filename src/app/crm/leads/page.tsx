@@ -567,7 +567,7 @@ export default function LeadsPage() {
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               placeholder="Cari kontak, PT, WA, program..."
-              className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
+              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
             />
           </div>
 
@@ -575,7 +575,7 @@ export default function LeadsPage() {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
+            className="cms-select-filter h-9 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 pl-3 pr-8 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
           >
             <option value="">Semua Status</option>
             <option value="Baru">Baru</option>
@@ -591,7 +591,7 @@ export default function LeadsPage() {
           <select
             value={picFilter}
             onChange={e => setPicFilter(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
+            className="cms-select-filter h-9 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 pl-3 pr-8 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[130px]"
           >
             <option value="">Semua PIC</option>
             {uniquePics.map(pic => (
@@ -603,7 +603,7 @@ export default function LeadsPage() {
           <select
             value={programFilter}
             onChange={e => setProgramFilter(e.target.value)}
-            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer max-w-[220px] truncate"
+            className="cms-select-filter h-9 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 pl-3 pr-8 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer max-w-[240px] truncate"
           >
             <option value="">Semua Program Training</option>
             {BKI_TRAINING_PROGRAMS.map(progName => (
@@ -637,7 +637,7 @@ export default function LeadsPage() {
               }}
               className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
             >
-              Clear Filters
+              Reset Filter
             </button>
           )}
         </div>
@@ -908,7 +908,9 @@ export default function LeadsPage() {
               <form onSubmit={handleCreateLead} className="p-5 space-y-3.5 text-xs">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Nama Kontak PIC *</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Nama Kontak PIC <span className="text-red-500 font-semibold">*</span>
+                    </label>
                     <input
                       type="text"
                       required
@@ -919,7 +921,9 @@ export default function LeadsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">No. WhatsApp / HP *</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      No. WhatsApp / HP <span className="text-red-500 font-semibold">*</span>
+                    </label>
                     <input
                       type="tel"
                       required
@@ -933,7 +937,9 @@ export default function LeadsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Perusahaan / Instansi</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Perusahaan / Instansi <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="Contoh: PT Pertamina Shipping (atau Pribadi)"
@@ -943,7 +949,9 @@ export default function LeadsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Email Kontak (Opsional)</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Email Kontak <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                    </label>
                     <input
                       type="email"
                       placeholder="budi@perusahaan.com"
@@ -957,7 +965,7 @@ export default function LeadsPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Program Training Diminati <span className="text-red-500">*</span>
+                      Program Training Diminati <span className="text-red-500 font-semibold">*</span>
                     </label>
                     <select
                       required
@@ -974,7 +982,9 @@ export default function LeadsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Estimasi Kursi</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Estimasi Kursi <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                    </label>
                     <input
                       type="number"
                       min={1}
@@ -987,7 +997,9 @@ export default function LeadsPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Sumber Lead</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Sumber Lead <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                    </label>
                     <select
                       value={newSource}
                       onChange={e => setNewSource(e.target.value as LeadSource)}
@@ -1002,7 +1014,9 @@ export default function LeadsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Target Follow-up Berikutnya *</label>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Target Follow-up Berikutnya <span className="text-red-500 font-semibold">*</span>
+                    </label>
                     <input
                       type="date"
                       required
@@ -1014,7 +1028,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Catatan Kebutuhan / Preferensi Jadwal</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Catatan Kebutuhan / Preferensi Jadwal <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                  </label>
                   <textarea
                     rows={2}
                     placeholder="Contoh: Membutuhkan jadwal offline di Jakarta untuk 5 inspektur pada bulan Oktober..."
@@ -1068,7 +1084,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Pilih Batch Pelatihan yang Dituju</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Pilih Batch Pelatihan yang Dituju <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                  </label>
                   <select
                     value={actionBatchId}
                     onChange={e => setActionBatchId(e.target.value)}
@@ -1084,7 +1102,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jumlah Peserta Terkonfirmasi (Pax)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Jumlah Peserta Terkonfirmasi (Pax) <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <input
                     type="number"
                     min={1}
@@ -1096,7 +1116,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Catatan Konfirmasi PIC</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Catatan Konfirmasi PIC <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                  </label>
                   <textarea
                     rows={2}
                     placeholder="Contoh: Formulir sudah diperiksa, 3 nama peserta telah terdaftar resmi."
@@ -1145,7 +1167,9 @@ export default function LeadsPage() {
 
               <form onSubmit={handleConfirmReschedule} className="p-5 space-y-3.5 text-xs">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Alasan Masuk Waiting List</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Alasan Masuk Waiting List <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <select
                     value={actionReason}
                     onChange={e => setActionReason(e.target.value as WaitingReason)}
@@ -1159,7 +1183,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Target Pengecekan / Follow-up Berikutnya</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Target Pengecekan / Follow-up Berikutnya <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <input
                     type="date"
                     required
@@ -1170,7 +1196,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Catatan Tambahan</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Catatan Tambahan <span className="text-slate-400 font-normal text-xs">(Opsional)</span>
+                  </label>
                   <textarea
                     rows={2}
                     placeholder="Contoh: Peserta meminta digeser ke batch November karena bentrok jadwal dinas kapal..."
@@ -1225,7 +1253,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Hasil Follow-up / Catatan Respon</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Hasil Follow-up / Catatan Respon <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <textarea
                     rows={3}
                     required
@@ -1237,7 +1267,9 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jadwal Tindak Lanjut Berikutnya</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Jadwal Tindak Lanjut Berikutnya <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <input
                     type="date"
                     required
@@ -1290,7 +1322,9 @@ export default function LeadsPage() {
                 </p>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Alasan Pembatalan *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Alasan Pembatalan <span className="text-red-500 font-semibold">*</span>
+                  </label>
                   <textarea
                     rows={2}
                     required
