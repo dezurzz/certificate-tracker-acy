@@ -7,8 +7,30 @@ import { DB, Training, Certificate } from '@/lib/db';
 import { normalizeAgendaCSV, CSVBatch } from '@/lib/csv';
 import { trainingSchema, sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import Modal from '@/components/Modal';
+import ActionMenu from '@/components/ActionMenu';
+import Button from '@/components/Button';
+import Pagination, { usePagination } from '@/components/Pagination';
+import PageHeader from '@/components/PageHeader';
+import { notify } from '@/lib/notify';
+import { useT, useLanguage } from '@/i18n/LanguageContext';
+import { formatRelativeTime } from '@/lib/relativeTime';
+import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
+
+const TRAINING_SKELETON_COLUMNS: SkeletonColumn[] = [
+  { w: '', kind: 'check' },
+  'w-56',
+  'w-24',
+  'w-28',
+  { w: 'w-6', align: 'right' },
+  { w: 'w-32', kind: 'twoLine' },
+  { w: 'w-16', kind: 'avatar' },
+  { w: '', kind: 'action' },
+];
 
 function TrainingsContent() {
+  const t = useT();
+  const { locale } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -23,10 +45,7 @@ function TrainingsContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [picFilter, setPicFilter] = useState('');
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [deptFilter, setDeptFilter] = useState('');
   const [locFilter, setLocFilter] = useState('');
-  const [slaFilter, setSlaFilter] = useState('');
 
   // Selection States (Bulk Actions)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -59,7 +78,6 @@ function TrainingsContent() {
   const [formPic, setFormPic] = useState('');
 
   // Dropdown states per row (action menus)
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   // Load Data
   const loadData = async () => {
@@ -85,26 +103,8 @@ function TrainingsContent() {
     }
   }, [searchParams]);
 
-  // Click outside to close menus
-  useEffect(() => {
-    const handleOutsideClick = () => setActiveMenuId(null);
-    document.addEventListener('click', handleOutsideClick);
-    return () => document.removeEventListener('click', handleOutsideClick);
-  }, []);
-
   // Time ago helper
-  const getTimeAgo = (dateStr?: string) => {
-    if (!dateStr) return '';
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-  };
+  const getTimeAgo = (dateStr?: string) => (dateStr ? formatRelativeTime(new Date(dateStr), t, locale, { short: true }) : '');
 
   // CRUD actions
   const openAddModal = () => {
@@ -148,7 +148,7 @@ function TrainingsContent() {
     });
 
     if (!validation.success) {
-      alert(validation.error.issues.map((err: any) => err.message).join('\n'));
+      notify.warning(t('Periksa kembali isian training'), validation.error.issues.map((err: any) => err.message).join(', '));
       return;
     }
 
@@ -164,7 +164,7 @@ function TrainingsContent() {
           status: editingTraining.status,
           ...({ pic: cleanPic } as any) // support custom mock fields
         });
-        alert('Training batch updated successfully!');
+        notify.success(t('Batch training diperbarui'));
       } else {
         await DB.insertTraining({
           program_name: cleanName,
@@ -175,13 +175,13 @@ function TrainingsContent() {
           status: 'Processing',
           ...({ pic: cleanPic } as any) // support custom mock fields
         });
-        alert('New training batch created successfully!');
+        notify.success(t('Batch training baru dibuat'));
       }
       setFormModalOpen(false);
       loadData();
     } catch (err: any) {
       console.error(err);
-      alert('Action failed: ' + err?.message);
+      notify.error(t('Tindakan gagal'), err?.message);
     } finally {
       setSpinnerMsg('');
     }
@@ -190,20 +190,20 @@ function TrainingsContent() {
   const handleDelete = async (id: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Delete Training Batch',
-      message: 'Are you sure you want to delete this training batch and all associated certificates? This action is permanent and cannot be undone.',
-      confirmLabel: 'Delete',
+      title: t('Hapus Batch Training'),
+      message: t('Yakin ingin menghapus batch training ini beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.'),
+      confirmLabel: t('Hapus'),
       type: 'danger',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
         setSpinnerMsg("Deleting batch...");
         try {
           await DB.deleteTraining(id);
-          alert('Training batch deleted successfully.');
+          notify.success(t('Batch training dihapus.'));
           loadData();
         } catch (err: any) {
           console.error(err);
-          alert('Failed to delete training batch: ' + err?.message);
+          notify.error(t('Gagal menghapus batch training'), err?.message);
         } finally {
           setSpinnerMsg('');
         }
@@ -216,23 +216,23 @@ function TrainingsContent() {
     
     setConfirmConfig({
       isOpen: true,
-      title: 'Bulk Delete Batches',
-      message: `Are you sure you want to delete the ${selectedIds.length} selected training batch(es) and all associated certificates? This action is permanent and cannot be undone.`,
-      confirmLabel: 'Delete All',
+      title: t('Hapus Batch Sekaligus'),
+      message: t('Yakin ingin menghapus {length} batch training terpilih beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.', { length: selectedIds.length }),
+      confirmLabel: t('Hapus Semua'),
       type: 'danger',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        setSpinnerMsg(`Deleting ${selectedIds.length} batches...`);
+        setSpinnerMsg(t('Menghapus {length} batch...', { length: selectedIds.length }));
         try {
           for (const id of selectedIds) {
             await DB.deleteTraining(id);
           }
-          alert('Selected batches deleted successfully.');
+          notify.success(t('Batch terpilih dihapus.'));
           setSelectedIds([]);
           loadData();
         } catch (err: any) {
           console.error(err);
-          alert('Failed to delete selected batches: ' + err?.message);
+          notify.error(t('Gagal menghapus batch terpilih'), err?.message);
         } finally {
           setSpinnerMsg('');
         }
@@ -253,7 +253,7 @@ function TrainingsContent() {
           setImportModalOpen(false);
           setPreviewModalOpen(true);
         } else {
-          alert('Could not parse any training records. Please check that headers match the BKI CSV template.');
+          notify.warning(t('Tidak ada data training yang dapat dibaca. Pastikan header sesuai template CSV BKI.'));
         }
       };
       reader.readAsText(file);
@@ -318,12 +318,12 @@ function TrainingsContent() {
         }
       }
       
-      alert('All batches normalized and synced to database successfully!');
+      notify.success(t('Semua batch dinormalisasi dan disinkronkan ke database'));
       setPreviewModalOpen(false);
       loadData();
     } catch (err: any) {
       console.error(err);
-      alert('Sync failed: ' + err?.message);
+      notify.error(t('Sinkronisasi gagal'), err?.message);
     } finally {
       setSpinnerMsg('');
     }
@@ -349,9 +349,10 @@ function TrainingsContent() {
   // Handle selection checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filteredTrainings.map(t => t.id));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(t => t.id)])));
     } else {
-      setSelectedIds([]);
+      const pageIds = new Set(pageItems.map(t => t.id));
+      setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
     }
   };
 
@@ -363,46 +364,61 @@ function TrainingsContent() {
     }
   };
 
+  // Filter options come from the data itself (no hardcoded names)
+  const unique = (values: (string | undefined)[]) =>
+    Array.from(new Set(values.map(v => (v || '').trim()).filter(Boolean))).sort((x, y) => x.localeCompare(y));
+  const picOptions = unique(trainings.map(t => t.pic));
+  const locationOptions = unique(trainings.map(t => t.location));
+  const statusOptions = unique(trainings.map(t => t.status));
+
   // Filter computation
   const filteredTrainings = trainings.filter(t => {
-    const matchesSearch = t.program_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          t.batch_code.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = !statusFilter || t.status === statusFilter;
-    const matchesPic = !picFilter || ((t as any).pic || '-').toLowerCase().includes(picFilter.toLowerCase());
-    
-    let matchesDate = true;
-    if (dateFilter) {
-      const year = dateFilter.substring(0, 4);
-      matchesDate = t.start_date.includes(year) || t.end_date.includes(year);
-    }
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term ||
+      t.program_name.toLowerCase().includes(term) ||
+      t.batch_code.toLowerCase().includes(term);
 
-    return matchesSearch && matchesStatus && matchesPic && matchesDate;
+    const matchesStatus = !statusFilter || t.status === statusFilter;
+    const matchesPic = !picFilter || (t.pic || '') === picFilter;
+    const matchesLoc = !locFilter || (t.location || '') === locFilter;
+
+    // Batch is "on" the chosen date when the date falls inside its start-end range
+    const matchesDate = !dateFilter || (t.start_date <= dateFilter && dateFilter <= t.end_date);
+
+    return matchesSearch && matchesStatus && matchesPic && matchesLoc && matchesDate;
   });
+
+  const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
+    filteredTrainings,
+    [searchTerm, statusFilter, picFilter, locFilter, dateFilter].join('|')
+  );
+
+  const hasActiveFilters = Boolean(searchTerm || statusFilter || picFilter || locFilter || dateFilter);
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setPicFilter('');
+    setLocFilter('');
+    setDateFilter('');
+  };
 
   return (
     <DashboardLayout pageTitle="Training List">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Trainings</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage and monitor all training programs.</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => setImportModalOpen(true)} className="cms-btn-secondary h-10 shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">upload_file</span>
-            Import Agenda CSV
-          </button>
-          <button onClick={openAddModal} className="cms-btn-primary h-10 shadow-md shadow-blue-500/10">
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            Add Training
-          </button>
-        </div>
-      </div>
+      <div className="space-y-6">
+      <PageHeader
+        title={t('Batch Training')}
+        description={t('Kelola dan pantau semua program training.')}
+        actions={
+          <>
+            <Button variant="secondary" icon="upload_file" onClick={() => setImportModalOpen(true)}>{t('Impor Agenda CSV')}</Button>
+            <Button variant="primary" icon="add" onClick={openAddModal}>{t('Tambah Training')}</Button>
+          </>
+        }
+      />
 
       {/* Filters & Controls */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col shadow-sm mb-6">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between w-full">
+      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between w-full">
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Search */}
             <div className="relative w-full md:w-64">
@@ -410,8 +426,9 @@ function TrainingsContent() {
               <input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-850"
-                placeholder="Search trainings..."
+                className="cms-input h-9 !pl-10 !text-[13px]"
+                aria-label={t('Cari training')}
+                placeholder={t('Cari training...')}
                 type="text"
               />
             </div>
@@ -420,129 +437,95 @@ function TrainingsContent() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-0 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 min-w-[130px] appearance-none cursor-pointer"
+              className="cms-select-filter min-w-[130px]"
+              aria-label={t('Filter berdasarkan status')}
             >
-              <option value="">All Status</option>
-              <option value="Completed">Completed</option>
-              <option value="Processing">Processing</option>
+              <option value="">{t('Semua Status Training')}</option>
+              {statusOptions.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
-
-            {/* Date */}
-            <input
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer"
-              type="date"
-            />
 
             {/* PIC */}
             <select
               value={picFilter}
               onChange={(e) => setPicFilter(e.target.value)}
-              className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-0 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 min-w-[130px] appearance-none cursor-pointer"
+              className="cms-select-filter min-w-[130px]"
+              aria-label={t('Filter berdasarkan PIC')}
             >
-              <option value="">All PICs</option>
-              <option value="Andi">Andi</option>
-              <option value="Budi">Budi</option>
-              <option value="System Admin">System Admin</option>
+              <option value="">{t('Semua PIC')}</option>
+              {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
             </select>
-          </div>
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-            <button onClick={() => setShowMoreFilters(!showMoreFilters)} className="cms-btn-secondary h-9 py-0">
-              <span className="material-symbols-outlined text-[18px]">filter_list</span>
-              More Filters
-            </button>
-          </div>
-        </div>
 
-        {/* More Filters secondary row */}
-        {showMoreFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-100 w-full animate-in fade-in duration-200">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Department</label>
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="cms-input h-9 py-0 cursor-pointer text-slate-700"
-              >
-                <option value="">All Departments</option>
-                <option value="marine">Marine Services</option>
-                <option value="industrial">Industrial Academy</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Location</label>
-              <select
-                value={locFilter}
-                onChange={(e) => setLocFilter(e.target.value)}
-                className="cms-input h-9 py-0 cursor-pointer text-slate-700"
-              >
-                <option value="">All Locations</option>
-                <option value="jakarta">Jakarta Training Center</option>
-                <option value="surabaya">Surabaya Hub</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SLA Priority</label>
-              <select
-                value={slaFilter}
-                onChange={(e) => setSlaFilter(e.target.value)}
-                className="cms-input h-9 py-0 cursor-pointer text-slate-700"
-              >
-                <option value="">All Priorities</option>
-                <option value="normal">Normal (14 Days)</option>
-                <option value="urgent">Urgent (7 Days)</option>
-              </select>
-            </div>
+            {/* Location */}
+            <select
+              value={locFilter}
+              onChange={(e) => setLocFilter(e.target.value)}
+              className="cms-select-filter min-w-[150px] max-w-[220px]"
+              aria-label={t('Filter berdasarkan lokasi')}
+            >
+              <option value="">{t('Semua Lokasi')}</option>
+              {locationOptions.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+
+            {/* Date: batches running on this day */}
+            <input
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="cms-input h-9 !w-auto !py-0 !text-[13px] text-slate-700"
+              aria-label={t('Tampilkan batch yang berjalan pada tanggal')}
+              title={t('Tampilkan batch yang berjalan pada tanggal ini')}
+              type="date"
+            />
           </div>
-        )}
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 md:ml-auto">
+              {t('Hapus filter')}</button>
+          )}
+        </div>
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col mb-8">
-        {loading ? (
-          <div className="p-16 flex justify-center items-center bg-white">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-          </div>
-        ) : (
+      <div className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden flex flex-col">
           <div className="table-scroll overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse bg-white">
+            <table className="cms-table w-full text-left border-collapse bg-card">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-6 py-4 w-12 text-center">
+                  <th className="px-4 py-3 w-12 text-center">
                     <input
                       type="checkbox"
-                      checked={filteredTrainings.length > 0 && selectedIds.length === filteredTrainings.length}
+                      checked={pageItems.length > 0 && pageItems.every(t => selectedIds.includes(t.id))}
                       onChange={handleSelectAll}
-                      className="rounded border-slate-250 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                     />
                   </th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Training Name</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Batch</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Date</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap text-right">Participants</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">Certificate Progress</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap">PIC</th>
-                  <th className="text-[11px] font-semibold text-slate-500 px-6 py-4 uppercase tracking-wider whitespace-nowrap text-right">Actions</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Nama Training')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Batch')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Tanggal')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap text-right">{t('Peserta')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Progres Sertifikat')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('PIC')}</th>
+                  <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap text-right">{t('Tindakan')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTrainings.length === 0 ? (
+                {loading ? (
+                  <TableSkeletonRows label={t('Memuat training')} columns={TRAINING_SKELETON_COLUMNS} />
+                ) : filteredTrainings.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 text-sm font-semibold">
-                      No training batches found matching filters.
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                      <p className="text-sm font-medium text-slate-900">{t('Batch training tidak ditemukan')}</p>
+                      <p className="mt-1 text-xs">{t('Ubah filter atau tambahkan batch training baru.')}</p>
                     </td>
                   </tr>
                 ) : (
-                  filteredTrainings.map(t => {
-                    const initials = ((t as any).pic || 'AD').substring(0, 2).toUpperCase();
-                    const start = new Date(t.start_date);
-                    const end = new Date(t.end_date);
+                  pageItems.map(training => {
+                    const initials = ((training as any).pic || 'AD').substring(0, 2).toUpperCase();
+                    const start = new Date(training.start_date);
+                    const end = new Date(training.end_date);
                     const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
-                    const dateText = start.toLocaleDateString('en-GB', { day: '2-digit' }) + '-' + end.toLocaleDateString('en-GB', options);
+                    const dateText = start.toLocaleDateString(locale, { day: '2-digit' }) + '-' + end.toLocaleDateString(locale, options);
 
                     // Filter certificates and compute actual participants & progress
-                    const batchCerts = certificates.filter(c => c.training_id === t.id);
+                    const batchCerts = certificates.filter(c => c.training_id === training.id);
                     const uniquePartIds = Array.from(new Set(batchCerts.map(c => c.participant_id)));
                     const participantCount = uniquePartIds.length;
 
@@ -575,101 +558,73 @@ function TrainingsContent() {
 
                     return (
                       <tr
-                        key={t.id}
-                        className="hover:bg-slate-50/70 transition-colors group h-14 cursor-pointer animate-in fade-in duration-200"
-                        onClick={() => router.push(`/trainings/${t.id}`)}
+                        key={training.id}
+                        className="hover:bg-slate-50 transition-colors group h-14 cursor-pointer"
+                        onClick={() => router.push(`/trainings/${training.id}`)}
                       >
-                        <td className="px-6 py-3 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-3 w-12 text-center" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
-                            checked={selectedIds.includes(t.id)}
-                            onChange={(e) => handleSelectRow(t.id, e.target.checked)}
+                            checked={selectedIds.includes(training.id)}
+                            onChange={(e) => handleSelectRow(training.id, e.target.checked)}
                             className="training-select-checkbox rounded border-slate-200 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                           />
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-slate-900">{t.program_name}</div>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-[13px] font-medium text-slate-900">{training.program_name}</div>
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap">
-                          <div className="text-xs font-mono font-semibold text-slate-500">{t.batch_code}</div>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-xs font-mono text-slate-500">{training.batch_code}</div>
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-xs text-slate-500">{dateText}</div>
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-right">
-                          <div className="text-sm text-slate-800 font-semibold">{participantCount}</div>
+                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                          <div className="text-[13px] text-slate-900 font-medium tabular-nums">{participantCount}</div>
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex flex-col gap-1 min-w-[130px] select-none">
                             {/* ATT Progress */}
-                            <div className="flex items-center justify-between text-[9px] leading-none">
-                              <span className="text-slate-500 font-bold uppercase tracking-wider scale-95 origin-left">ATT</span>
-                              <span className="font-extrabold text-teal-600">{attPct}%</span>
+                            <div className="flex items-center justify-between text-[11px] leading-none">
+                              <span className="text-slate-500" title={t('Kehadiran')}>{t('HDR')}</span>
+                              <span className="font-medium text-slate-700 tabular-nums">{attPct}%</span>
                             </div>
                             <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-teal-600 rounded-full transition-all duration-300" style={{ width: `${attPct}%` }}></div>
+                              <div className={`h-full rounded-full transition-all duration-300 ${attPct === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${attPct}%` }}></div>
                             </div>
                             
                             {/* QUAL Progress */}
-                            <div className="flex items-center justify-between text-[9px] leading-none mt-1">
-                              <span className="text-slate-500 font-bold uppercase tracking-wider scale-95 origin-left">QUAL</span>
-                              <span className="font-extrabold text-indigo-600">{qualPct}%</span>
+                            <div className="flex items-center justify-between text-[11px] leading-none mt-1">
+                              <span className="text-slate-500" title={t('Kualifikasi')}>{t('KUAL')}</span>
+                              <span className="font-medium text-slate-700 tabular-nums">{qualPct}%</span>
                             </div>
                             <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-600 rounded-full transition-all duration-300" style={{ width: `${qualPct}%` }}></div>
+                              <div className={`h-full rounded-full transition-all duration-300 ${qualPct === 100 ? 'bg-emerald-500' : 'bg-blue-600'}`} style={{ width: `${qualPct}%` }}></div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-3">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">
                               {initials}
                             </div>
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs text-slate-700 font-semibold truncate">{(t as any).pic || '-'}</span>
+                              <span className="text-xs text-slate-700 font-medium truncate">{(training as any).pic || '-'}</span>
                               {lastModifier && lastModTime && (
-                                <span className="text-[9px] text-slate-400 leading-none">
-                                  by {lastModifier} &middot; {getTimeAgo(lastModTime)}
+                                <span className="text-[11px] text-slate-500 leading-tight whitespace-nowrap">
+                                  {t('oleh')} {lastModifier} {t('·')} {getTimeAgo(lastModTime)}
                                 </span>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === t.id ? null : t.id);
-                              }}
-                              className="row-actions-btn text-slate-400 hover:text-slate-600 p-1.5 rounded transition-colors focus:outline-none"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                            </button>
-                            {activeMenuId === t.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
-                                <button
-                                  onClick={() => router.push(`/trainings/${t.id}`)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">visibility</span> View Detail
-                                </button>
-                                <button
-                                  onClick={() => openEditModal(t)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">edit</span> Edit Batch
-                                </button>
-                                <hr className="border-slate-100 my-1" />
-                                <button
-                                  onClick={() => handleDelete(t.id)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">delete</span> Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                        <td className="px-4 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                          <ActionMenu align="right" menuWidth="w-44" items={[
+                            { label: t('Lihat Detail'), icon: 'visibility', onClick: () => router.push(`/trainings/${training.id}`) },
+                            { label: t('Ubah Batch'), icon: 'edit', onClick: () => openEditModal(training) },
+                            'divider',
+                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDelete(training.id) },
+                          ]} />
                         </td>
                       </tr>
                     );
@@ -678,44 +633,34 @@ function TrainingsContent() {
               </tbody>
             </table>
           </div>
-        )}
 
-        {/* Pagination Footer */}
-        <div className="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            Showing <span className="font-medium text-slate-800">1</span> to <span className="font-medium text-slate-800">{filteredTrainings.length}</span> of <span className="font-medium text-slate-800">{filteredTrainings.length}</span> results
-          </div>
-          <div className="flex gap-1">
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 disabled:opacity-40" disabled>
-              <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-            </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs font-semibold">1</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 disabled:opacity-40" disabled>
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-            </button>
-          </div>
-        </div>
+        {!loading && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={filteredTrainings.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+        )}
+      </div>
+
       </div>
 
       {/* CSV IMPORT MODAL */}
       {importModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={() => setImportModalOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
-              <h3 className="text-base font-bold text-slate-800">Import Agenda CSV</h3>
-              <button className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onClick={() => setImportModalOpen(false)}>
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-6 flex flex-col gap-4">
+        <Modal isOpen={true} onClose={() => setImportModalOpen(false)} title={t('Impor Agenda CSV')} dismissOnBackdrop footer={<>
+<button className="cms-btn-secondary" onClick={() => setImportModalOpen(false)}>{t('Batal')}</button>
+</>}>
+<div className="flex flex-col gap-4">
               {/* Drag-n-drop simulated area */}
               <div
                 onClick={() => document.getElementById('csv-file-input')?.click()}
-                className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-white"
+                className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-card"
               >
                 <span className="material-symbols-outlined text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2">upload_file</span>
-                <p className="text-sm font-semibold text-slate-700">Click to upload Agenda CSV</p>
-                <p className="text-xs text-slate-400 mt-1">Accepts BKI formatted CSV (Max 5MB)</p>
+                <p className="text-sm font-semibold text-slate-700">{t('Klik untuk mengunggah CSV Agenda')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('Menerima CSV berformat BKI (maks 5MB)')}</p>
                 <input
                   type="file"
                   id="csv-file-input"
@@ -727,42 +672,33 @@ function TrainingsContent() {
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex gap-2.5 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-slate-400 text-sm">download</span>
-                  <span className="text-xs font-semibold text-slate-700">BKI Agenda Template</span>
+                  <span className="text-xs font-semibold text-slate-700">{t('Template Agenda BKI')}</span>
                 </div>
-                <button onClick={downloadCSVTemplate} className="text-xs font-bold text-blue-600 hover:underline">Download CSV</button>
+                <button onClick={downloadCSVTemplate} className="text-xs font-semibold text-blue-600 hover:underline">{t('Unduh CSV')}</button>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-              <button className="cms-btn-secondary" onClick={() => setImportModalOpen(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* CSV NORMALIZATION PREVIEW MODAL */}
       {previewModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Review & Normalization Mapping</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Please review and edit details before syncing to the database.</p>
+        <Modal isOpen={true} onClose={() => setPreviewModalOpen(false)} title={t('Tinjau & Pemetaan Normalisasi')} description={t('Tinjau dan ubah detail sebelum disinkronkan ke database.')} size="3xl" footer={<>
+<span className="text-xs text-slate-500 font-semibold">{t('Terdeteksi')} {parsedBatches.length} {t('Batch (jumlah)')}</span>
+              <div className="flex gap-3">
+                <button className="cms-btn-secondary" onClick={() => setPreviewModalOpen(false)}>{t('Batal')}</button>
+                <button onClick={handleSyncCSVToDB} className="cms-btn-primary">{t('Konfirmasi & Sinkronkan ke Database')}</button>
               </div>
-              <button className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onClick={() => setPreviewModalOpen(false)}>
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            
-            <div className="p-6 flex-grow flex flex-col gap-6 overflow-y-auto bg-white">
+</>}>
+<div className="flex flex-col gap-6">
               {parsedBatches.map((batch, batchIndex) => (
                 <div key={batchIndex} className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col gap-4">
-                  <h4 className="font-bold text-slate-850 text-slate-800 text-sm flex items-center gap-2">
+                  <h4 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
                     <span className="material-symbols-outlined text-blue-600 text-lg">school</span>
-                    Training Program Batch Details (#{batchIndex + 1})
+                    {t('Detail Batch Program Training (#{n})', { n: batchIndex + 1 })}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Program Name</label>
+                      <label className="text-xs font-medium text-slate-600">{t('Nama Program')}</label>
                       <input
                         className="cms-input py-1.5 text-xs font-semibold"
                         value={batch.program_name}
@@ -776,7 +712,7 @@ function TrainingsContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
+                        <label className="text-xs font-medium text-slate-600">{t('Tanggal Mulai')}</label>
                         <input
                           className="cms-input py-1.5 text-xs font-semibold"
                           value={batch.start_date}
@@ -789,7 +725,7 @@ function TrainingsContent() {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End Date</label>
+                        <label className="text-xs font-medium text-slate-600">{t('Tanggal Selesai')}</label>
                         <input
                           className="cms-input py-1.5 text-xs font-semibold"
                           value={batch.end_date}
@@ -805,15 +741,15 @@ function TrainingsContent() {
                   </div>
                   
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">Attendee List & Certificates</label>
+                    <label className="text-[11px] font-semibold text-slate-500 mb-2 block">{t('Daftar Peserta & Sertifikat')}</label>
                     <div className="overflow-x-auto max-h-48 border border-slate-200 rounded-lg table-scroll">
-                      <table className="w-full text-left border-collapse text-xs bg-white">
+                      <table className="cms-table w-full text-left border-collapse text-xs bg-card">
                         <thead>
                           <tr className="bg-slate-100 border-b border-slate-200">
-                            <th className="p-2 font-bold text-slate-600">Name</th>
-                            <th className="p-2 font-bold text-slate-600">Company</th>
-                            <th className="p-2 font-bold text-slate-600">Cert. Kehadiran</th>
-                            <th className="p-2 font-bold text-slate-600">Cert. Kualifikasi</th>
+                            <th className="p-2 font-semibold text-slate-600">{t('Nama')}</th>
+                            <th className="p-2 font-semibold text-slate-600">{t('Nama Perusahaan')}</th>
+                            <th className="p-2 font-semibold text-slate-600">{t('Sert. Kehadiran')}</th>
+                            <th className="p-2 font-semibold text-slate-600">{t('Sert. Kualifikasi')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -821,8 +757,8 @@ function TrainingsContent() {
                             <tr key={pIndex}>
                               <td className="p-2 font-semibold text-slate-900">{p.name}</td>
                               <td className="p-2 text-slate-500">{p.company}</td>
-                              <td className="p-2 font-mono text-[10px] text-slate-500">{p.cert_kehadiran || '-'}</td>
-                              <td className="p-2 font-mono text-[10px] text-slate-500">{p.cert_kualifikasi || '-'}</td>
+                              <td className="p-2 font-mono text-[11px] text-slate-500">{p.cert_kehadiran || '-'}</td>
+                              <td className="p-2 font-mono text-[11px] text-slate-500">{p.cert_kualifikasi || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -832,55 +768,40 @@ function TrainingsContent() {
                 </div>
               ))}
             </div>
-
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Detected {parsedBatches.length} Batch(es)</span>
-              <div className="flex gap-3">
-                <button className="cms-btn-secondary" onClick={() => setPreviewModalOpen(false)}>Cancel</button>
-                <button onClick={handleSyncCSVToDB} className="cms-btn-primary">Confirm & Sync to Database</button>
-              </div>
-            </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ADD / EDIT FORM MODAL */}
       {formModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-50 flex items-center justify-center p-4" onClick={() => setFormModalOpen(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-full border border-slate-200 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-white">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">{editingTraining ? 'Edit Training Batch' : 'Add New Training'}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Enter details to create or modify a training batch.</p>
-              </div>
-              <button className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors" onClick={() => setFormModalOpen(false)}>
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleFormSubmit} className="flex-grow flex flex-col overflow-y-auto">
-              <div className="p-6 flex-grow flex flex-col gap-4 bg-white">
+        <Modal isOpen={true} onClose={() => setFormModalOpen(false)} title={editingTraining ? t('Ubah Batch Training') : t('Tambah Training Baru')} description={t('Isi detail untuk membuat atau mengubah batch training.')} size="lg" dismissOnBackdrop onSubmit={handleFormSubmit} footer={<>
+<button className="cms-btn-secondary" type="button" onClick={() => setFormModalOpen(false)}>{t('Batal')}</button>
+                <button className="cms-btn-primary" type="submit">
+                  {editingTraining ? t('Simpan Perubahan') : t('Buat Training')}
+                </button>
+</>}>
+<div className="flex flex-col">
+<div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" htmlFor="trainingName">TRAINING NAME <span className="text-red-500">*</span></label>
+                  <label className="text-[11px] font-semibold text-slate-500" htmlFor="trainingName">{t('NAMA TRAINING')} <span className="text-red-500">*</span></label>
                   <input
                     className="cms-input"
                     id="trainingName"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="e.g. Advanced Structural Analysis"
+                    placeholder={t('mis. Advanced Structural Analysis')}
                     type="text"
                     required
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" htmlFor="batchNumber">BATCH CODE <span className="text-red-500">*</span></label>
+                  <label className="text-[11px] font-semibold text-slate-500" htmlFor="batchNumber">{t('KODE BATCH')} <span className="text-red-500">*</span></label>
                   <input
                     className="cms-input font-mono"
                     id="batchNumber"
                     value={formBatch}
                     onChange={(e) => setFormBatch(e.target.value)}
-                    placeholder="e.g. BTH-2024-01"
+                    placeholder={t('mis. BTH-2024-01')}
                     type="text"
                     required
                   />
@@ -888,7 +809,7 @@ function TrainingsContent() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" htmlFor="startDate">START DATE <span className="text-red-500">*</span></label>
+                    <label className="text-[11px] font-semibold text-slate-500" htmlFor="startDate">{t('TANGGAL MULAI')} <span className="text-red-500">*</span></label>
                     <input
                       className="cms-input text-slate-700"
                       id="startDate"
@@ -899,7 +820,7 @@ function TrainingsContent() {
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" htmlFor="endDate">END DATE <span className="text-red-500">*</span></label>
+                    <label className="text-[11px] font-semibold text-slate-500" htmlFor="endDate">{t('TANGGAL SELESAI')} <span className="text-red-500">*</span></label>
                     <input
                       className="cms-input text-slate-700"
                       id="endDate"
@@ -912,45 +833,36 @@ function TrainingsContent() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider" htmlFor="picSelect">PERSON IN CHARGE (PIC) <span className="text-red-500">*</span></label>
+                  <label className="text-[11px] font-semibold text-slate-500" htmlFor="picSelect">{t('PENANGGUNG JAWAB (PIC)')} <span className="text-red-500">*</span></label>
                   <input
                     className="cms-input"
                     id="picSelect"
                     value={formPic}
                     onChange={(e) => setFormPic(e.target.value)}
-                    placeholder="e.g. Budi Santoso"
+                    placeholder={t('mis. Budi Santoso')}
                     type="text"
                     required
                   />
                 </div>
               </div>
-
-              <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
-                <button className="cms-btn-secondary" type="button" onClick={() => setFormModalOpen(false)}>Cancel</button>
-                <button className="cms-btn-primary" type="submit">
-                  {editingTraining ? 'Save Changes' : 'Create Training'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+</div>
+</Modal>
       )}
 
       {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-4 z-50 transform translate-y-0 opacity-100 transition-all duration-300">
-          <span className="text-xs font-semibold text-slate-300">{selectedIds.length} batches selected</span>
+        <div className="sidebar-fixed fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-3.5 rounded-full shadow-2xl flex items-center gap-4 z-50 transform translate-y-0 opacity-100 transition-all duration-300">
+          <span className="text-xs font-semibold text-slate-300">{selectedIds.length} {t('batch dipilih')}</span>
           <div className="h-4 w-px bg-slate-700"></div>
-          <button onClick={handleBulkDelete} className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-bold uppercase tracking-wider cursor-pointer">
-            <span className="material-symbols-outlined text-sm">delete</span> Delete Selected
-          </button>
+          <button onClick={handleBulkDelete} className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-semibold cursor-pointer">
+            <span className="material-symbols-outlined text-sm">delete</span> {t('Hapus yang Dipilih')}</button>
         </div>
       )}
 
       {/* Global Spinner Overlay */}
       {spinnerMsg && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-50 flex items-center justify-center">
-          <div className="bg-white px-6 py-4 rounded-xl shadow-lg border border-slate-200 flex items-center gap-3 animate-in zoom-in-95 duration-150">
+        <div role="status" aria-live="polite" className="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-[60] flex items-center justify-center">
+          <div className="bg-card px-4 py-3 rounded-xl shadow-lg border border-slate-200 flex items-center gap-3 animate-in zoom-in-95 duration-150">
             <span className="animate-spin inline-block w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
             <span className="text-sm font-semibold text-slate-800">{spinnerMsg}</span>
           </div>
@@ -972,11 +884,7 @@ function TrainingsContent() {
 
 export default function TrainingsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-      </div>
-    }>
+    <Suspense fallback={<AppShellSkeleton />}>
       <TrainingsContent />
     </Suspense>
   );

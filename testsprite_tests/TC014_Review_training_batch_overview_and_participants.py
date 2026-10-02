@@ -40,19 +40,19 @@ async def run_test():
         except Exception:
             pass
         
-        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123BKI' into the Password field, then click the 'Sign In' button.
+        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # admin@bkiacademy.edu email field
         elem = page.locator('[id="email"]')
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("dzaky@bki.academy")
         
-        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123BKI' into the Password field, then click the 'Sign In' button.
+        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # •••••••• password field
         elem = page.locator('[id="password"]')
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Dzaky123BKI")
+        await elem.fill("Dzaky123")
         
-        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123BKI' into the Password field, then click the 'Sign In' button.
+        # -> Fill 'dzaky@bki.academy' into the Email Address field, fill 'Dzaky123' into the Password field, then click the 'Sign In' button.
         # Sign In button
         elem = page.get_by_role('button', name='Sign In', exact=True)
         await elem.click(timeout=10000)

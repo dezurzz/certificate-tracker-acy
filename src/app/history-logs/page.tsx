@@ -3,6 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate } from '@/lib/db';
+import Button from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
+import { useT, useLanguage } from '@/i18n/LanguageContext';
+import { formatRelativeTime } from '@/lib/relativeTime';
+import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
+import { TimelineSkeleton } from '@/components/Skeleton';
 
 interface ActivityLogItem {
   id: string;
@@ -17,6 +23,8 @@ interface ActivityLogItem {
 }
 
 export default function HistoryLogsPage() {
+  const t = useT();
+  const { locale } = useLanguage();
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,17 +40,17 @@ export default function HistoryLogsPage() {
       const acts: ActivityLogItem[] = [];
 
       // Trainings created events
-      trainings.forEach(t => {
+      trainings.forEach(training => {
         acts.push({
-          id: `t-${t.id}`,
+          id: `t-${training.id}`,
           type: 'training_created',
-          title: 'Training Batch Created',
-          desc: `Program batch "${t.program_name}" (${t.batch_code}) was initialized.`,
-          time: t.created_at ? new Date(t.created_at) : (t.start_date ? new Date(t.start_date) : new Date()),
+          title: t('Batch Training Dibuat'),
+          desc: t('Batch program "{program_name}" ({batch_code}) dimulai.', { program_name: training.program_name, batch_code: training.batch_code }),
+          time: training.created_at ? new Date(training.created_at) : (training.start_date ? new Date(training.start_date) : new Date()),
           pic: (t as any).pic || 'System',
-          trainingName: `${t.program_name} (${t.batch_code})`,
-          dotColor: 'bg-blue-600',
-          badgeClass: 'bg-blue-50 text-blue-700 border-blue-100'
+          trainingName: `${training.program_name} (${training.batch_code})`,
+          dotColor: 'bg-blue-500',
+          badgeClass: 'cms-badge-neutral'
         });
       });
 
@@ -55,13 +63,13 @@ export default function HistoryLogsPage() {
           acts.push({
             id: `c-gen-${c.id}`,
             type: 'certificate_created',
-            title: 'Certificate Generated',
-            desc: `Certificate draft generated for "${name}" (${c.certificate_type}).`,
+            title: t('Sertifikat Dibuat'),
+            desc: t('Draf sertifikat dibuat untuk "{name}" ({certificate_type}).', { name, certificate_type: certTypeLabel(t, c.certificate_type) }),
             time: new Date(c.created_at),
             pic: c.updated_by || 'System',
             trainingName: trainingName,
             dotColor: 'bg-slate-300',
-            badgeClass: 'bg-slate-50 text-slate-500 border-slate-100'
+            badgeClass: 'cms-badge-neutral'
           });
         }
       });
@@ -73,23 +81,20 @@ export default function HistoryLogsPage() {
         const trainingName = cert?.trainings ? `${cert.trainings.program_name} (${cert.trainings.batch_code})` : 'Unknown Training';
 
         let dotColor = 'bg-blue-500';
-        let badgeClass = 'bg-blue-50 text-blue-700 border-blue-100';
-        if (h.new_status === 'Printing') {
-          dotColor = 'bg-amber-500';
-          badgeClass = 'bg-amber-50 text-amber-700 border-amber-100';
-        } else if (h.new_status === 'Completed') {
-          dotColor = 'bg-green-500';
-          badgeClass = 'bg-green-50 text-green-700 border-green-100';
+        let badgeClass = 'cms-badge-info';
+        if (h.new_status === 'Completed') {
+          dotColor = 'bg-emerald-500';
+          badgeClass = 'cms-badge-success';
         } else if (h.new_status === 'Pending') {
-          dotColor = 'bg-slate-400';
-          badgeClass = 'bg-slate-50 text-slate-500 border-slate-100';
+          dotColor = 'bg-slate-300';
+          badgeClass = 'cms-badge-neutral';
         }
 
         acts.push({
           id: `h-log-${h.id}`,
           type: `certificate_${h.new_status.toLowerCase()}`,
-          title: `Certificate updated to ${h.new_status}`,
-          desc: `Status of "${name}"'s certificate shifted from <span class="font-semibold text-slate-800">${h.previous_status}</span> to <span class="font-semibold text-slate-800">${h.new_status}</span>.`,
+          title: t('Sertifikat diperbarui ke {status}', { status: certStatusLabel(t, h.new_status) }),
+          desc: t('Status sertifikat "{name}" bergeser dari {from} ke {to}.', { name, from: certStatusLabel(t, h.previous_status), to: certStatusLabel(t, h.new_status) }),
           time: new Date(h.created_at),
           pic: h.changed_by,
           trainingName: trainingName,
@@ -118,18 +123,7 @@ export default function HistoryLogsPage() {
     };
   }, []);
 
-  const formatRelativeTime = (date: Date) => {
-    const diffMs = new Date().getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMs < 0 || diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    if (diffDays === 1) return 'Yesterday';
-    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  };
+  const formatRelTime = (date: Date) => formatRelativeTime(date, t, locale);
 
   const getGroupTimeLabel = (date: Date) => {
     const now = new Date();
@@ -208,59 +202,52 @@ export default function HistoryLogsPage() {
 
   return (
     <DashboardLayout pageTitle="History Logs">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Audit History Logs</h2>
-          <p className="text-sm text-slate-500 mt-1">Trace all training deployments and certificate status updates.</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={handleExportCSV} className="cms-btn-secondary h-10 shadow-sm">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Export Audit Trail
-          </button>
-        </div>
-      </div>
+      <div className="space-y-6">
+      <PageHeader
+        title={t('Riwayat Audit')}
+        description={t('Lacak semua penyelenggaraan training dan pembaruan status sertifikat.')}
+        actions={<Button variant="secondary" icon="download" onClick={handleExportCSV}>{t('Ekspor Jejak Audit')}</Button>}
+      />
 
       {/* Controls & Grouping Filter */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm mb-8">
+      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center justify-between shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
         <div className="relative w-full md:w-80">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
-            placeholder="Search logs..."
+            className="cms-input h-9 !pl-10 !text-[13px]"
+            aria-label={t('Cari log')}
+            placeholder={t('Cari log...')}
             type="text"
           />
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Group By</label>
+          <label htmlFor="group-by" className="text-[13px] text-slate-500 whitespace-nowrap">{t('Kelompokkan menurut')}</label>
           <select
             value={groupBy}
+            id="group-by"
             onChange={(e) => setGroupBy(e.target.value as any)}
-            className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-0 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 min-w-[180px] cursor-pointer"
+            className="cms-select-filter min-w-[180px]"
           >
-            <option value="time">📅 Group by Time</option>
-            <option value="pic">👤 Group by PIC (Operator)</option>
-            <option value="training">🏫 Group by Training Batch</option>
+            <option value="time">{t('Waktu')}</option>
+            <option value="pic">{t('PIC (operator)')}</option>
+            <option value="training">{t('Batch training')}</option>
           </select>
         </div>
       </div>
 
       {/* History List Output */}
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6">
         {loading ? (
-          <div className="p-16 flex justify-center items-center bg-white border border-slate-200 rounded-xl shadow-sm">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-          </div>
+          <TimelineSkeleton label={t('Memuat riwayat')} />
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+          <div className="bg-card rounded-xl border border-slate-200 p-12 text-center shadow-sm">
             <div className="flex flex-col items-center justify-center gap-3">
-              <span className="material-symbols-outlined text-4xl text-slate-350 text-slate-450">history</span>
-              <p className="text-sm font-semibold text-slate-700">No logs found</p>
-              <p className="text-xs text-slate-400">Try adjusting your search criteria or record new operations.</p>
+              <span className="material-symbols-outlined text-4xl text-slate-400" aria-hidden="true">history</span>
+              <p className="text-sm font-medium text-slate-900">{t('Log tidak ditemukan')}</p>
+              <p className="text-xs text-slate-500">{t('Ubah kata kunci pencarian atau catat operasi baru.')}</p>
             </div>
           </div>
         ) : (
@@ -268,35 +255,38 @@ export default function HistoryLogsPage() {
             const items = groups[groupKey];
             if (!items || items.length === 0) return null;
             return (
-              <div key={groupKey} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
-                <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-200 flex justify-between items-center select-none">
-                  <span className="text-xs font-bold text-slate-655 uppercase tracking-wider">{groupKey}</span>
-                  <span className="text-[10px] bg-slate-200 text-slate-600 font-bold px-2 py-0.5 rounded-full">{items.length} Event(s)</span>
+              <div key={groupKey} className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center">
+                  <h2 className="text-sm font-semibold text-slate-900">{groupKey}</h2>
+                  <span className="text-xs text-slate-500 tabular-nums">{items.length === 1 ? t('1 event') : t('{count} event', { count: items.length })}</span>
                 </div>
-                <div className="p-6">
+                <div className="p-5">
                   <div className="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-100 flex flex-col gap-6">
                     {items.map(item => (
                       <div key={item.id} className="relative pl-8 flex justify-between items-start animate-in fade-in duration-150">
-                        <div className={`absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${item.dotColor} ring-4 ring-white`}></div>
+                        <div className={`absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${item.dotColor} ring-4 ring-card`}></div>
                         <div className="flex-grow">
-                          <p className="text-sm font-semibold text-slate-800 leading-snug">{item.title}</p>
-                          <p className="text-xs text-slate-500 mt-1" dangerouslySetInnerHTML={{ __html: item.desc }}></p>
-                          <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                          <p className="text-sm font-medium text-slate-900 leading-snug">{item.title}</p>
+                          <p className="text-xs text-slate-500 mt-1">{item.desc}</p>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
                             <span className="flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">person</span>
+                              <span className="material-symbols-outlined text-[14px] text-slate-400" aria-hidden="true">person</span>
                               {item.pic}
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">school</span>
+                              <span className="material-symbols-outlined text-[14px] text-slate-400" aria-hidden="true">school</span>
                               {item.trainingName}
                             </span>
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex flex-col items-end gap-1.5 ml-4">
-                          <span className={`cms-badge ${item.badgeClass} text-[9px] uppercase tracking-wider`}>
-                            {item.type.split('_').pop()}
+                          <span className={`cms-badge ${item.badgeClass} capitalize`}>
+                            {(() => {
+                              const k = item.type.split('_').pop() ?? '';
+                              return k === 'created' ? t('Dibuat') : certStatusLabel(t, k.charAt(0).toUpperCase() + k.slice(1));
+                            })()}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-medium">{formatRelativeTime(item.time)}</span>
+                          <span className="text-xs text-slate-500">{formatRelTime(item.time)}</span>
                         </div>
                       </div>
                     ))}
@@ -306,6 +296,7 @@ export default function HistoryLogsPage() {
             );
           })
         )}
+      </div>
       </div>
     </DashboardLayout>
   );

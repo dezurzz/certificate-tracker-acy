@@ -1,87 +1,120 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { NAV_GROUPS, SETTINGS_ITEM, NavItem, isNavActive } from '@/lib/navigation';
+import { useT } from '@/i18n/LanguageContext';
 
-export default function Sidebar() {
+function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const t = useT();
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+        active
+          ? 'bg-white/10 font-medium text-white'
+          : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
+      }`}
+    >
+      {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-blue-500" aria-hidden="true" />}
+      <span className={`material-symbols-outlined text-[18px] ${active ? 'fill text-blue-400' : ''}`} aria-hidden="true">
+        {item.icon}
+      </span>
+      <span className="truncate">{t(item.name)}</span>
+    </Link>
+  );
+}
+
+interface SidebarProps {
+  /** Mobile drawer state (ignored on lg+, where the sidebar is always visible). */
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
+  const t = useT();
   const pathname = usePathname();
   const { user } = useAuth();
+  const initial = (user?.name || 'A').charAt(0).toUpperCase();
 
-  const menuItems = [
-    { name: 'Dashboard', icon: 'dashboard', href: '/dashboard', active: pathname === '/dashboard' },
-    { name: 'Training List', icon: 'school', href: '/trainings', active: pathname.startsWith('/trainings') },
-    { name: 'Certificate Monitoring', icon: 'verified', href: '/certificates', active: pathname === '/certificates' },
-    { name: 'History Logs', icon: 'history', href: '/history-logs', active: pathname === '/history-logs' },
-    { name: 'Reports', icon: 'assessment', href: '/reports', active: pathname === '/reports' }
-  ];
+  // Close the mobile drawer after navigating, and on Esc
+  useEffect(() => {
+    onClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
-  const isSettingsActive = pathname.startsWith('/settings');
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   return (
-    <nav className="bg-[#131B2E] text-slate-300 w-60 h-screen fixed left-0 top-0 border-r border-slate-800 flex flex-col justify-between p-4 z-50">
-      <div className="flex flex-col gap-6">
-        {/* Brand Header */}
-        <Link href="/dashboard" className="flex items-center gap-3 px-2 py-1 cursor-pointer group">
-          <div className="w-10 h-10 rounded bg-blue-600 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
-            <span className="material-symbols-outlined text-white text-2xl fill">school</span>
+    <>
+    {/* Mobile backdrop */}
+    <div
+      aria-hidden="true"
+      onClick={onClose}
+      className={`fixed inset-0 z-[45] bg-black/50 transition-opacity lg:hidden ${
+        open ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    />
+    <nav
+      id="app-sidebar"
+      aria-label={t('Navigasi utama')}
+      className={`sidebar-fixed fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col justify-between border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-200 ease-out lg:translate-x-0 ${
+        open ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      {/* Brand */}
+      <div className="flex h-16 items-center border-b border-slate-800 px-5">
+        <Link href="/dashboard" className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600">
+            <span className="material-symbols-outlined fill text-[18px] text-white" aria-hidden="true">school</span>
           </div>
-          <div>
-            <h1 className="font-bold text-white text-md tracking-tight leading-tight">BKI Academy</h1>
-            <p className="text-xs text-slate-400">Management System</p>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold text-white">{t('BKI Academy')}</p>
+            <p className="text-[11px] text-slate-400">{t('Platform Terintegrasi')}</p>
           </div>
         </Link>
-
-        {/* Navigation Links */}
-        <ul className="flex flex-col gap-1 w-full">
-          {menuItems.map(item => (
-            <li key={item.name}>
-              <Link
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 active:scale-95 ${
-                  item.active
-                    ? 'bg-blue-600 text-white font-semibold shadow-md'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-lg ${item.active ? 'fill' : ''}`}>{item.icon}</span>
-                <span className="text-sm">{item.name}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
       </div>
 
-      {/* Bottom Profile & Settings Section */}
-      <div className="flex flex-col gap-3">
-        <div className="pt-4 border-t border-slate-800">
-          <Link
-            href="/settings/profile"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-              isSettingsActive
-                ? 'bg-blue-600 text-white font-semibold shadow-md'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <span className={`material-symbols-outlined text-lg ${isSettingsActive ? 'fill' : ''}`}>settings</span>
-            <span className="text-sm">Settings</span>
-          </Link>
-        </div>
-        
-        {/* Administrator Card */}
-        <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-800 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 text-slate-500 shrink-0">
-            <span className="material-symbols-outlined text-base">person</span>
+      {/* Groups */}
+      <div className="table-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
+        {NAV_GROUPS.map(group => (
+          <div key={group.label ?? 'root'}>
+            {group.label && (
+              <p className="mb-1.5 px-3 text-[11px] font-medium text-slate-500">{t(group.label)}</p>
+            )}
+            <ul className="space-y-0.5">
+              {group.items.map(item => (
+                <li key={item.href}>
+                  <NavLink item={item} active={isNavActive(item, pathname)} />
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-xs font-semibold text-white truncate">{user?.name || 'Admin'}</p>
-            <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider truncate">
-              {user?.role || 'System Admin'}
-            </p>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="space-y-1 border-t border-slate-800 p-3">
+        <NavLink item={SETTINGS_ITEM} active={isNavActive(SETTINGS_ITEM, pathname)} />
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-slate-200">
+            {initial}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-medium text-white">{user?.name || t('Admin')}</p>
+            <p className="truncate text-[11px] text-slate-500">{user?.role || t('Admin Sistem')}</p>
           </div>
         </div>
       </div>
     </nav>
+    </>
   );
 }

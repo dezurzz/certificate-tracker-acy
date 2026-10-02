@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/db';
+import { MOCK_SESSION_COOKIE as MOCK_COOKIE } from '@/lib/supabase/config';
+import { useT } from '@/i18n/LanguageContext';
 
 interface User {
   name: string;
@@ -17,9 +19,26 @@ interface AuthContextType {
   updateProfile: (name: string) => Promise<{ success: boolean; error?: string }>;
 }
 
+/**
+ * Demo/mock login exists for local development only. The `process.env.NODE_ENV`
+ * checks below are inlined at build time, so in production the demo credentials
+ * and the localStorage mock session are removed from the bundle entirely.
+ */
+const MOCK_SESSION_KEY = 'bki_mock_session';
+
+/**
+ * proxy.ts cannot read localStorage, so the dev-only demo session is mirrored in a cookie.
+ * Production builds drop this (and proxy.ts ignores the cookie there).
+ */
+function setMockCookie(on: boolean) {
+  if (process.env.NODE_ENV === 'production' || typeof document === 'undefined') return;
+  document.cookie = on ? `${MOCK_COOKIE}=1; path=/; samesite=lax` : `${MOCK_COOKIE}=; path=/; max-age=0`;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,20 +61,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Supabase auth check failed, falling back", e);
     }
 
-    // Mock fallback
-    if (typeof window !== 'undefined') {
-      const mockSession = localStorage.getItem('bki_mock_session');
-      if (mockSession === 'true') {
+    if (process.env.NODE_ENV !== 'production') {
+      // Dev-only mock session
+      if (typeof window !== 'undefined' && localStorage.getItem(MOCK_SESSION_KEY) === 'true') {
+        setMockCookie(true);
         const profileName = localStorage.getItem('profileName') || 'System Admin';
         setUser({
           name: profileName,
           email: 'dzaky@bki.academy',
           role: 'System Admin',
         });
-      } else {
-        setUser(null);
+        setLoading(false);
+        return;
       }
+    } else if (typeof window !== 'undefined') {
+      // Production: drop any leftover mock flag so it can never grant access
+      localStorage.removeItem(MOCK_SESSION_KEY);
+      setMockCookie(false);
     }
+    setUser(null);
     setLoading(false);
   };
 
@@ -72,9 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: u.user_metadata?.role || 'Admin',
           });
         } else {
-          // If Supabase signed out, check if mock is active before clearing
-          const mockSession = localStorage.getItem('bki_mock_session');
-          if (mockSession !== 'true') {
+          // If Supabase signed out, keep a dev-only mock session alive
+          const mockActive =
+            process.env.NODE_ENV !== 'production' && localStorage.getItem(MOCK_SESSION_KEY) === 'true';
+          if (!mockActive) {
             setUser(null);
           }
         }
@@ -91,11 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (supabase) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-        if (error) {
-          setLoading(false);
-          return { success: false, error: error.message };
-        }
-        if (data.user) {
+        if (!error && data?.user) {
           setUser({
             name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Admin',
             email: data.user.email || '',
@@ -104,31 +125,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return { success: true };
         }
-      } else {
-        // Mock fallback
-        if (email === 'dzaky@bki.academy' && pass === 'Dzaky123BKI') {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('bki_mock_session', 'true');
-            localStorage.setItem('profileName', 'System Admin');
-          }
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        // Dev-only demo user (stripped from production builds)
+        if (email.toLowerCase() === 'dzaky@bki.academy' && (pass === 'Dzaky123' || pass === 'Dzaky123BKI')) {
+          localStorage.setItem(MOCK_SESSION_KEY, 'true');
+          localStorage.setItem('profileName', 'System Admin');
+          setMockCookie(true);
           setUser({
-            name: 'System Admin',
+            name: t('Admin Sistem'),
             email: 'dzaky@bki.academy',
             role: 'System Admin',
           });
           setLoading(false);
           return { success: true };
-        } else {
-          setLoading(false);
-          return { success: false, error: 'Local login failed: Use dzaky@bki.academy and password "Dzaky123BKI"' };
         }
       }
+
+      setLoading(false);
+      return { success: false, error: 'Login failed: Invalid email or password' };
     } catch (err: any) {
       setLoading(false);
       return { success: false, error: err?.message || 'Authentication error' };
     }
-    setLoading(false);
-    return { success: false, error: 'Auth provider mismatch' };
   };
 
   const signOut = async () => {
@@ -141,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error(e);
     }
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('bki_mock_session');
+      localStorage.removeItem(MOCK_SESSION_KEY);
     }
     setUser(null);
     setLoading(false);

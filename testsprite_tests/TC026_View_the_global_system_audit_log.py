@@ -50,7 +50,7 @@ async def run_test():
         # •••••••• password field
         elem = page.locator('[id="password"]')
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Dzaky123BKI")
+        await elem.fill("Dzaky123")
         
         # -> Fill the 'Email Address' and 'Password' fields and click the 'Sign In' button to authenticate.
         # Sign In button
