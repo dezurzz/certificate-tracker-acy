@@ -1,23 +1,28 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
 
 // Cache singleton client instance to avoid recreating GoTrueClient instances
 let cachedClient: SupabaseClient | null = null;
 let lastUrl = '';
 let lastKey = '';
 
-// Retrieves the Supabase client dynamically as a singleton, checking localStorage overrides first, then environment variables.
+// Retrieves the Supabase client as a singleton.
+// - With server env configured (the normal/production case) the project comes from env ONLY and the
+//   session lives in cookies, so proxy.ts can verify it on the server. localStorage overrides are ignored
+//   (they could not be trusted by the server, and a script could otherwise repoint the app).
+// - Without env (local demo) a URL/key saved in Settings is used, with a localStorage session.
 export const getSupabaseClient = (): SupabaseClient | null => {
   let url = '';
   let key = '';
+  const cookieSession = isSupabaseEnvConfigured;
 
-  if (typeof window !== 'undefined') {
+  if (cookieSession) {
+    url = SUPABASE_URL;
+    key = SUPABASE_ANON_KEY;
+  } else if (typeof window !== 'undefined') {
     url = localStorage.getItem('supabase_url') || '';
     key = localStorage.getItem('supabase_key') || '';
-  }
-
-  if (!url || !key) {
-    url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   }
 
   if (url && key) {
@@ -26,7 +31,7 @@ export const getSupabaseClient = (): SupabaseClient | null => {
       return cachedClient;
     }
     try {
-      cachedClient = createClient(url, key);
+      cachedClient = cookieSession ? createBrowserClient(url, key) : createClient(url, key);
       lastUrl = url;
       lastKey = key;
       return cachedClient;
@@ -49,7 +54,9 @@ if (typeof window !== 'undefined') {
 }
 
 // Dispatches a global event on the window to sync database states in real-time
+let dbNotifyPaused = false;
 const notifyDbUpdate = () => {
+  if (dbNotifyPaused) return;
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('bki-db-update'));
   }
@@ -214,6 +221,17 @@ export interface LeadActivity {
   previous_status?: LeadStatus;
   new_status?: LeadStatus;
   created_at: string;
+}
+
+export interface LeadStatusOptions {
+  note?: string;
+  reason?: WaitingReason;
+  cancelReason?: string;
+  batchId?: string;
+  batchCode?: string;
+  confirmedSeats?: number;
+  nextFollowUp?: string;
+  actor?: string;
 }
 
 export const DB = {
@@ -645,6 +663,50 @@ export const DB = {
     return { success: true };
   },
 
+  // Delete a single certificate (audit history rows are kept)
+  async deleteCertificate(certId: string): Promise<{ success: boolean }> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('certificates').delete().eq('id', certId);
+      if (error) throw error;
+      notifyDbUpdate();
+      return { success: true };
+    }
+    if (typeof window !== 'undefined') {
+      const certs = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
+      localStorage.setItem('bki_certificates', JSON.stringify(certs.filter((c: Certificate) => c.id !== certId)));
+      notifyDbUpdate();
+    }
+    return { success: true };
+  },
+
+  // Remove a participant from one batch: deletes their certificates for that
+  // training only. The participant's global record is kept.
+  async removeParticipantFromTraining(participantId: string, trainingId: string): Promise<{ success: boolean }> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase
+        .from('certificates')
+        .delete()
+        .eq('participant_id', participantId)
+        .eq('training_id', trainingId);
+      if (error) throw error;
+      notifyDbUpdate();
+      return { success: true };
+    }
+    if (typeof window !== 'undefined') {
+      const certs = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
+      localStorage.setItem(
+        'bki_certificates',
+        JSON.stringify(certs.filter((c: Certificate) => !(c.participant_id === participantId && c.training_id === trainingId)))
+      );
+      notifyDbUpdate();
+    }
+    return { success: true };
+  },
+
   // Update training details
   async updateTraining(trainingId: string, updates: Partial<Training>): Promise<Training | null> {
     this.initMock();
@@ -968,21 +1030,23 @@ export const DB = {
   },
 
   // Register user
-  async registerNewUser(email: string, pass: string): Promise<any> {
+  async registerNewUser(email: string, pass: string): Promise<{ id?: string; email?: string }> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: pass,
-        options: {
-          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin + '/' : undefined
-        }
+      // Accounts are created on the server (service role); public sign-up stays off in Supabase.
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass }),
       });
-      if (error) throw error;
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw Object.assign(new Error(body.message || `Request failed (${res.status})`), { code: body.error as string | undefined });
+      }
       notifyDbUpdate();
-      return data;
+      return body;
     }
-    return { user: { email, id: "u-mock-" + Date.now() } };
+    return { email, id: "u-mock-" + Date.now() };
   },
 
   // Update password
@@ -995,6 +1059,30 @@ export const DB = {
       return data;
     }
     return { success: true };
+  },
+
+  // Verify the current password by re-authenticating (no-op without Supabase)
+  async verifyUserPassword(email: string, password: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return true;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return !error;
+  },
+
+  // Sign out every other device/browser, keeping this session
+  async signOutOtherSessions(): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut({ scope: 'others' });
+    if (error) throw error;
+  },
+
+  // Email a password reset link
+  async sendPasswordReset(email: string, redirectTo?: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Reset password membutuhkan koneksi Supabase.');
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
   },
 
   // Update profile
@@ -1276,16 +1364,7 @@ export const DB = {
   async updateLeadStatus(
     leadId: string,
     newStatus: LeadStatus,
-    options?: {
-      note?: string;
-      reason?: WaitingReason;
-      cancelReason?: string;
-      batchId?: string;
-      batchCode?: string;
-      confirmedSeats?: number;
-      nextFollowUp?: string;
-      actor?: string;
-    }
+    options?: LeadStatusOptions
   ): Promise<Lead | null> {
     this.initMock();
     const current = await this.getLeadById(leadId);
@@ -1348,6 +1427,35 @@ export const DB = {
     });
 
     return updatedLead;
+  },
+
+  // Change the status of several leads at once. Runs sequentially (each lead
+  // keeps its own activity log row) and fires ONE refresh event at the end
+  // instead of one per lead. A failing lead never aborts the rest.
+  async bulkUpdateLeadStatus(
+    leadIds: string[],
+    newStatus: LeadStatus,
+    options?: LeadStatusOptions,
+    perLead?: (leadId: string) => LeadStatusOptions
+  ): Promise<{ succeeded: string[]; failed: { id: string; message: string }[] }> {
+    const succeeded: string[] = [];
+    const failed: { id: string; message: string }[] = [];
+    dbNotifyPaused = true;
+    try {
+      for (const id of leadIds) {
+        try {
+          const result = await DB.updateLeadStatus(id, newStatus, { ...options, ...perLead?.(id) });
+          if (result) succeeded.push(id);
+          else failed.push({ id, message: 'Lead tidak ditemukan' });
+        } catch (e: any) {
+          failed.push({ id, message: e?.message || 'Gagal memperbarui' });
+        }
+      }
+    } finally {
+      dbNotifyPaused = false;
+      notifyDbUpdate();
+    }
+    return { succeeded, failed };
   },
 
   // Delete lead

@@ -5,8 +5,30 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Certificate } from '@/lib/db';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import ActionMenu from '@/components/ActionMenu';
+import Pagination, { usePagination } from '@/components/Pagination';
+import Button from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
+import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
+import { notify } from '@/lib/notify';
+import { useT } from '@/i18n/LanguageContext';
+import { useSlaDays } from '@/lib/settings';
+import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
+
+const CERT_SKELETON_COLUMNS: SkeletonColumn[] = [
+  { w: '', kind: 'check' },
+  'w-36',
+  'w-52',
+  'w-24',
+  { w: 'w-24', kind: 'badge' },
+  'w-14',
+  { w: 'w-16', kind: 'avatar' },
+  { w: '', kind: 'action' },
+];
 
 function CertificatesContent() {
+  const t = useT();
+  const slaThreshold = useSlaDays();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -22,7 +44,6 @@ function CertificatesContent() {
   
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -64,18 +85,13 @@ function CertificatesContent() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const handleOutsideClick = () => setActiveMenuId(null);
-    document.addEventListener('click', handleOutsideClick);
-    return () => document.removeEventListener('click', handleOutsideClick);
-  }, []);
-
   // Bulk Actions
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filteredCerts.map(c => c.id));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(c => c.id)])));
     } else {
-      setSelectedIds([]);
+      const pageIds = new Set(pageItems.map(c => c.id));
+      setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
     }
   };
 
@@ -90,14 +106,20 @@ function CertificatesContent() {
   const handleDeleteCert = (id: string) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Delete Certificate',
-      message: 'Are you sure you want to delete this certificate from this local view session?',
-      confirmLabel: 'Delete',
+      title: t('Hapus Sertifikat'),
+      message: t('Yakin ingin menghapus sertifikat ini? Tindakan ini tidak dapat dibatalkan.'),
+      confirmLabel: t('Hapus'),
       type: 'danger',
-      onConfirm: () => {
-        setCertificates(prev => prev.filter(c => c.id !== id));
+      onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        alert('Certificate deleted from this local view session.');
+        try {
+          await DB.deleteCertificate(id);
+          setCertificates(prev => prev.filter(c => c.id !== id));
+          setSelectedIds(prev => prev.filter(i => i !== id));
+          notify.success(t('Sertifikat dihapus'));
+        } catch (err) {
+          notify.error(t('Gagal menghapus sertifikat'), err);
+        }
       }
     });
   };
@@ -129,7 +151,6 @@ function CertificatesContent() {
   };
 
   // Filter calculation
-  const slaThreshold = typeof window !== 'undefined' ? parseInt(localStorage.getItem('sys_sla') || '4', 10) : 4;
 
   const filteredCerts = certificates.filter(c => {
     const pName = c.participants?.name || '';
@@ -138,7 +159,7 @@ function CertificatesContent() {
     const text = `${pName} ${tName} ${tBatch}`.toLowerCase();
     
     const matchesSearch = text.includes(searchTerm.toLowerCase());
-    const matchesTrain = !trainFilter || tName.toLowerCase().includes(trainFilter.toLowerCase());
+    const matchesTrain = !trainFilter || tName === trainFilter;
     const matchesType = !typeFilter || c.certificate_type === typeFilter;
     
     let matchesState = true;
@@ -151,44 +172,39 @@ function CertificatesContent() {
     return matchesSearch && matchesTrain && matchesType && matchesState;
   });
 
-  // Extract unique training codes for dropdown
-  const uniqueTrainings = Array.from(new Set(certificates.map(c => c.trainings?.program_name.split(' ')[0] || '')));
+  // Full program names for the training filter
+  const uniqueTrainings = Array.from(new Set(certificates.map(c => c.trainings?.program_name || '').filter(Boolean))).sort();
+
+  const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
+    filteredCerts,
+    [searchTerm, trainFilter, typeFilter, stateFilter].join('|')
+  );
 
   return (
     <DashboardLayout pageTitle="Certificate Monitoring">
-      {/* Page Header */}
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Certificate Tracking</h2>
-          <p className="text-sm text-slate-500 mt-1">Monitor the lifecycle and status of all issued certificates.</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={handleExport} className="cms-btn-secondary">
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Export
-          </button>
-          <button onClick={() => router.push('/trainings?openModal=true')} className="cms-btn-primary">
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            New Batch
-          </button>
-        </div>
-      </div>
+      <div className="space-y-6">
+      <PageHeader
+        title={t('Monitoring Sertifikat')}
+        description={t('Pantau siklus dan status seluruh sertifikat yang diterbitkan.')}
+        actions={
+          <>
+            <Button variant="secondary" icon="download" onClick={handleExport}>{t('Ekspor')}</Button>
+            <Button variant="primary" icon="add" onClick={() => router.push('/trainings?openModal=true')}>{t('Batch Baru')}</Button>
+          </>
+        }
+      />
 
-      {/* Filters with Search Integrated */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-4 items-center flex-wrap shadow-sm">
-        <div className="flex items-center gap-2 text-slate-500 text-[11px] font-semibold uppercase tracking-wider">
-          <span className="material-symbols-outlined text-[18px]">filter_list</span>
-          Filters:
-        </div>
-        
+      {/* Filters */}
+      <div className="bg-card border border-slate-200 rounded-xl p-3 flex gap-3 items-center flex-wrap shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
         {/* Search bar inside table filter section */}
         <div className="relative w-full md:w-60">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
-            placeholder="Search certificates..."
+            className="cms-input h-9 !pl-10 !text-[13px]"
+            aria-label={t('Cari sertifikat')}
+            placeholder={t('Cari sertifikat...')}
             type="text"
           />
         </div>
@@ -196,77 +212,74 @@ function CertificatesContent() {
         <select
           value={trainFilter}
           onChange={(e) => setTrainFilter(e.target.value)}
-          className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px]"
+          className="cms-select-filter min-w-[140px]"
         >
-          <option value="">All Trainings</option>
+          <option value="">{t('Semua Training')}</option>
           {uniqueTrainings.map(t => t && <option key={t} value={t}>{t}</option>)}
         </select>
         
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px]"
+          className="cms-select-filter min-w-[140px]"
         >
-          <option value="">All Types</option>
-          <option value="Qualification">Qualification</option>
-          <option value="Attendance">Attendance</option>
+          <option value="">{t('Semua Tipe')}</option>
+          <option value="Qualification">{t('Kualifikasi')}</option>
+          <option value="Attendance">{t('Kehadiran')}</option>
         </select>
 
         <select
           value={stateFilter}
           onChange={(e) => setStateFilter(e.target.value)}
-          className="h-9 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 px-3 py-1.5 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 cursor-pointer min-w-[140px]"
+          className="cms-select-filter min-w-[140px]"
         >
-          <option value="">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-          <option value="Printing">Printing</option>
-          <option value="Completed">Completed</option>
-          <option value="Overdue">Overdue</option>
+          <option value="">{t('Semua Status')}</option>
+          <option value="Pending">{t('Menunggu')}</option>
+          <option value="Processing">{t('Diproses')}</option>
+          <option value="Printing">{t('Dicetak')}</option>
+          <option value="Completed">{t('Selesai')}</option>
+          <option value="Overdue">{t('Terlambat')}</option>
         </select>
 
-        <button onClick={handleClearFilters} className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
-          Clear Filters
-        </button>
+        <button onClick={handleClearFilters} className="ml-auto text-[13px] font-medium text-blue-600 hover:text-blue-700">
+          {t('Hapus Filter')}</button>
       </div>
 
       {/* Data Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm mb-8">
-        {loading ? (
-          <div className="p-16 flex justify-center items-center">
-            <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-          </div>
-        ) : (
+      <div className="bg-card border border-slate-200 rounded-xl overflow-hidden shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
           <div className="table-scroll overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse bg-white">
+            <table className="cms-table w-full text-left border-collapse bg-card">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
                   <th className="p-4 w-12 text-center">
                     <input
-                      checked={filteredCerts.length > 0 && selectedIds.length === filteredCerts.length}
+                      checked={pageItems.length > 0 && pageItems.every(c => selectedIds.includes(c.id))}
                       onChange={handleSelectAll}
-                      className="rounded border-slate-350 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                       type="checkbox"
                     />
                   </th>
-                  <th className="p-4">Participant</th>
-                  <th className="p-4">Training</th>
-                  <th className="p-4">Type</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Age (Days)</th>
-                  <th className="p-4">PIC</th>
-                  <th className="p-4 text-right">Action</th>
+                  <th className="p-4">{t('Nama Peserta')}</th>
+                  <th className="p-4">{t('Training')}</th>
+                  <th className="p-4">{t('Tipe')}</th>
+                  <th className="p-4">{t('Status')}</th>
+                  <th className="p-4">{t('Usia (Hari)')}</th>
+                  <th className="p-4">{t('PIC')}</th>
+                  <th className="p-4 text-right">{t('Tindakan')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredCerts.length === 0 ? (
+              <tbody className="divide-y divide-slate-100 bg-card text-[13px]">
+                {loading ? (
+                  <TableSkeletonRows label={t('Memuat sertifikat')} columns={CERT_SKELETON_COLUMNS} />
+                ) : filteredCerts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-400 text-sm font-semibold">
-                      No certificates found.
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                      <p className="text-sm font-medium text-slate-900">{t('Sertifikat tidak ditemukan')}</p>
+                      <p className="mt-1 text-xs">{t('Ubah filter atau hapus filter untuk melihat semua sertifikat.')}</p>
                     </td>
                   </tr>
                 ) : (
-                  filteredCerts.map(c => {
+                  pageItems.map(c => {
                     const isOverdue = c.sla_age_days > slaThreshold && c.status !== 'Completed';
                     const initials = (c.trainings?.pic || 'AD').substring(0, 2).toUpperCase();
 
@@ -276,99 +289,42 @@ function CertificatesContent() {
                           <input
                             checked={selectedIds.includes(c.id)}
                             onChange={(e) => handleSelectRow(c.id, e.target.checked)}
-                            className="row-checkbox rounded border-slate-350 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
+                            className="row-checkbox rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                             type="checkbox"
                           />
                         </td>
-                        <td className="p-4 font-semibold text-slate-900">{c.participants?.name}</td>
-                        <td className="p-4 text-slate-650 font-medium">{c.trainings?.program_name} {c.trainings?.batch_code}</td>
+                        <td className="p-4 font-medium text-slate-900">{c.participants?.name}</td>
+                        <td className="p-4 text-slate-600">{c.trainings?.program_name} {c.trainings?.batch_code}</td>
                         <td className="p-4">
-                          {c.certificate_type === 'Qualification' ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider select-none">
-                              <span className="material-symbols-outlined text-[10px] font-bold">workspace_premium</span>
-                              Qualification
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-50 text-teal-700 border border-teal-100 uppercase tracking-wider select-none">
-                              <span className="material-symbols-outlined text-[10px] font-bold">assignment_turned_in</span>
-                              Attendance
-                            </span>
-                          )}
+                          <CertTypeBadge type={c.certificate_type} />
                         </td>
                         <td className="p-4">
-                          {c.status === 'Completed' ? (
-                            <span className="cms-badge cms-badge-completed">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
-                              Completed
-                            </span>
-                          ) : c.status === 'Printing' ? (
-                            <span className="cms-badge cms-badge-processing">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
-                              Printing
-                            </span>
-                          ) : c.status === 'Processing' ? (
-                            <span className="cms-badge cms-badge-processing">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                              Processing QC
-                            </span>
-                          ) : (
-                            <span className="cms-badge cms-badge-pending">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1.5"></span>
-                              Pending
-                            </span>
-                          )}
+                          <CertStatusBadge status={c.status} />
                         </td>
                         <td className="p-4">
                           {isOverdue ? (
                             <div className="flex items-center gap-2">
-                              <span className="text-red-655 font-bold">{c.sla_age_days} days</span>
-                              <span className="material-symbols-outlined text-red-500 text-base" title="Overdue">warning</span>
+                              <span className="text-red-700 font-semibold tabular-nums">{c.sla_age_days} {t('hari')}</span>
+                              <span className="cms-badge cms-badge-danger">{t('Terlambat')}</span>
                             </div>
                           ) : (
-                            <span className="text-slate-500 font-medium">{c.sla_age_days} days</span>
+                            <span className="text-slate-600 tabular-nums">{c.sla_age_days} {t('hari')}</span>
                           )}
                         </td>
-                        <td className="p-4 text-slate-650 font-medium flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600 shrink-0">
+                        <td className="p-4 text-slate-600">
+                          <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-600 shrink-0">
                             {initials}
                           </div>
                           <span>{c.trainings?.pic || '-'}</span>
+                          </div>
                         </td>
                         <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(activeMenuId === c.id ? null : c.id);
-                              }}
-                              className="row-actions-btn text-slate-400 hover:text-slate-700 p-1.5 rounded transition-colors focus:outline-none"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                            </button>
-                            {activeMenuId === c.id && (
-                              <div className="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left">
-                                <button
-                                  onClick={() => router.push(`/trainings/${c.training_id}`)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">visibility</span> View Batch
-                                </button>
-                                <button
-                                  onClick={() => alert(`Email PIC for ${c.participants?.name} is sent.`)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">mail</span> Email PIC
-                                </button>
-                                <hr className="border-slate-100 my-1" />
-                                <button
-                                  onClick={() => handleDeleteCert(c.id)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
-                                >
-                                  <span className="material-symbols-outlined text-sm">delete</span> Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <ActionMenu align="right" menuWidth="w-44" items={[
+                            { label: t('Lihat Batch'), icon: 'visibility', onClick: () => router.push(`/trainings/${c.training_id}`) },
+                            'divider',
+                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDeleteCert(c.id) },
+                          ]} />
                         </td>
                       </tr>
                     );
@@ -377,7 +333,16 @@ function CertificatesContent() {
               </tbody>
             </table>
           </div>
+        {!loading && (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={filteredCerts.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
+      </div>
       </div>
       <ConfirmationModal
         isOpen={confirmConfig.isOpen}
@@ -394,11 +359,7 @@ function CertificatesContent() {
 
 export default function CertificatesPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-      </div>
-    }>
+    <Suspense fallback={<AppShellSkeleton />}>
       <CertificatesContent />
     </Suspense>
   );

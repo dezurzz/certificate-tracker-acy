@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
@@ -11,19 +11,22 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children, pageTitle }: DashboardLayoutProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen flex bg-slate-50">
         {/* Sidebar Component */}
-        <Sidebar />
+        <Sidebar open={menuOpen} onClose={closeMenu} />
 
         {/* Main Content Wrapper */}
-        <div className="flex-1 ml-64 flex flex-col min-h-screen">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-64">
           {/* Header Component */}
-          <Header pageTitle={pageTitle} />
+          <Header pageTitle={pageTitle} onMenuClick={() => setMenuOpen(true)} menuOpen={menuOpen} />
 
           {/* Page Content */}
-          <main className="flex-grow p-6 max-w-[1440px] mx-auto w-full">
+          <main className="mx-auto w-full min-w-0 max-w-[1440px] flex-grow px-4 pb-12 pt-5 sm:px-6 lg:px-8 lg:pt-6">
             {children}
           </main>
         </div>

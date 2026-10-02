@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingMenu } from '@/lib/useFloatingMenu';
+import { useT } from '@/i18n/LanguageContext';
 
 export interface ActionMenuItem {
   id?: string;
@@ -24,42 +27,31 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
   align = 'right',
   className = '',
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
+  const t = useT();
+  const { isOpen, toggle, close, triggerRef, menuRef, style } = useFloatingMenu(align);
 
   return (
-    <div className={`relative inline-block text-left ${className}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
+    <div className={`relative inline-block text-left ${className}`} onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="row-actions-btn text-slate-400 hover:text-slate-700 p-1.5 rounded transition-colors focus:outline-none cursor-pointer"
-        title="Pilihan Aksi"
+        ref={triggerRef as React.Ref<HTMLButtonElement>}
+        onClick={toggle}
+        className="row-actions-btn text-slate-500 hover:text-slate-900 hover:bg-slate-100 p-1.5 rounded-lg transition-colors cursor-pointer"
+        title={t('Pilihan Aksi')}
+        aria-label={t('Pilihan Aksi')}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
       >
-        <span className="material-symbols-outlined text-[18px] leading-none block">more_vert</span>
+        <span className="material-symbols-outlined text-[18px] leading-none block" aria-hidden="true">more_vert</span>
       </button>
 
-      {isOpen && (
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1 ${menuWidth} bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-30 text-left animate-in fade-in zoom-in-95 duration-100`}
+          ref={menuRef}
+          role="menu"
+          style={style}
+          onClick={(e) => e.stopPropagation()}
+          className={`${menuWidth} bg-card border border-slate-200 rounded-xl shadow-lg p-1 z-[60] text-left`}
         >
           {items.map((item, idx) => {
             if (item === 'divider') {
@@ -74,10 +66,10 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
                 type="button"
                 disabled={item.disabled}
                 onClick={() => {
-                  setIsOpen(false);
+                  close();
                   item.onClick();
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors text-left cursor-pointer ${
+                className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors text-left cursor-pointer ${
                   isDanger
                     ? 'text-red-600 hover:bg-red-50'
                     : 'text-slate-700 hover:bg-slate-50'
@@ -98,7 +90,8 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -3,6 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, TrainingProgram } from '@/lib/db';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
+import { useT } from '@/i18n/LanguageContext';
+import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
 
 interface ProgramMetric {
   name: string;
@@ -15,7 +19,19 @@ interface ProgramMetric {
   completedSeats: number;
 }
 
+const REPORT_SKELETON_COLUMNS: SkeletonColumn[] = [
+  'w-56',
+  { w: 'w-12', align: 'center' },
+  { w: 'w-6', align: 'center' },
+  { w: 'w-6', align: 'center' },
+  { w: 'w-12', align: 'center' },
+  { w: 'w-12', align: 'center' },
+  { w: 'w-12', align: 'center' },
+  { w: 'w-16', kind: 'badge', align: 'center' },
+];
+
 export default function CrmReportsPage() {
+  const t = useT();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,91 +136,61 @@ export default function CrmReportsPage() {
   return (
     <DashboardLayout pageTitle="Rekap Peminat & Laporan Leads CRM">
       <div className="space-y-6">
-        {/* Banner */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">trending_up</span>
-              Rekap Peminat & Analitik Pipeline Training
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Visualisasi jumlah permintaan kursi pelatihan, antrean waiting list, dan distribusi sumber prospek BKI Academy.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title={t('Rekap Minat')}
+          description={t('Permintaan kursi pelatihan, antrean waiting list, dan distribusi sumber prospek BKI Academy.')}
+        />
 
-        {/* Top KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Peluang Tercatat</span>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{totalLeads}</p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Peluang Aktif</span>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{activeLeads}</p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">Total Permintaan Kursi</span>
-            <p className="text-2xl font-bold text-indigo-700 mt-1">{totalEstSeats} <span className="text-xs font-normal text-slate-500">Pax</span></p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Antrean Waiting List</span>
-            <p className="text-2xl font-bold text-amber-700 mt-1">{totalWaitingSeats} <span className="text-xs font-normal text-slate-500">Pax</span></p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Terkonfirmasi Terdaftar</span>
-            <p className="text-2xl font-bold text-emerald-700 mt-1">{totalRegisteredSeats} <span className="text-xs font-normal text-slate-500">Pax</span></p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          <StatCard label={t('Total peluang tercatat')} value={totalLeads} />
+          <StatCard label={t('Peluang aktif')} value={activeLeads} />
+          <StatCard label={t('Total permintaan kursi')} value={totalEstSeats} hint={t('pax')} />
+          <StatCard label={t('Antrean waiting list')} value={totalWaitingSeats} hint={t('pax')} />
+          <StatCard label={t('Terkonfirmasi terdaftar')} value={totalRegisteredSeats} hint={t('pax')} tone={totalRegisteredSeats > 0 ? 'success' : 'default'} />
         </div>
 
         {/* Table: Demand & Interest Breakdown per Training Program */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 flex justify-between items-center bg-card">
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Peringkat Minat Pelatihan (Course Demand Ranking)</h3>
-              <p className="text-[11px] text-slate-500">Urutan program berdasarkan total estimasi kursi dan antrean waiting list.</p>
+              <h2 className="font-semibold text-slate-900 text-sm">{t('Peringkat minat pelatihan')}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{t('Urutan program berdasarkan total estimasi kursi dan antrean waiting list.')}</p>
             </div>
           </div>
 
           <div className="overflow-x-auto table-scroll">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="cms-table w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3 px-4">Program Pelatihan</th>
-                  <th className="py-3 px-4 text-center">Kode</th>
-                  <th className="py-3 px-4 text-center">Total Lead</th>
-                  <th className="py-3 px-4 text-center">Peluang Aktif</th>
-                  <th className="py-3 px-4 text-center">Total Estimasi Kursi</th>
-                  <th className="py-3 px-4 text-center">Waiting List (Backlog)</th>
-                  <th className="py-3 px-4 text-center">Pasti Terdaftar</th>
-                  <th className="py-3 px-4 text-center">Tingkat Minat</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                  <th className="py-3 px-4">{t('Program Pelatihan')}</th>
+                  <th className="py-3 px-4 text-center">{t('Kode')}</th>
+                  <th className="py-3 px-4 text-center">{t('Total Lead')}</th>
+                  <th className="py-3 px-4 text-center">{t('Peluang Aktif')}</th>
+                  <th className="py-3 px-4 text-center">{t('Total Estimasi Kursi')}</th>
+                  <th className="py-3 px-4 text-center">{t('Waiting List (Backlog)')}</th>
+                  <th className="py-3 px-4 text-center">{t('Pasti Terdaftar')}</th>
+                  <th className="py-3 px-4 text-center">{t('Tingkat Minat')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400">Memuat rekap minat...</td>
-                  </tr>
+                  <TableSkeletonRows label={t('Memuat rekap minat...')} columns={REPORT_SKELETON_COLUMNS} />
                 ) : (
                   programMetrics.map(p => {
                     const demandLevel = p.estimatedSeats >= 5 ? 'Tinggi' : p.estimatedSeats >= 2 ? 'Sedang' : 'Rendah';
-                    const badgeClass = p.estimatedSeats >= 5 ? 'bg-red-50 text-red-700 border-red-200' : p.estimatedSeats >= 2 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200';
+                    const badgeClass = p.estimatedSeats >= 5 ? 'cms-badge-info' : 'cms-badge-neutral';
 
                     return (
-                      <tr key={p.name} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">{p.name}</td>
+                      <tr key={p.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 font-medium text-slate-900">{p.name}</td>
                         <td className="py-3 px-4 text-center font-mono text-[11px] text-slate-500">{p.code}</td>
-                        <td className="py-3 px-4 text-center font-semibold text-slate-700">{p.totalLeads}</td>
-                        <td className="py-3 px-4 text-center font-semibold text-blue-700">{p.activeOpportunities}</td>
-                        <td className="py-3 px-4 text-center font-bold text-indigo-700 text-sm">{p.estimatedSeats} Pax</td>
-                        <td className="py-3 px-4 text-center font-bold text-amber-700">{p.waitingListSeats} Pax</td>
-                        <td className="py-3 px-4 text-center font-bold text-emerald-700">{p.registeredSeats} Pax</td>
+                        <td className="py-3 px-4 text-center text-slate-700">{p.totalLeads}</td>
+                        <td className="py-3 px-4 text-center text-slate-700">{p.activeOpportunities}</td>
+                        <td className="py-3 px-4 text-center font-semibold text-slate-900">{p.estimatedSeats} {t('pax')}</td>
+                        <td className="py-3 px-4 text-center text-slate-700">{p.waitingListSeats} {t('pax')}</td>
+                        <td className="py-3 px-4 text-center text-slate-700">{p.registeredSeats} {t('pax')}</td>
                         <td className="py-3 px-4 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}`}>
+                          <span className={`cms-badge ${badgeClass}`}>
                             {demandLevel}
                           </span>
                         </td>
@@ -220,11 +206,8 @@ export default function CrmReportsPage() {
         {/* Secondary Widgets: Sources & PIC Performance */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Source Breakdown */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-600 text-lg">call</span>
-              Distribusi Kanal Sumber Leads
-            </h3>
+          <div className="bg-card border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h2 className="font-semibold text-slate-900 text-sm">{t('Distribusi kanal sumber leads')}</h2>
             <div className="space-y-2 pt-1 text-xs">
               {Object.entries(sourceCounts).map(([src, count]) => {
                 const percent = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
@@ -232,10 +215,10 @@ export default function CrmReportsPage() {
                   <div key={src} className="space-y-1">
                     <div className="flex justify-between items-center text-slate-700">
                       <span className="font-medium">{src}</span>
-                      <span className="font-bold">{count} Lead ({percent}%)</span>
+                      <span className="tabular-nums text-slate-600">{t('{count} lead ({percent}%)', { count, percent })}</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div className="bg-emerald-600 h-2 rounded-full" style={{ width: `${percent}%` }}></div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${percent}%` }}></div>
                     </div>
                   </div>
                 );
@@ -244,25 +227,22 @@ export default function CrmReportsPage() {
           </div>
 
           {/* PIC Staf Distribution */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-lg">badge</span>
-              Beban Kerja & Konversi per Staf PIC
-            </h3>
-            <div className="space-y-2.5 pt-1 text-xs">
+          <div className="bg-card border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+            <h2 className="font-semibold text-slate-900 text-sm">{t('Beban kerja & konversi per PIC')}</h2>
+            <div className="pt-1 text-xs">
               {Object.entries(picCounts).map(([picName, data]) => {
                 const convRate = data.total > 0 ? Math.round((data.registered / data.total) * 100) : 0;
                 return (
-                  <div key={picName} className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex justify-between items-center">
+                  <div key={picName} className="py-2.5 flex justify-between items-center border-b border-slate-100 last:border-0">
                     <div>
-                      <p className="font-bold text-slate-900">{picName}</p>
+                      <p className="font-medium text-slate-900">{picName}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Menangani: <b>{data.total} Peluang</b>
+                        {t('Menangani:')} <b>{data.total} {t('Peluang')}</b>
                       </p>
                     </div>
                     <div className="text-right">
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                        {data.registered} Terdaftar ({convRate}%)
+                      <span className="cms-badge cms-badge-success">
+                        {t('{registered} Terdaftar ({rate}%)', { registered: data.registered, rate: convRate })}
                       </span>
                     </div>
                   </div>

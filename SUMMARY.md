@@ -1,57 +1,130 @@
-# BKI Academy CMS - Unified Project Summary
+# BKI Academy Integrated Platform: Project Summary
 
-This document summarizes the unified architecture, sitemap, design tokens, and components built for the BKI Academy Certificate Management System (CMS). This serves as the token-saving single source of truth for future modification tasks.
+> Read this first before any task. Update it at the end of every task.
+> Last updated: 2026-10-01 (RLS hardened)
 
----
+## 1. Stack
+- Next.js 16.3 (App Router, all pages are `'use client'`), React 19, TypeScript, Tailwind v4 (`@tailwindcss/postcss`), zod, sonner (toasts).
+- Data: Supabase (`src/lib/db.ts`, singleton client; URL/key from env or localStorage `supabase_url`/`supabase_key`). Falls back to localStorage mock data (`DB.initMock`). Writes dispatch `window` event `bki-db-update`; pages listen to reload.
+- Auth: `src/context/AuthContext.tsx` (Supabase auth). Mock/demo login (localStorage `bki_mock_session='true'`, dzaky@bki.academy) is **development only**: gated by `process.env.NODE_ENV !== 'production'`, so it is stripped from production bundles (verified by build + grep). In production the leftover flag is removed on load. `ProtectedRoute` guards pages.
+- Fonts: Geist + Geist Mono via `next/font` (layout.tsx). Icons: Material Symbols (Google Fonts link, ligature names like `<span className="material-symbols-outlined">add</span>`).
+- Dev server: `npm run dev` on :3000. Checks: `npx tsc --noEmit -p .`, `npx eslint src` (~106 pre-existing problems, mostly `any`).
+- AGENTS.md: read `node_modules/next/dist/docs/` before using unfamiliar Next APIs.
+- `legacy-vanilla/` = old static HTML version (not used by the app).
 
-## 1. Project Sitemap & Pages (Root Directory)
-All screens are unified, responsive, static HTML pages referencing the shared design system.
+## 2. Routes (src/app)
+| Route | Page title (h1) | Notes |
+|---|---|---|
+| `/` | Login | mock: dzaky@bki.academy |
+| `/dashboard` | Greeting | Tabs: all / leads / certs. StatCards link to pages, pipeline, monthly chart, overdue list, recent activity |
+| `/crm/leads` (1.5k lines) | Leads & Waiting List | KPI filter cards, filters, table w/ WA DropdownButton + ActionMenu, many modals (add, register, reschedule, follow-up, cancel), detail drawer |
+| `/crm/waiting-list` | Waiting List | demand barometer, assign-to-batch modal |
+| `/crm/follow-ups` | Tugas Follow-up | Tabs overdue/today/link_sent/all, task cards |
+| `/crm/reports` | Rekap Minat | program demand table, source & PIC breakdown |
+| `/trainings` | Training Batches | filters, table (row → detail), CSV import + preview, add/edit modal |
+| `/trainings/[id]` (1.3k lines) | program name | Tabs: Overview, Participants, Certificates (kanban drag/drop + bulk shift), Activity Log; cert detail modal |
+| `/certificates` | Monitoring Sertifikat | filters, table, ActionMenu per row |
+| `/history-logs` | Riwayat Audit | grouped timeline (time/PIC/training) |
+| `/reports` | Laporan SLA | monthly chart, delay reasons, PIC SLA table |
+| `/directory/companies`, `/directory/contacts` | Perusahaan, Kontak | master data + add modals |
+| `/settings/{profile,notifications,security,system}` | Pengaturan | `settings/layout.tsx` has side nav |
 
-- **`/` (`index.html`)**: Login screen. Suppresses navigation sidebar/header.
-- **`/dashboard` (`dashboard.html`)**: General dashboard overview. Displays unified style KPI cards, bento-style Pipeline progress, and Recent Activities.
-- **`/trainings` (`trainings.html`)**: List of training batches with table-specific search, status, and PIC dropdown filters, a proper HTML date selector input, and an inline interactive **Add Training** modal.
-- **`/trainings/:id` (`training-detail.html`)**: Batch detail screen containing interactive tabs:
-  - **Overview**: Core progress counts and participant status preview.
-  - **Participants**: List of attendees with search filters and Excel upload modal.
-  - **Certificates**: Interactive Kanban board (Pending, Processing, Printing, Completed) with fully supported **Drag and Drop** actions and clickable card detail modal updates.
-  - **Activity Log**: Event history timeline.
-- **`/certificates` (`certificates.html`)**: Global certificate list displaying processing age (SLA tracking), search input, and multi-parameter dropdown filters.
-- **`/reports` (`reports.html`)**: Performance analytics. Houses SLA completion metrics, custom SVG monthly charts, delay reason bars, and PIC SLA metrics table.
-- **`/settings` (Tabbed pages)**:
-  - **`settings-profile.html`**: Personal information and avatar upload.
-  - **`settings-notifications.html`**: SLA breach & email warnings toggle buttons.
-  - **`settings-security.html`**: Password reset form, 2FA settings, and session revoking.
-  - **`settings-system.html`**: System configuration (Standard SLA age, template selects).
+Language: whole UI is bilingual (Indonesian default, English), see 4d.
 
----
+## 3. Shared components (src/components)
+- `DashboardLayout({pageTitle})`: Sidebar (fixed w-64) + Header + `<main>` (max-w 1440, px-8). Wrap page content in `<div className="space-y-6">`.
+- `Header`: breadcrumb from `src/lib/navigation.ts`, notifications, help modal, profile menu.
+- `Sidebar`: driven by `NAV_GROUPS` in `src/lib/navigation.ts` (add new pages there).
+- `PageHeader({title, description, meta, actions, before})`: the one page heading pattern.
+- `StatCard({label, value, hint, icon, tone, onClick|href, active})`: neutral KPI tile; `tone` = default/success/warning/danger only when number signals state.
+- `Tabs({items:[{id,label,icon?,count?,countTone?}], value, onChange})`: underline tabs.
+- `StatusBadge.tsx`: `CertStatusBadge`, `CertTypeBadge`.
+- `Button({variant: primary|secondary|danger|ghost|success, size: xs|sm|md|lg, icon, iconRight, loading})`; `icon` string = Material Symbol name.
+- `DropdownButton` / `ActionMenu`: menus render in a **portal with `position: fixed`** via `src/lib/useFloatingMenu.ts` (escapes table overflow, flips up near viewport bottom, closes on outside click/Esc/scroll/resize). Use these for any row/menu dropdown; don't hand-roll absolute menus inside tables.
+- Bulk actions pattern (Leads): `selectedIds` state + checkbox column; derive the selected list from the *filtered* rows; run changes through a `DB.bulk*` helper that pauses `notifyDbUpdate` and refreshes once.
+- `Pagination` + `usePagination(items, resetKey)` (`components/Pagination.tsx`): client-side paging (10/25/50/100), used in Trainings and Certificates. Pass the filtered list; select-all acts on the current page.
+- **`Modal`** (`components/Modal.tsx`): the ONLY way to build dialogs/drawers. Never hand-roll `fixed inset-0` overlays. Portal to body, `role=dialog` + aria-labelledby/describedby, Esc closes (top-most only), Tab focus trap, auto-focus first field, restores focus, locks body scroll. Props: `isOpen, onClose, title, description?, icon?, size (sm..3xl), placement ('center'|'right' drawer), onSubmit` (wraps body+footer in a `<form>`), standard footer via `submitLabel/cancelLabel/submitIcon/submitVariant/submitDisabled/submitting/onConfirm`, or custom `footer`, `flush` (no body padding), `elevated` (z-55, above another modal), `dismissOnBackdrop` (off by default so half-filled forms aren't lost; on for read-only/info dialogs). Body padding is built in: don't add `p-*` to the content root. Pages keep `{cond && (<Modal isOpen={true} ...>)}` when content depends on selected data.
+- `ConfirmationModal({type: danger|warning|info})`: built on `Modal` (elevated, backdrop dismiss). `Button` has `warning` variant.
+- `AppToaster`: the ONLY `<Toaster />` (Sonner), mounted once in `layout.tsx`, top-right under the header, styled with card tokens.
+- **Feedback rule: never use `alert()` or call `toast` directly.** Use `notify` from `src/lib/notify.ts`: `notify.success(title, desc?)`, `notify.info`, `notify.warning` (validation), `notify.error(title, err)` (err/Error/string becomes the description), `notify.promise`. Messages: no trailing `!`, Indonesian on CRM/directory pages, English elsewhere. Don't toast success for features that are stubs (use `notify.info('... belum tersedia')`).
 
-## 2. Design System & CSS Classes (`shared/design-system.css`)
-Provides CSS variables and component utility classes for visual consistency.
+## 4. Design system (src/app/globals.css)
+- Neutral slate; ONE accent blue-600. Semantic only: emerald = success, amber = warning, red = danger. Do NOT use indigo/purple/teal/cyan/green.
+- Radius: inputs/buttons 8px (`rounded-lg`), cards/modals 12px (`rounded-xl`), badges pill.
+- Classes (unlayered, they override Tailwind utilities; use `!` utilities to override them):
+  - `cms-card`, `cms-card-interactive`
+  - `cms-input` (text inputs; `select.cms-input` gets custom chevron + 38px height; placeholder option needs `required` + `value=""` to show grey)
+  - `cms-select-filter` (toolbar selects, 36px)
+  - `cms-btn-primary|secondary|danger`
+  - `cms-badge` + `cms-badge-neutral|info|warning|success|danger` (legacy aliases pending/processing/completed/overdue)
+  - `cms-table` on `<table>` (normalizes headers: sentence case, 12px)
+  - `kanban-col`, `kanban-card`, `table-scroll`
+- Search input pattern: icon span `absolute left-3` + `cms-input h-9 !pl-10 !text-[13px]`.
+- Text min 11px, no uppercase micro-labels, `text-slate-500` minimum for readable text (slate-400 only for icons). Icons get `aria-hidden="true"`; icon-only buttons need `aria-label`.
+- Modals: use `Modal` (see section 3). Loading overlay (`spinnerMsg` in Trainings) is the only other overlay and has `role=status`.
+- Languages: Indonesian (default) + English, see 4d.
 
-### A. Color Palette Tokens
-- **Navy Colors**: `--color-primary: #0F172A`, `--color-primary-container: #131B2E` (Sidebar backgrounds).
-- **Action / Accent Blue**: `--color-secondary: #3B82F6` (Primary interactive buttons/highlights).
-- **Slate Grays**: `--color-background: #F8FAFC`, `--color-surface: #FFFFFF` (Canvas/card layers).
-- **Functional Status**:
-  - `Pending`: Slate gray (`#F1F5F9` bg, `#475569` text)
-  - `Processing`: Amber/Yellow (`#FEF3C7` bg, `#D97706` text)
-  - `Completed`: Green (`#DCFCE7` bg, `#15803D` text)
-  - `Overdue`: Red (`#FEE2E2` bg, `#B91C1C` text)
+## 4f. Auth and route protection (server-side)
+- **`src/proxy.ts` (Next 16 proxy, ex-middleware) is the real gate**: every page except `/` (login) and `/auth/*` needs a valid Supabase session; verified server-side with `getClaims()` and refreshed there. Signed-out -> 307 to `/?next=<path>`; signed-in on `/` -> to `next` or `/dashboard`. Fails closed if the server has no Supabase env. Client `ProtectedRoute` is only a UX fallback.
+- **Session lives in cookies** (`sb-<ref>-auth-token`) via `@supabase/ssr` `createBrowserClient` in `lib/db.ts` (not localStorage), so the server can read it. With `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` set (always, in real deployments) env is the ONLY project used; the Supabase URL/key override in Settings is ignored (shown disabled). Without env (pure local demo) the old localStorage override still works.
+- `lib/supabase/config.ts`: env constants, `MOCK_SESSION_COOKIE`, `safeNextPath()` (only same-site paths: blocks `//evil.com`, `\`, absolute URLs, loops to `/` and `/auth/*`). Use it for any `?next=` handling.
+- `app/auth/callback/route.ts` exchanges the email-link `code` (password reset) for a session cookie and redirects to `next`; failures go to `/?error=auth_callback` (login shows a toast).
+- Dev-only demo login: AuthContext mirrors the localStorage mock session into cookie `bki_mock_session=1` so the proxy lets it through; both the cookie check and the credentials are stripped from production builds (`process.env.NODE_ENV`).
+- New public routes must be added to `isPublicPath()` in `proxy.ts`; the `matcher` skips `_next/static`, images, fonts, favicon. Auth cookies are not HttpOnly (the browser client must read them), so keep XSS rules (4b) strict.
+- **Data access = Supabase RLS** (the anon key is public, `proxy.ts` does not protect the REST API). Files: `supabase_rls_audit.sql` (read-only), `supabase_rls_hardening.sql` (all 9 data tables: RLS on, drop old policies, revoke `anon` and TRUNCATE/REFERENCES/TRIGGER, 4 policies `TO authenticated`; `certificate_history` is append-only = SELECT+INSERT; also revokes default anon grants for future tables). Audit on 2026-10-02 showed the old policies were all `Allow public ...`/`USING (true)`, no per-user rules, `supabase_rls_rollback.sql` (emergency: reopens everything). Run order: audit -> hardening -> `npm run rls:check` (must report no OPEN tables) -> test the app logged in. **New tables must ship with RLS + `TO authenticated` policies** (never `USING (true)` for anon).
+- `npm run rls:check` (`scripts/check-rls.mjs`) probes the anon key against every data table (reads at most 1 `id`, writes use a nil-UUID filter so nothing can change). Baseline on 2026-10-02 before hardening: ALL 9 tables open (read/delete) for anon. **Hardening was run by the owner on 2026-10-02; `rls:check` now reports all 9 closed (401).** Verified logged in: reads on trainings/certificates/leads/dashboard, lead insert+delete, SLA save (central, green status).
+- Public sign-up must be OFF in Supabase (Authentication > Sign In / Providers) or anyone can become "authenticated". Accounts are created by `POST /api/admin/users` (`src/app/api/admin/users/route.ts`): verifies the session (`lib/auth/guard.ts`: `getSessionClaims`, `isAdmin`, `isSameOrigin`), validates with zod, then `auth.admin.createUser` with `SUPABASE_SERVICE_ROLE_KEY` (server env only, never `NEXT_PUBLIC_`; 501 `service_role_missing` if unset). `DB.registerNewUser` calls it. `/api/*` returns 401 JSON (not a redirect) when signed out.
+- Still open: no roles yet (`isAdmin()` in `lib/auth/guard.ts` returns true for every signed-in user; roles must live in `app_metadata`, never `user_metadata`).
 
-### B. Common Utility Classes
-- `.cms-card`: Standardized borders (`#E2E8F0`), padding, and rounded corners (`12px`). Includes `.cms-card-interactive` for hover shadows.
-- `.cms-input`: Standardized text input border, padding, and focus outlines (glow).
-- `.cms-btn-primary`, `.cms-btn-secondary`, `.cms-btn-danger`: Styled buttons enforcing border-radii (`8px`) and scaling micro-animations on active tap.
-- `.cms-badge-[pending|processing|completed|overdue]`: Status badges in a fully rounded pill shape.
-- `.kanban-col` & `.kanban-card`: Clean card layout for drag-and-drop / Kanban workflow visualizations.
+## 4e. Loading states (one pattern)
+- **Loading data = skeletons that mirror the final layout** (`components/Skeleton.tsx`). Never a bare spinner or "Memuat..." text. Kit: `Skeleton` (a `<span class="block">`, valid inside p/h1/button), `TableSkeletonRows` (render INSIDE `<tbody>` so header/filters/pagination stay visible; pass one entry per column, e.g. `['w-36', { w:'w-20', kind:'badge' }, { w:'', kind:'action' }]`), `CardListSkeleton`, `CardGridSkeleton`, `TimelineSkeleton`, `ChartSkeleton`, `ListRowsSkeleton`, `KanbanCardsSkeleton`, `AppShellSkeleton` (session check, Suspense fallbacks), `AuthCardSkeleton` (login). `StatCard` has `loading` (keeps label/icon, shows value placeholder).
+- Pages keep `const [loading, setLoading] = useState(true)` and set it false in `finally`. Pages that auto-refresh (dashboard) only show skeletons on the first load.
+- Composites announce themselves (`role=status`, `aria-busy`, hidden label via `t('Memuat...')` or a specific label); pulse stops under `prefers-reduced-motion`.
+- Allowed spinners: inside a button while its action runs (`Button loading`), and the blocking overlay for bulk operations (`spinnerMsg` in Trainings).
 
----
+## 4a. Theming (dark mode) and responsive rules
+- **Theme**: `ThemeProvider` (`context/ThemeContext.tsx`) toggles the `dark` class on `<html>`; preference `light|dark|system` in localStorage `bki_theme`; `THEME_INIT_SCRIPT` in `layout.tsx` `<head>` sets it before paint (the only intentional `dangerouslySetInnerHTML`: static string). Toggle button in `Header`; 3-way Appearance card in Settings > Profile. `useTheme()` gives `{preference, resolved, setPreference, toggle}`.
+- **How dark works**: write components once with slate/blue/emerald/amber/red utilities. Under `.dark` (globals.css) the slate scale is inverted and the tint/shade steps of semantic colors flip, so `text-slate-900` turns light, `bg-slate-50` turns page-dark, `border-slate-200` turns dark. cms-* classes use CSS vars (`--c-*`, `--b-*`, `--color-surface`...) with dark overrides.
+- **Rules**: surfaces use `bg-card` (NEVER `bg-white`; `ring-card`/`border-card` too). Overlays/backdrops use `bg-black/..` (not slate-900). Don't hardcode hex in components. `text-white` on colored buttons is fine. Always-dark areas (sidebar) add `sidebar-fixed` to keep the original slate scale. New semantic colors need a dark step mapping in the `.dark` block.
+- **Responsive**: breakpoint `lg` (1024px). Below it the sidebar is an off-canvas drawer (`Sidebar open/onClose`, state in `DashboardLayout`, hamburger in `Header`, closes on route change/Esc/backdrop). Content padding `px-4 sm:px-6 lg:px-8`. Tables scroll inside `overflow-x-auto`; KPI grids use `grid-cols-2` on phones; Settings nav is a horizontal scroller on mobile; modals are `w-full` with `p-4` gutter. Note: `.material-symbols-outlined` sets `display:inline-flex` (unlayered), so `hidden` on the icon itself does not work: wrap it in a span.
+- Verified at 375px: no horizontal overflow on dashboard, trainings(+detail), certificates, leads, reports, history, settings.
 
-## 3. Shared Components Logic (`shared/components.js`)
-Performs automatic DOM injection on load to ensure 100% shell layout consistency.
+## 4d. Internationalization (id / en)
+- **Source text is Indonesian and is the dictionary key**: `t('Simpan')` -> "Save" in English. English lives in `src/i18n/en.ts` (`Record<indonesianKey, english>`); a missing key falls back to the Indonesian text and warns in dev.
+- Files: `i18n/LanguageContext.tsx` (`LanguageProvider`, `useT()`, `useLanguage()` -> `{language, locale, setLanguage, t}`), `i18n/config.ts` (server-safe: cookie name, `isLanguage`), `i18n/msg.ts` (`msg('key')`), `i18n/rich.tsx` (`rich(t, key, {name: <b/>})` for placeholders that are React nodes), `i18n/labels.ts` (`certStatusLabel/certTypeLabel/leadValueLabel/leadActionLabel` for raw DB values), `lib/relativeTime.ts` (`formatRelativeTime(date, t, locale)`).
+- **Language is chosen by cookie `bki_lang`** read in `layout.tsx` (async, `cookies()`), so SSR and client match (no flash). Switching (Header globe button, Settings > Profile > Bahasa) sets the cookie and **reloads the page**, so strings built in async loaders never go stale.
+- **Rules**: every user-visible string goes through `t()`: JSX text, placeholder/title/aria-label, toast messages, confirm modal text. Use named placeholders: `t('Halo {name}', { name })` (never concatenate sentence fragments). Module-level constants (where hooks don't exist) store `msg('Teks')` and render `t(item.label)`. Raw DB values (status, type, source, reason) stay as stored; translate only the label (`labels.ts`). Dates/numbers use `locale` from `useLanguage()` (`toLocaleDateString(locale, ...)`). Don't name a local variable/param `t` inside components (it shadows the translator): use `training`, `item`, etc.
+- **Adding a string**: write `t('Teks Indonesia')`, add `'Teks Indonesia': 'English text'` to `src/i18n/en.ts`, run `npm run i18n:check` (fails on missing keys / placeholder mismatch; `-- --strict` also fails on unused entries). Keys used via `msg()` count as used.
+- Not translated on purpose: customer-facing WhatsApp templates (`lib/whatsapp.ts`), CSV headers/exports, `<title>` metadata, user data (names, notes, program names).
+- Testsprite tests use English labels and now need `bki_lang=en` cookie (UI defaults to Indonesian).
 
-- **Dynamic Navigation Shell**:
-  - `SideNavBar`: Automatically rendered inside element `#sidebar-container`. Detects path to highlight active page. Displays brand headers and bottom settings/profile info.
-  - `TopNavBar`: Automatically rendered inside element `#header-container`. Renders page title, alert badges, help items, and profile dropdown menu. The header search bar is removed to keep query inputs local to data tables.
-- **Top Actions Panel**: Handles toggles for user profiles and notification drawers.
-- **Global Row Actions Context Menu**: Handles clicks to trigger and toggle row actions dropdown context menus (`.row-actions-btn` and `.row-actions-menu`) globally across tables.
+## 4b. Security rules
+- Never use `dangerouslySetInnerHTML`/`innerHTML`. Render data as text or JSX (DB-sourced names/notes are untrusted). For rich log lines use ReactNode (see `Header.tsx` notifications) or plain text (`history-logs`, training audit trail).
+- Don't put credentials or test accounts in client code outside `NODE_ENV !== 'production'` blocks.
+- Still open: Supabase RLS is `USING (true)` (needs user approval before changing), no server-side route proxy, no roles.
+
+## 4c. Rule: no fake features
+Never ship a control that pretends to work (success toast / local-only state with no effect). Either wire it to real data/DB or remove it / label it "Not available yet". Filter option lists must come from the data, not hardcoded names.
+- Real now: certificate delete (`DB.deleteCertificate`), remove participant from batch (`DB.removeParticipantFromTraining`, deletes that batch's certificates only), SLA report period filter (Last 7/30 days, 6 months, All time, applied to certificate `created_at`; monthly chart = last 6 months by completion date), email to participants via `mailto:` (real addresses, BCC for many), forgot password (`DB.sendPasswordReset`, redirects to /settings/security), password change verifies current password (`DB.verifyUserPassword`), "Sign out other devices" (`DB.signOutOtherSessions`).
+- Removed/honest: Email PIC, Contact PIC, fake sessions list, 2FA toggle (now "Not available yet"), Remember me, Department/SLA-priority filters, certificate validity buffer + default template settings, "delay reason" report (now "Overdue by stage"). Notification prefs page states they are browser-only and no email is sent.
+- **SLA threshold is central**: Supabase table `app_settings` (key/value jsonb, RLS = authenticated only; run `supabase_schema_settings.sql` once). Code: `lib/settings.ts` (`useSlaDays()` hook for screens, `fetchSlaSetting()`, `saveSlaDays()`). localStorage `sys_sla` is only a cache/fallback. With Supabase configured a failed save throws (no silent local save); without Supabase (mock) it is browser-only and the UI says so. If the table is missing the UI tells the admin to run the SQL. Never read `sys_sla` directly: use the hook. New shared settings: add a key to `app_settings` and a getter/setter pair next to the SLA ones.
+
+## 5. Testing notes
+- `testsprite_tests/` are generated Playwright scripts; many selectors are stale (icon ligature text in names, old labels).
+- Browser check without login: set localStorage `bki_mock_session='true'` on localhost:3000.
+
+## 6. Change log
+- 2026-10-01: Full UI consistency redesign (tokens, PageHeader/StatCard/Tabs/StatusBadge, palette reduced to slate + blue + semantic, breadcrumb top bar, Geist font, a11y contrast fixes).
+- 2026-10-01: Fixed dropdown menus clipped inside tables (portal + fixed positioning via `useFloatingMenu`; certificates/trainings row menus moved to `ActionMenu`). Fixed native form selects (custom chevron, consistent height, grey placeholder).
+- 2026-10-01: Replaced all 68 `alert()` with Sonner toasts via `notify` (`AppToaster`, `src/lib/notify.ts`). Fake actions (email PIC, send email, period filter) now show an honest 'belum tersedia' info toast instead of success.
+- 2026-10-01: Removed all 4 `dangerouslySetInnerHTML` (XSS). Demo login/mock session now dev-only; production build verified to contain no demo credentials. History-log CSV export no longer includes HTML tags.
+- 2026-10-01: Fake-feature pass (see 4c): real pagination/filters in Trainings + Certificates, real deletes, SLA period filter, mailto email, password reset/verify, honest Security/Notifications/System settings. Reports period menu now uses `DropdownButton` (old custom dropdown never opened).
+- 2026-10-01: Shared `Modal` component; migrated all 17 dialogs + Leads drawer + Header help + ConfirmationModal to it (a11y, Esc, focus trap, scroll lock, consistent header/footer).
+- 2026-10-01: Mobile layout (sidebar drawer, hamburger, responsive header/padding/settings nav) and dark mode (theme provider, no-flash script, toggle, Appearance setting, themed toaster, semantic CSS vars, `bg-white` -> `bg-card`).
+- 2026-10-01: Bilingual UI (Indonesian default + English): LanguageProvider with cookie + SSR, ~820 strings migrated via `t()`, language toggle in Header and Settings, locale-aware dates, `npm run i18n:check`.
+- 2026-10-01: Central SLA threshold (`app_settings` table + `useSlaDays`), System Settings shows where the value is stored and who changed it last.
+- 2026-10-01: Unified loading states: shared Skeleton kit applied to every page (tables keep their header, Dashboard and Training Detail now have loading states, session/Suspense/login use full-screen skeletons).
+- 2026-10-02: Server-side route protection: `proxy.ts` + cookie sessions (`@supabase/ssr`) + `/auth/callback` + safe `next` redirects; existing users had to sign in once more (session moved from localStorage to cookies).
+- 2026-10-02: Prepared RLS hardening (audit/hardening/rollback SQL + `rls:check`) and server-side account creation (`/api/admin/users`) so public sign-up can be disabled. SQL not yet run by the owner at the time of writing.
+- 2026-10-02: RLS hardening applied and verified (anon blocked on all 9 tables; app works signed in). Remaining owner actions: set `SUPABASE_SERVICE_ROLE_KEY` and turn off public sign-up in Supabase; confirm `klugerschuler@gmail.com` is a legitimate account. Certificate status update/`certificate_history` insert path not exercised in the test (standard policies).
+- 2026-10-02: Leads bulk status update: checkbox column + select-all on `/crm/leads` (selection only counts rows visible under the current filters), floating dark action bar (`sidebar-fixed` keeps it dark in dark mode, also applied to the Trainings bar), "Ubah Status Massal" Modal with per-status fields (Waiting List reason + date, Terdaftar batch with each lead's own estimated seats, Batal reason required) and a preview of skipped leads (already in that status, closed Batal/Selesai, Selesai only from Terdaftar). Backed by `DB.bulkUpdateLeadStatus` (sequential, one activity-log row per lead, ONE `bki-db-update` refresh at the end via `dbNotifyPaused`; failures are reported and stay selected for retry). `Modal` default cancel label now translated.

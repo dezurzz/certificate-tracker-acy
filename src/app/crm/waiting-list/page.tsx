@@ -5,9 +5,25 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, Training, TrainingProgram, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import Modal from '@/components/Modal';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
 import { useAuth } from '@/context/AuthContext';
+import { notify } from '@/lib/notify';
+import { useT } from '@/i18n/LanguageContext';
+import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
+
+const WAITING_SKELETON_COLUMNS: SkeletonColumn[] = [
+  { w: 'w-36', kind: 'twoLine' },
+  { w: 'w-44', kind: 'twoLine' },
+  { w: 'w-24', kind: 'badge' },
+  { w: 'w-32', kind: 'twoLine' },
+  'w-20',
+  { w: '', kind: 'action', align: 'center' },
+];
 
 export default function WaitingListPage() {
+  const t = useT();
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -135,23 +151,23 @@ export default function WaitingListPage() {
         batchId: matched?.id,
         batchCode: matched?.batch_code || 'Batch Ditetapkan',
         confirmedSeats: Number(confirmedSeats) || selectedLead.estimated_seats,
-        note: `Dialihkan dari Waiting List ke Terdaftar pada ${matched?.program_name} (${matched?.batch_code}).`,
+        note: t('Dialihkan dari Waiting List ke Terdaftar pada {program_name} ({batch_code}).', { program_name: matched?.program_name, batch_code: matched?.batch_code }),
         actor: user?.name || 'System Admin'
       });
-      alert('Peluang Waiting List berhasil dialokasikan ke Batch Pelatihan!');
+      notify.success(t('Peluang Waiting List berhasil dialokasikan ke Batch Pelatihan'));
       setIsAssignBatchModalOpen(false);
       loadData();
     } catch (e: any) {
-      alert('Error: ' + e.message);
+      notify.error(t('Terjadi kesalahan'), e.message);
     }
   };
 
   const handleOfferSchedule = async (lead: Lead) => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Tawarkan Jadwal',
-      message: `Ubah status ${lead.contact_name} menjadi "Jadwal Ditawarkan"? Ini menandakan staf sudah menginfokan opsi jadwal via WA.`,
-      confirmLabel: 'Ya, Tandai Ditawarkan',
+      title: t('Tawarkan Jadwal'),
+      message: t('Ubah status {contact_name} menjadi "Jadwal Ditawarkan"? Ini menandakan staf sudah menginfokan opsi jadwal via WA.', { contact_name: lead.contact_name }),
+      confirmLabel: t('Ya, Tandai Ditawarkan'),
       type: 'info',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
@@ -162,7 +178,7 @@ export default function WaitingListPage() {
           });
           loadData();
         } catch (e: any) {
-          alert('Error: ' + e.message);
+          notify.error(t('Terjadi kesalahan'), e.message);
         }
       }
     });
@@ -171,75 +187,48 @@ export default function WaitingListPage() {
   return (
     <DashboardLayout pageTitle="Waiting List & Batch Matching">
       <div className="space-y-6">
-        {/* Header Banner */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-amber-600 text-2xl">hourglass_top</span>
-              Waiting List & Permintaan Batch Pelatihan
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Pantau calon peserta yang menunggu jadwal dibuka atau melakukan reschedule, serta pasangkan langsung dengan batch aktif.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title={t('Waiting List')}
+          description={t('Pantau calon peserta yang menunggu jadwal dibuka atau melakukan reschedule, lalu pasangkan langsung dengan batch aktif.')}
+        />
 
-        {/* Stats Bento */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Waiting List</span>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{totalWaitingLeads} <span className="text-xs font-normal text-slate-500">Peluang</span></p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Total Kebutuhan Kursi</span>
-            <p className="text-2xl font-bold text-blue-700 mt-1">{totalWaitingSeats} <span className="text-xs font-normal text-slate-500">Pax Calon Peserta</span></p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Kasus Reschedule</span>
-            <p className="text-2xl font-bold text-amber-700 mt-1">{rescheduleCount} <span className="text-xs font-normal text-slate-500">Peluang</span></p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wider">Belum Ada Jadwal</span>
-            <p className="text-2xl font-bold text-purple-700 mt-1">{noScheduleCount} <span className="text-xs font-normal text-slate-500">Peluang</span></p>
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard label={t('Total waiting list')} value={totalWaitingLeads} hint={t('peluang')} />
+          <StatCard label={t('Total kebutuhan kursi')} value={totalWaitingSeats} hint={t('pax calon peserta')} />
+          <StatCard label={t('Kasus reschedule')} value={rescheduleCount} hint={t('peluang')} />
+          <StatCard label={t('Belum ada jadwal')} value={noScheduleCount} hint={t('peluang')} tone={noScheduleCount > 0 ? 'warning' : 'default'} />
         </div>
 
         {/* Program Demand Summary (Waiting List Barometer) */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
-          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-blue-600 text-lg">bar_chart</span>
-            Barometer Minat & Antrean Pelatihan (Dasar Buka Batch Baru)
-          </h3>
+        <div className="bg-card border border-slate-200 rounded-xl p-5 shadow-sm space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">{t('Barometer minat per program')}</h2>
+            <p className="mt-0.5 text-xs text-slate-500">{t('Dasar keputusan membuka batch baru.')}</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
             {Object.keys(demandByProgram).length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Belum ada permintaan di antrean waiting list.</p>
+              <p className="text-xs text-slate-500 italic">{t('Belum ada permintaan di antrean waiting list.')}</p>
             ) : (
               Object.entries(demandByProgram).map(([progName, data]) => {
                 const matches = getMatchingBatches(progName);
                 const hasActiveBatch = matches.some(m => m.status !== 'Completed');
 
                 return (
-                  <div key={progName} className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                  <div key={progName} className="p-3 rounded-lg border border-slate-200 space-y-1.5">
                     <div className="flex justify-between items-start gap-2">
-                      <p className="font-bold text-slate-900 text-xs">{progName}</p>
-                      <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold shrink-0">
-                        {data.seats} Pax ({data.leadsCount} lead)
-                      </span>
+                      <p className="font-medium text-slate-900 text-xs">{progName}</p>
+                      <span className="shrink-0 text-[11px] font-medium text-slate-600 tabular-nums">
+                        {t('{seats} Pax ({leads} lead)', { seats: data.seats, leads: data.leadsCount })}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px]">
                       {hasActiveBatch ? (
                         <span className="text-emerald-700 font-semibold flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs">check_circle</span>
-                          Tersedia {matches.length} Batch Aktif
-                        </span>
+                          {t('Tersedia')} {matches.length} {t('Batch Aktif')}</span>
                       ) : (
                         <span className="text-amber-700 font-semibold flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs">warning</span>
-                          Belum Ada Batch Aktif (Rekomendasi Buka)
-                        </span>
+                          {t('Belum Ada Batch Aktif (Rekomendasi Buka)')}</span>
                       )}
                     </div>
                   </div>
@@ -250,15 +239,15 @@ export default function WaitingListPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+        <div className="bg-card border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center">
           <div className="flex-1 relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
             <input
               type="text"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Cari kontak, perusahaan, atau catatan..."
-              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
+              placeholder={t('Cari kontak, perusahaan, atau catatan...')}
+              className="cms-input h-9 !pl-10 !text-[13px]"
             />
           </div>
 
@@ -266,12 +255,12 @@ export default function WaitingListPage() {
             <select
               value={reasonFilter}
               onChange={e => setReasonFilter(e.target.value)}
-              className="cms-select-filter w-full text-xs"
+              className="cms-select-filter w-full"
             >
-              <option value="">Semua Alasan Waiting List</option>
-              <option value="Reschedule">Reschedule</option>
-              <option value="Belum Ada Jadwal">Belum Ada Jadwal</option>
-              <option value="Menunggu Konfirmasi Internal">Menunggu Konfirmasi Internal</option>
+              <option value="">{t('Semua Alasan Waiting List')}</option>
+              <option value="Reschedule">{t('Reschedule')}</option>
+              <option value="Belum Ada Jadwal">{t('Belum Ada Jadwal')}</option>
+              <option value="Menunggu Konfirmasi Internal">{t('Menunggu Konfirmasi Internal')}</option>
             </select>
           </div>
 
@@ -279,9 +268,9 @@ export default function WaitingListPage() {
             <select
               value={programFilter}
               onChange={e => setProgramFilter(e.target.value)}
-              className="cms-select-filter w-full text-xs"
+              className="cms-select-filter w-full"
             >
-              <option value="">Semua Program Training</option>
+              <option value="">{t('Semua Program Training')}</option>
               {BKI_TRAINING_PROGRAMS.map(progName => (
                 <option key={progName} value={progName}>{progName}</option>
               ))}
@@ -298,37 +287,32 @@ export default function WaitingListPage() {
               }}
               className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap cursor-pointer shrink-0"
             >
-              Reset Filter
-            </button>
+              {t('Reset Filter')}</button>
           )}
         </div>
 
         {/* Waiting List Table */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto table-scroll">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="cms-table w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Kontak / Perusahaan</th>
-                  <th className="py-3.5 px-4">Program & Kebutuhan</th>
-                  <th className="py-3.5 px-4">Alasan & Riwayat Batch</th>
-                  <th className="py-3.5 px-4">Rekomendasi Batch Aktif</th>
-                  <th className="py-3.5 px-4">Target Cek</th>
-                  <th className="py-3.5 px-4 text-center">Aksi Cepat</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                  <th className="py-3.5 px-4">{t('Kontak / Perusahaan')}</th>
+                  <th className="py-3.5 px-4">{t('Program & Kebutuhan')}</th>
+                  <th className="py-3.5 px-4">{t('Alasan & Riwayat Batch')}</th>
+                  <th className="py-3.5 px-4">{t('Rekomendasi Batch Aktif')}</th>
+                  <th className="py-3.5 px-4">{t('Target Cek')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Aksi Cepat')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
-                      Memuat data waiting list...
-                    </td>
-                  </tr>
+                  <TableSkeletonRows label={t('Memuat data waiting list...')} columns={WAITING_SKELETON_COLUMNS} />
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <td colSpan={6} className="py-12 text-center text-slate-500">
                       <span className="material-symbols-outlined text-3xl text-slate-300 mb-1">hourglass_disabled</span>
-                      <p className="font-semibold text-slate-600">Tidak ada antrean waiting list yang cocok</p>
+                      <p className="font-semibold text-slate-600">{t('Tidak ada antrean waiting list yang cocok')}</p>
                     </td>
                   </tr>
                 ) : (
@@ -336,31 +320,30 @@ export default function WaitingListPage() {
                     const matches = getMatchingBatches(lead.program_name);
 
                     return (
-                      <tr key={lead.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={lead.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3.5 px-4">
-                          <p className="font-bold text-slate-900">{lead.contact_name}</p>
+                          <p className="font-semibold text-slate-900">{lead.contact_name}</p>
                           <p className="text-[11px] text-slate-500">{lead.company_name}</p>
-                          <p className="text-[10px] text-blue-600 font-mono mt-0.5">{lead.contact_phone}</p>
+                          <p className="text-[11px] text-slate-600 font-mono mt-0.5">{lead.contact_phone}</p>
                         </td>
 
                         <td className="py-3.5 px-4">
                           <p className="font-semibold text-slate-900">{lead.program_name}</p>
-                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100">
-                            {lead.estimated_seats} Pax
-                          </span>
+                          <span className="inline-block mt-1 text-[11px] text-slate-600">
+                            {lead.estimated_seats} {t('pax')}</span>
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
-                            {lead.waiting_reason || 'Waiting List'}
+                          <span className="cms-badge cms-badge-warning">
+                            {lead.waiting_reason || t('Waiting List')}
                           </span>
                           {lead.previous_batch_info && (
-                            <p className="text-[10px] text-slate-500 mt-1">
-                              Reschedule dr: <b>{lead.previous_batch_info}</b>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              {t('Reschedule dr:')} <b>{lead.previous_batch_info}</b>
                             </p>
                           )}
                           {lead.notes && (
-                            <p className="text-[10px] text-slate-600 mt-1 italic line-clamp-2 max-w-[220px]">
+                            <p className="text-[11px] text-slate-600 mt-1 italic line-clamp-2 max-w-[220px]">
                               "{lead.notes}"
                             </p>
                           )}
@@ -373,10 +356,10 @@ export default function WaitingListPage() {
                                 <span className="material-symbols-outlined text-xs">event_available</span>
                                 {matches[0].batch_code} ({matches[0].start_date})
                               </span>
-                              <p className="text-[10px] text-slate-400">{matches[0].location}</p>
+                              <p className="text-[11px] text-slate-500">{matches[0].location}</p>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-slate-400 italic">Belum ada batch dibuka</span>
+                            <span className="text-[11px] text-slate-500 italic">{t('Belum ada batch dibuka')}</span>
                           )}
                         </td>
 
@@ -388,30 +371,29 @@ export default function WaitingListPage() {
                           <div className="flex items-center justify-center gap-1.5">
                             {/* WhatsApp Offer Button */}
                             <button
-                              title="Kirim Penawaran Jadwal via WhatsApp"
+                              title={t('Kirim Penawaran Jadwal via WhatsApp')}
                               onClick={() => handleOpenWA(lead, 'offer')}
-                              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-600 flex items-center justify-center border border-emerald-200 transition"
+                              aria-label={t('Kirim penawaran jadwal via WhatsApp')}
+                              className="cms-btn-secondary !h-8 !w-8 !p-0 justify-center"
                             >
-                              <span className="material-symbols-outlined text-base">chat</span>
+                              <span className="material-symbols-outlined text-base" aria-hidden="true">chat</span>
                             </button>
 
                             {/* Mark Schedule Offered */}
                             <button
-                              title="Tandai Jadwal Ditawarkan"
+                              title={t('Tandai Jadwal Ditawarkan')}
                               onClick={() => handleOfferSchedule(lead)}
-                              className="px-2 py-1 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 rounded text-[10px] font-semibold transition"
+                              className="cms-btn-secondary !h-8 !px-3 !text-xs"
                             >
-                              Tawarkan
-                            </button>
+                              {t('Tawarkan')}</button>
 
                             {/* Assign to Batch */}
                             <button
-                              title="Alokasikan ke Batch"
+                              title={t('Alokasikan ke Batch')}
                               onClick={() => openAssignBatchModal(lead)}
-                              className="px-2 py-1 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 rounded text-[10px] font-semibold transition"
+                              className="cms-btn-primary !h-8 !px-3 !text-xs"
                             >
-                              Pilih Batch
-                            </button>
+                              {t('Pilih Batch')}</button>
                           </div>
                         </td>
                       </tr>
@@ -425,27 +407,16 @@ export default function WaitingListPage() {
 
         {/* Modal: Alokasikan ke Batch */}
         {isAssignBatchModalOpen && selectedLead && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-200 bg-blue-50 text-blue-900 flex justify-between items-center">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-600">how_to_reg</span>
-                  Alokasikan Waiting List ke Batch Aktif
-                </h3>
-                <button onClick={() => setIsAssignBatchModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleAssignBatchSubmit} className="p-5 space-y-3.5 text-xs">
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <Modal isOpen={true} onClose={() => setIsAssignBatchModalOpen(false)} title={t('Alokasikan Waiting List ke Batch Aktif')} icon="how_to_reg" onSubmit={handleAssignBatchSubmit} cancelLabel={t('Batal')} submitLabel={t('Alokasikan & Daftarkan')}>
+<div className="space-y-3.5 text-xs">
+<div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <p className="font-semibold text-slate-800">{selectedLead.contact_name}</p>
-                  <p className="text-slate-500 text-[11px]">{selectedLead.company_name} — {selectedLead.program_name}</p>
+                  <p className="text-slate-500 text-[11px]">{selectedLead.company_name} - {selectedLead.program_name}</p>
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Pilih Batch Pelatihan yang Tersedia <span className="text-red-500 font-semibold">*</span>
+                    {t('Pilih Batch Pelatihan yang Tersedia')} <span className="text-red-500 font-semibold">*</span>
                   </label>
                   <select
                     required
@@ -453,10 +424,10 @@ export default function WaitingListPage() {
                     onChange={e => setSelectedBatchId(e.target.value)}
                     className="cms-input text-xs"
                   >
-                    <option value="">-- Pilih Batch --</option>
+                    <option value="">{t('-- Pilih Batch --')}</option>
                     {trainings.map(t => (
                       <option key={t.id} value={t.id}>
-                        {t.program_name} — {t.batch_code} ({t.start_date} s/d {t.end_date})
+                        {t.program_name} - {t.batch_code} ({t.start_date} s/d {t.end_date})
                       </option>
                     ))}
                   </select>
@@ -464,7 +435,7 @@ export default function WaitingListPage() {
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Jumlah Kursi Terkonfirmasi <span className="text-red-500 font-semibold">*</span>
+                    {t('Jumlah Kursi Terkonfirmasi')} <span className="text-red-500 font-semibold">*</span>
                   </label>
                   <input
                     type="number"
@@ -475,25 +446,8 @@ export default function WaitingListPage() {
                     className="cms-input text-xs"
                   />
                 </div>
-
-                <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAssignBatchModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
-                  >
-                    Alokasikan & Daftarkan
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+</div>
+</Modal>
         )}
 
         {/* Global Confirmation Modal */}

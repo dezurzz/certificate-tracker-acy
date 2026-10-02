@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { useFloatingMenu } from '@/lib/useFloatingMenu';
 import Button, { ButtonProps } from './Button';
 
 export interface DropdownItem {
@@ -36,28 +38,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
+  const { isOpen, toggle, close, triggerRef, menuRef, style } = useFloatingMenu(align);
 
   const chevronIcon = (
     <svg
@@ -72,26 +53,32 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   );
 
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
+    <div className="relative inline-block text-left">
       <Button
         variant={variant}
         size={size}
         icon={icon}
         iconRight={chevronIcon}
-        onClick={() => setIsOpen(!isOpen)}
+        ref={triggerRef as React.Ref<HTMLButtonElement>}
+        onClick={toggle}
         disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
         className={`${isOpen ? 'ring-2 ring-blue-500/20' : ''} ${className}`}
         {...props}
       >
         {children}
       </Button>
 
-      {isOpen && (
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1.5 ${menuWidth} bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-40 text-left animate-in fade-in zoom-in-95 duration-150`}
+          ref={menuRef}
+          role="menu"
+          style={style}
+          className={`${menuWidth} bg-card border border-slate-200 rounded-xl shadow-xl p-1.5 z-[60] text-left`}
         >
           {(headerTitle || headerSubtitle) && (
-            <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between mb-1">
+            <div className="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between mb-1">
               {headerTitle && <span>{headerTitle}</span>}
               {headerSubtitle && <span className="font-mono text-slate-500 normal-case">{headerSubtitle}</span>}
             </div>
@@ -112,10 +99,10 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
                   type="button"
                   disabled={item.disabled}
                   onClick={() => {
-                    setIsOpen(false);
+                    close();
                     item.onClick();
                   }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg transition-colors text-left group ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg transition-colors text-left group ${
                     isDanger
                       ? 'text-red-600 hover:bg-red-50'
                       : isSuccess
@@ -139,7 +126,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
                       {item.label}
                     </p>
                     {item.description && (
-                      <p className="text-[10px] text-slate-400 mt-1 leading-tight truncate">
+                      <p className="text-[11px] text-slate-500 mt-1 leading-tight truncate">
                         {item.description}
                       </p>
                     )}
@@ -148,7 +135,8 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -5,6 +5,15 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate, CertificateHistory, Lead, LeadActivity } from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
+import Button from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
+import Tabs from '@/components/Tabs';
+import { useT, useLanguage } from '@/i18n/LanguageContext';
+import { formatRelativeTime } from '@/lib/relativeTime';
+import { certStatusLabel, certTypeLabel, leadActionLabel } from '@/i18n/labels';
+import { useSlaDays } from '@/lib/settings';
+import { Skeleton, ChartSkeleton, ListRowsSkeleton } from '@/components/Skeleton';
 
 interface ActivityItem {
   type: string;
@@ -16,13 +25,18 @@ interface ActivityItem {
 }
 
 export default function DashboardPage() {
+  const t = useT();
+  const slaThreshold = useSlaDays();
+  const { locale } = useLanguage();
   const { user } = useAuth();
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeModuleTab, setActiveModuleTab] = useState<'all' | 'leads' | 'certs'>('all');
-  const [greeting, setGreeting] = useState('Good Morning');
+  const [greetingKey, setGreetingKey] = useState<'pagi' | 'siang' | 'sore' | 'malam'>('pagi');
   const [todayDate, setTodayDate] = useState('');
+  // true only until the first load finishes (later refreshes update in place, no flicker)
+  const [loading, setLoading] = useState(true);
   
   // KPI Stats
   const [completedTrainings, setCompletedTrainings] = useState(0);
@@ -56,9 +70,6 @@ export default function DashboardPage() {
       setTrainings(trainList);
       setCertificates(certList);
       setLeads(leadList);
-
-      // Retrieve SLA Threshold dynamically
-      const slaThreshold = typeof window !== 'undefined' ? parseInt(localStorage.getItem('sys_sla') || '4', 10) : 4;
 
       // Calculate KPIs
       const compTrain = trainList.filter(t => t.status === 'Completed').length;
@@ -157,14 +168,14 @@ export default function DashboardPage() {
       const acts: ActivityItem[] = [];
 
       // Trainings creation events
-      trainList.forEach(t => {
+      trainList.forEach(training => {
         acts.push({
           type: 'training',
-          title: 'New batch created',
-          desc: `${t.program_name} (${t.batch_code})`,
-          time: t.created_at ? new Date(t.created_at) : new Date(t.start_date),
+          title: t('Batch baru dibuat'),
+          desc: `${training.program_name} (${training.batch_code})`,
+          time: training.created_at ? new Date(training.created_at) : new Date(training.start_date),
           dotColor: 'bg-blue-600',
-          badgeHtml: <span className="cms-badge bg-blue-50 text-blue-700 border border-blue-100">Created</span>
+          badgeHtml: <span className="cms-badge cms-badge-neutral">{t('Dibuat')}</span>
         });
       });
 
@@ -174,11 +185,11 @@ export default function DashboardPage() {
         if (c.created_at) {
           acts.push({
             type: 'certificate_created',
-            title: 'Certificate generated',
-            desc: `${name} - ${c.certificate_type}`,
+            title: t('Sertifikat dibuat'),
+            desc: `${name} - ${certTypeLabel(t, c.certificate_type)}`,
             time: new Date(c.created_at),
             dotColor: 'bg-slate-300',
-            badgeHtml: <span className="cms-badge bg-slate-50 text-slate-500 border border-slate-100">Draft</span>
+            badgeHtml: <span className="cms-badge cms-badge-neutral">{t('Draf')}</span>
           });
         }
       });
@@ -190,53 +201,47 @@ export default function DashboardPage() {
         const certType = cert ? cert.certificate_type : 'Certificate';
 
         let dotColor = 'bg-blue-500';
-        let badgeClass = 'bg-blue-50 text-blue-700 border-blue-100';
-        if (h.new_status === 'Printing') {
-          dotColor = 'bg-amber-500';
-          badgeClass = 'bg-amber-50 text-amber-700 border-amber-100';
-        } else if (h.new_status === 'Completed') {
-          dotColor = 'bg-green-500';
-          badgeClass = 'bg-green-50 text-green-700 border-green-100';
+        let badgeClass = 'cms-badge-info';
+        if (h.new_status === 'Completed') {
+          dotColor = 'bg-emerald-500';
+          badgeClass = 'cms-badge-success';
         } else if (h.new_status === 'Pending') {
-          dotColor = 'bg-slate-400';
-          badgeClass = 'bg-slate-50 text-slate-500 border-slate-100';
+          dotColor = 'bg-slate-300';
+          badgeClass = 'cms-badge-neutral';
         }
 
         acts.push({
           type: 'certificate_updated',
-          title: `Certificate ${h.new_status.toLowerCase()}`,
-          desc: `${name} (${certType}) status updated to ${h.new_status} by ${h.changed_by}`,
+          title: t('Sertifikat {status}', { status: certStatusLabel(t, h.new_status).toLowerCase() }),
+          desc: t('{name} ({type}) status diperbarui ke {status} oleh {by}', { name, type: certTypeLabel(t, certType), status: certStatusLabel(t, h.new_status), by: h.changed_by }),
           time: new Date(h.created_at),
           dotColor: dotColor,
-          badgeHtml: <span className={`cms-badge ${badgeClass}`}>{h.new_status}</span>
+          badgeHtml: <span className={`cms-badge ${badgeClass}`}>{certStatusLabel(t, h.new_status)}</span>
         });
       });
 
       // Lead activities
       leadActList.forEach(la => {
-        let dotColor = 'bg-blue-600';
-        let badgeClass = 'bg-blue-50 text-blue-700 border-blue-100';
-        if (la.action_type === 'link_sent') {
-          dotColor = 'bg-indigo-500';
-          badgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-100';
-        } else if (la.action_type === 'registered') {
+        let dotColor = 'bg-blue-500';
+        let badgeClass = 'cms-badge-info';
+        if (la.action_type === 'registered') {
           dotColor = 'bg-emerald-500';
-          badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+          badgeClass = 'cms-badge-success';
         } else if (la.action_type === 'rescheduled') {
           dotColor = 'bg-amber-500';
-          badgeClass = 'bg-amber-50 text-amber-700 border-amber-100';
+          badgeClass = 'cms-badge-warning';
         } else if (la.action_type === 'cancelled') {
           dotColor = 'bg-red-500';
-          badgeClass = 'bg-red-50 text-red-700 border-red-100';
+          badgeClass = 'cms-badge-danger';
         }
 
         acts.push({
           type: 'lead_activity',
-          title: `CRM (${la.actor})`,
+          title: t('CRM ({actor})', { actor: la.actor }),
           desc: la.note,
           time: new Date(la.created_at),
           dotColor: dotColor,
-          badgeHtml: <span className={`cms-badge ${badgeClass}`}>{la.action_type}</span>
+          badgeHtml: <span className={`cms-badge ${badgeClass}`}>{leadActionLabel(t, la.action_type)}</span>
         });
       });
 
@@ -246,23 +251,19 @@ export default function DashboardPage() {
 
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     // Set greeting based on client time
     const hours = new Date().getHours();
-    if (hours >= 12 && hours < 17) {
-      setGreeting('Good Afternoon');
-    } else if (hours >= 17) {
-      setGreeting('Good Evening');
-    } else {
-      setGreeting('Good Morning');
-    }
+    setGreetingKey(hours >= 18 ? 'malam' : hours >= 15 ? 'sore' : hours >= 12 ? 'siang' : 'pagi');
 
     // Set today's date formatted
     const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-    setTodayDate(new Date().toLocaleDateString('en-US', options));
+    setTodayDate(new Date().toLocaleDateString(locale, options));
 
     loadData();
 
@@ -273,7 +274,9 @@ export default function DashboardPage() {
     return () => {
       window.removeEventListener('bki-db-update', handleDbUpdate);
     };
-  }, []);
+    // Reload when the SLA threshold changes so overdue counts stay correct
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slaThreshold]);
 
   const downloadDashboardReport = () => {
     const csvContent = "Metric,Value\n" +
@@ -293,19 +296,7 @@ export default function DashboardPage() {
     document.body.removeChild(link);
   };
 
-  const formatRelativeTime = (dateInput: Date) => {
-    const diffMs = new Date().getTime() - dateInput.getTime();
-    const diffMins = Math.round(diffMs / 60000);
-    const diffHours = Math.round(diffMs / 3600000);
-    const diffDays = Math.round(diffMs / 86400000);
-
-    if (diffMs < 0 || diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    if (diffDays === 1) return 'Yesterday';
-
-    return dateInput.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
+  const formatRelTime = (dateInput: Date) => formatRelativeTime(dateInput, t, locale, { withYear: true });
 
   const totalCerts = certificates.length;
   const todayIso = new Date().toISOString().split('T')[0];
@@ -342,314 +333,179 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout pageTitle="BKI Academy Platform Dashboard">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">
-            {greeting}, {user?.name || 'Admin'}
-          </h2>
-          <p className="text-xs md:text-sm text-slate-500 flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">calendar_today</span>
-            <span>{todayDate}</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={downloadDashboardReport} className="cms-btn-secondary text-xs">
-            <span className="material-symbols-outlined text-sm">download</span>
-            Export Report
-          </button>
-          <Link href="/crm/leads" className="cms-btn-primary bg-amber-600 hover:bg-amber-700 text-xs">
-            <span className="material-symbols-outlined text-sm">person_add</span>
-            Input Lead Baru
-          </Link>
-          <Link href="/trainings?openModal=true" className="cms-btn-primary text-xs">
-            <span className="material-symbols-outlined text-sm">add</span>
-            New Batch
-          </Link>
-        </div>
-      </div>
+      <div className="space-y-6">
+      <PageHeader
+        title={`${{ pagi: t('Selamat Pagi'), siang: t('Selamat Siang'), sore: t('Selamat Sore'), malam: t('Selamat Malam') }[greetingKey]}, ${user?.name || 'Admin'}`}
+        description={todayDate}
+        actions={
+          <>
+            <Button variant="secondary" icon="download" onClick={downloadDashboardReport}>{t('Ekspor Laporan')}</Button>
+            <Link href="/crm/leads" className="cms-btn-secondary !h-10">
+              <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">person_add</span>
+              {t('Input Lead Baru')}</Link>
+            <Link href="/trainings?openModal=true" className="cms-btn-primary !h-10">
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+              {t('Batch Baru')}</Link>
+          </>
+        }
+      />
 
-      {/* Module View Tabs */}
-      <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-3">
-        <button
-          onClick={() => setActiveModuleTab('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-            activeModuleTab === 'all'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <span className="material-symbols-outlined text-sm">dashboard</span>
-          Ringkasan Terpadu
-        </button>
-        <button
-          onClick={() => setActiveModuleTab('leads')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-            activeModuleTab === 'leads'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <span className="material-symbols-outlined text-sm">person_search</span>
-          Pipeline Leads & Waiting List
-        </button>
-        <button
-          onClick={() => setActiveModuleTab('certs')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-            activeModuleTab === 'certs'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <span className="material-symbols-outlined text-sm">verified</span>
-          Certificate Tracker (SLA)
-        </button>
-      </div>
+      <Tabs
+        value={activeModuleTab}
+        onChange={setActiveModuleTab}
+        items={[
+          { id: 'all', label: t('Ringkasan Terpadu'), icon: 'space_dashboard' },
+          { id: 'leads', label: t('Pipeline Leads & Waiting List'), icon: 'person_search' },
+          { id: 'certs', label: t('Pelacak Sertifikat (SLA)'), icon: 'verified' },
+        ]}
+      />
 
-      {/* CRM Leads & Waiting List Bento Cards */}
       {(activeModuleTab === 'all' || activeModuleTab === 'leads') && (
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              Pipeline Prospek & Waiting List (CRM)
-            </h3>
-            <Link href="/crm/leads" className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1">
-              Buka Semua Leads <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <h2 className="text-sm font-semibold text-slate-900">{t('Pipeline prospek & waiting list')}</h2>
+            <Link href="/crm/leads" className="inline-flex items-center gap-1 text-[13px] font-medium text-blue-600 hover:text-blue-700">
+              {t('Buka semua leads')} <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
             </Link>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Link href="/crm/leads" className="cms-card cms-card-interactive p-4 hover:border-blue-400">
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Peluang Aktif</span>
-                <span className="p-1 rounded bg-blue-50 text-blue-600"><span className="material-symbols-outlined text-base">person_search</span></span>
-              </div>
-              <p className="text-2xl font-bold text-slate-900 mt-2">{totalActiveLeads}</p>
-              <p className="text-[11px] text-blue-600 font-medium mt-1">Estimasi {totalEstimatedSeats} total kursi</p>
-            </Link>
-
-            <Link href="/crm/waiting-list" className="cms-card cms-card-interactive p-4 hover:border-amber-400">
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Waiting List</span>
-                <span className="p-1 rounded bg-amber-50 text-amber-600"><span className="material-symbols-outlined text-base">hourglass_top</span></span>
-              </div>
-              <p className="text-2xl font-bold text-amber-700 mt-2">{totalWaitingSeats} <span className="text-xs font-normal text-slate-500">Pax</span></p>
-              <p className="text-[11px] text-slate-500 mt-1">Menunggu jadwal / reschedule</p>
-            </Link>
-
-            <Link href="/crm/follow-ups" className="cms-card cms-card-interactive p-4 hover:border-red-400">
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Follow-up Overdue</span>
-                <span className="p-1 rounded bg-red-50 text-red-600"><span className="material-symbols-outlined text-base">warning</span></span>
-              </div>
-              <p className="text-2xl font-bold text-red-700 mt-2">{totalOverdueFollowUps}</p>
-              <p className="text-[11px] text-slate-500 mt-1">{totalTodayFollowUps} tugas jatuh tempo hari ini</p>
-            </Link>
-
-            <Link href="/crm/reports" className="cms-card cms-card-interactive p-4 hover:border-emerald-400">
-              <div className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Rekap Peminat</span>
-                <span className="p-1 rounded bg-emerald-50 text-emerald-600"><span className="material-symbols-outlined text-base">bar_chart</span></span>
-              </div>
-              <p className="text-sm font-bold text-slate-800 mt-2">Course Demand Ranking</p>
-              <p className="text-[11px] text-slate-500 mt-1">Analisis kebutuhan batch baru →</p>
-            </Link>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard href="/crm/leads" loading={loading} label={t('Peluang aktif')} icon="person_search" value={totalActiveLeads} hint={t('Estimasi {totalEstimatedSeats} total kursi', { totalEstimatedSeats })} />
+            <StatCard href="/crm/waiting-list" loading={loading} label={t('Waiting list')} icon="hourglass_top" value={totalWaitingSeats} hint={t('pax menunggu jadwal / reschedule')} />
+            <StatCard
+              href="/crm/follow-ups" loading={loading}
+              label={t('Follow-up terlambat')}
+              icon="warning"
+              value={totalOverdueFollowUps}
+              tone={totalOverdueFollowUps > 0 ? 'danger' : 'default'}
+              hint={t('{totalTodayFollowUps} tugas jatuh tempo hari ini', { totalTodayFollowUps })}
+            />
+            <StatCard href="/crm/reports" label={t('Rekap peminat')} icon="bar_chart" value="Ranking" hint={t('Analisis kebutuhan batch baru')} />
           </div>
-        </div>
+        </section>
       )}
 
-      {/* KPI Cards Row (Certificate Tracker) */}
       {(activeModuleTab === 'all' || activeModuleTab === 'certs') && (
-        <>
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              Siklus Hidup Sertifikat & Monitoring SLA
-            </h3>
-            <Link href="/certificates" className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1">
-              Buka Semua Sertifikat <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <h2 className="text-sm font-semibold text-slate-900">{t('Siklus sertifikat & monitoring SLA')}</h2>
+            <Link href="/certificates" className="inline-flex items-center gap-1 text-[13px] font-medium text-blue-600 hover:text-blue-700">
+              {t('Buka semua sertifikat')} <span className="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
             </Link>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* KPI 1: Training Completed */}
-            <Link href="/trainings" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                    <span className="material-symbols-outlined">task_alt</span>
-                  </div>
-                  <span className="bg-green-50 text-green-700 border border-green-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                    +12% Month
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-3xl font-bold text-slate-900 mb-1">{completedTrainings}</h3>
-                  <p className="text-sm text-slate-500 font-semibold">Training Completed</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Total batches finished</p>
-            </Link>
-
-        {/* KPI 2: Certificate Pending */}
-        <Link href="/certificates?filter=pending" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                <span className="material-symbols-outlined">hourglass_empty</span>
-              </div>
-              <span className="cms-badge cms-badge-processing">Pending</span>
-            </div>
-            <div>
-              <h3 className="text-3xl font-bold text-slate-900 mb-1">{pendingCerts}</h3>
-              <p className="text-sm text-slate-500 font-semibold">Certificate Pending</p>
-            </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard href="/trainings" loading={loading} label={t('Training selesai')} icon="task_alt" value={completedTrainings} hint={t('Total batch yang selesai')} />
+            <StatCard href="/certificates?filter=pending" loading={loading} label={t('Sertifikat menunggu')} icon="hourglass_empty" value={pendingCerts} hint={t('Perlu antrean verifikasi')} />
+            <StatCard
+              href="/certificates?filter=overdue" loading={loading}
+              label={t('Terlambat')}
+              icon="warning"
+              value={overdueCerts}
+              tone={overdueCerts > 0 ? 'danger' : 'default'}
+              hint={t('Melewati batas SLA standar')}
+            />
+            <StatCard loading={loading} label={t('Tingkat penyelesaian')} icon="query_stats" value={`${completionRate}%`} hint={t('Terkirim vs total tugas')} />
           </div>
-          <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Requires verification queue</p>
-        </Link>
-
-        {/* KPI 3: Overdue */}
-        <Link href="/certificates?filter=overdue" className="cms-card cms-card-interactive hover:border-slate-350 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                <span className="material-symbols-outlined">warning</span>
-              </div>
-              <span className="cms-badge cms-badge-overdue">Overdue</span>
-            </div>
-            <div>
-              <h3 className="text-3xl font-bold text-slate-900 mb-1">{overdueCerts}</h3>
-              <p className="text-sm text-slate-500 font-semibold">Overdue</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Exceeds standard SLA limits</p>
-        </Link>
-
-        {/* KPI 4: Completion Rate */}
-        <div className="cms-card flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                <span className="material-symbols-outlined">query_stats</span>
-              </div>
-              <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                Overall
-              </span>
-            </div>
-            <div>
-              <h3 className="text-3xl font-bold text-slate-900 mb-1">{completionRate}%</h3>
-              <p className="text-sm text-slate-500 font-semibold">Completion Rate</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-wide font-medium">Delivered vs total tasks</p>
-        </div>
-      </div>
-      </>
+        </section>
       )}
 
       {/* Main Grid: Pipeline and Output Trend Chart */}
       {(activeModuleTab === 'all' || activeModuleTab === 'certs') && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Certificate Pipeline */}
-        <div className="cms-card lg:col-span-2 flex flex-col bg-white">
-          <div className="flex justify-between items-center pb-4 border-b border-slate-200 mb-6 bg-white">
+        <div className="cms-card lg:col-span-2 flex flex-col">
+          <div className="flex justify-between items-center mb-5">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Certificate Process Pipeline</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Real-time load balancing tracker across process milestones.</p>
+              <h2 className="font-semibold text-slate-900 text-sm">{t('Alur Proses Sertifikat')}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{t('Pelacak beban kerja real-time di setiap tahap proses.')}</p>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Milestones Overview</span>
-          </div>
+                      </div>
 
           <div className="flex flex-col gap-6 flex-grow justify-between">
             {/* Grid display of pipeline stages */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {/* Pending */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-mono font-semibold text-slate-400">01</span>
-                  <span className="material-symbols-outlined text-slate-400 text-sm">hourglass_empty</span>
+              <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
+                <div className="flex justify-end items-start">
+                  <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[18px]">hourglass_empty</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-800 mb-0.5">{pipePending}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pending</p>
+                  {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipePending}</p>}
+                  <p className="text-xs text-slate-500">{t('Menunggu')}</p>
                 </div>
               </div>
 
               {/* Processing */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-mono font-semibold text-slate-400">02</span>
-                  <span className="material-symbols-outlined text-blue-500 text-sm font-light">progress_activity</span>
+              <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
+                <div className="flex justify-end items-start">
+                  <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[18px]">progress_activity</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-800 mb-0.5">{pipeProcessing}</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Processing</p>
+                  {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeProcessing}</p>}
+                  <p className="text-xs text-slate-500">{t('Diproses')}</p>
                 </div>
               </div>
 
               {/* Printing */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-mono font-semibold text-slate-500">03</span>
-                  <span className="material-symbols-outlined text-blue-400 text-sm">print</span>
+              <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
+                <div className="flex justify-end items-start">
+                  <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[18px]">print</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-800 mb-0.5">{pipePrinting}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Printing</p>
+                  {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipePrinting}</p>}
+                  <p className="text-xs text-slate-500">{t('Dicetak')}</p>
                 </div>
               </div>
 
               {/* Shipping */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between min-h-[105px]">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-mono font-semibold text-slate-400">04</span>
-                  <span className="material-symbols-outlined text-amber-500 text-sm font-light">local_shipping</span>
+              <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
+                <div className="flex justify-end items-start">
+                  <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[18px]">local_shipping</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-slate-800 mb-0.5">{pipeShipping}</p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Shipping</p>
+                  {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeShipping}</p>}
+                  <p className="text-xs text-slate-500">{t('Pengiriman')}</p>
                 </div>
               </div>
 
               {/* Completed */}
-              <div className="bg-green-50 border border-green-200 p-4 rounded-xl flex flex-col justify-between min-h-[105px]">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-mono font-semibold text-green-700">05</span>
-                  <span className="material-symbols-outlined text-green-700 text-sm fill">done_all</span>
+              <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
+                <div className="flex justify-end items-start">
+                  <span aria-hidden="true" className="material-symbols-outlined text-emerald-600 text-[18px]">done_all</span>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-900 mb-0.5">{pipeCompleted}</p>
-                  <p className="text-[9px] font-bold text-green-700 uppercase tracking-wider">Completed</p>
+                  {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeCompleted}</p>}
+                  <p className="text-xs text-slate-500">{t('Selesai')}</p>
                 </div>
               </div>
             </div>
 
             {/* Progress Bar visualization */}
-            <div className="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-100 mt-4">
-              {totalCerts > 0 ? (
+            <div className="w-full h-2 rounded-full overflow-hidden flex gap-0.5 bg-slate-100">
+              {loading ? (
+                <Skeleton className="h-full w-full rounded-full" />
+              ) : totalCerts > 0 ? (
                 <>
-                  <div className="bg-slate-300 h-full" style={{ width: `${(pipePending / totalCerts) * 100}%` }} title={`Pending: ${pipePending}`}></div>
-                  <div className="bg-blue-300 h-full" style={{ width: `${(pipeProcessing / totalCerts) * 100}%` }} title={`Processing: ${pipeProcessing}`}></div>
-                  <div className="bg-slate-900 h-full" style={{ width: `${(pipePrinting / totalCerts) * 100}%` }} title={`Printing: ${pipePrinting}`}></div>
-                  <div className="bg-amber-400 h-full" style={{ width: `${(pipeShipping / totalCerts) * 100}%` }} title={`Shipping: ${pipeShipping}`}></div>
-                  <div className="bg-green-500 h-full" style={{ width: `${(pipeCompleted / totalCerts) * 100}%` }} title={`Completed: ${pipeCompleted}`}></div>
+                  <div className="bg-slate-300 h-full" style={{ width: `${(pipePending / totalCerts) * 100}%` }} title={t('Menunggu: {pipePending}', { pipePending })}></div>
+                  <div className="bg-blue-300 h-full" style={{ width: `${(pipeProcessing / totalCerts) * 100}%` }} title={t('Diproses: {pipeProcessing}', { pipeProcessing })}></div>
+                  <div className="bg-blue-500 h-full" style={{ width: `${(pipePrinting / totalCerts) * 100}%` }} title={t('Dicetak: {pipePrinting}', { pipePrinting })}></div>
+                  <div className="bg-blue-700 h-full" style={{ width: `${(pipeShipping / totalCerts) * 100}%` }} title={t('Pengiriman: {pipeShipping}', { pipeShipping })}></div>
+                  <div className="bg-emerald-500 h-full" style={{ width: `${(pipeCompleted / totalCerts) * 100}%` }} title={t('Selesai: {pipeCompleted}', { pipeCompleted })}></div>
                 </>
               ) : (
-                <div className="bg-green-500 h-full w-full" title="No active certificates"></div>
+                <div className="bg-slate-200 h-full w-full" title={t('Tidak ada sertifikat aktif')}></div>
               )}
             </div>
           </div>
         </div>
 
         {/* Right Column: Monthly Output Trend Bar Chart */}
-        <div className="cms-card flex flex-col gap-4 shadow-sm bg-white min-h-[220px]">
-          <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+        <div className="cms-card flex flex-col gap-4 min-h-[220px]">
+          <div className="flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">Monthly Output Trend</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">Certificates completed per month.</p>
+              <h2 className="font-semibold text-slate-900 text-sm">{t('Tren Output Bulanan')}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{t('Sertifikat selesai per bulan.')}</p>
             </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider font-semibold">4 Months Rollup</span>
+            <span className="text-xs text-slate-500">{t('4 bulan terakhir')}</span>
           </div>
           
           <div className="flex-grow flex items-end justify-between px-6 pt-6 pb-2 h-full relative">
@@ -659,7 +515,9 @@ export default function DashboardPage() {
             <div className="absolute inset-x-0 bottom-2/4 h-px border-t border-dashed border-slate-200"></div>
             <div className="absolute inset-x-0 bottom-3/4 h-px border-t border-dashed border-slate-200"></div>
 
-            {monthlyRecords.map((m, idx) => {
+            {loading ? (
+              <ChartSkeleton bars={4} height="h-full" label={t('Memuat...')} />
+            ) : monthlyRecords.map((m, idx) => {
               const maxVal = Math.max(...monthlyRecords.map(r => r.count), 1);
               const isLast = idx === 3;
               const val = m.count;
@@ -669,20 +527,20 @@ export default function DashboardPage() {
               
               return (
                 <div key={idx} className="flex flex-col items-center gap-1.5 z-10 w-[36px]">
-                  <span className={`text-[9px] font-bold ${isLast ? 'text-blue-700' : 'text-slate-700'}`}>
+                  <span className={`text-xs font-medium tabular-nums ${isLast ? 'text-slate-900' : 'text-slate-500'}`}>
                     {val}
                   </span>
                   <div
                     style={{ height: `${ht}px` }}
-                    className={`w-full transition-all duration-300 rounded-t cursor-pointer ${
+                    className={`w-full transition-colors duration-300 rounded-t-md ${
                       val > 0
                         ? isLast
-                          ? 'bg-blue-600 shadow-md shadow-blue-500/20'
-                          : 'bg-slate-800 hover:bg-slate-900'
+                          ? 'bg-blue-600'
+                          : 'bg-slate-300 hover:bg-slate-400'
                         : 'bg-slate-200 cursor-not-allowed'
                     }`}
                   ></div>
-                  <span className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">{m.name}</span>
+                  <span className="text-xs text-slate-500 mt-0.5">{m.name}</span>
                 </div>
               );
             })}
@@ -697,23 +555,24 @@ export default function DashboardPage() {
         {activeModuleTab === 'leads' ? (
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Urgent Follow-ups */}
-            <div className="cms-card flex flex-col bg-white h-[350px]">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+            <div className="cms-card flex flex-col h-[360px]">
+              <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Antrean Follow-up Mendesak</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Leads jatuh tempo hari ini atau terlewat.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">{t('Antrean Follow-up Mendesak')}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('Leads jatuh tempo hari ini atau terlewat.')}</p>
                 </div>
-                <Link href="/crm/follow-ups" className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold hover:bg-red-100">
-                  Buka Queue
-                </Link>
+                <Link href="/crm/follow-ups" className="shrink-0 text-[13px] font-medium text-blue-600 hover:text-blue-700">
+                  {t('Buka Queue')}</Link>
               </div>
 
               <div className="overflow-y-auto flex-grow table-scroll pr-1">
-                {urgentFollowUps.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                    <span className="material-symbols-outlined text-3xl text-emerald-500">task_alt</span>
-                    <p className="text-xs font-semibold text-slate-700">Semua follow-up beres!</p>
-                    <p className="text-[9px] text-slate-400">Tidak ada lead yang tertunda hari ini.</p>
+                {loading ? (
+                  <ListRowsSkeleton rows={3} withBar={false} />
+                ) : urgentFollowUps.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-emerald-600" aria-hidden="true">task_alt</span>
+                    <p className="text-sm font-medium text-slate-900">{t('Semua follow-up beres!')}</p>
+                    <p className="text-[11px] text-slate-500">{t('Tidak ada lead yang tertunda hari ini.')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -721,17 +580,15 @@ export default function DashboardPage() {
                       const isOverdue = lead.next_follow_up_date < todayIso;
                       const cleanPhone = lead.contact_phone ? lead.contact_phone.replace(/\D/g, '') : '';
                       return (
-                        <div key={lead.id} className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-all flex justify-between items-center gap-3">
+                        <div key={lead.id} className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors flex justify-between items-center gap-3">
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-800 truncate">{lead.contact_name}</p>
-                            <p className="text-[10px] text-slate-500 truncate">{lead.company_name} • {lead.program_name}</p>
+                            <p className="text-[13px] font-medium text-slate-900 truncate">{lead.contact_name}</p>
+                            <p className="text-[11px] text-slate-500 truncate">{lead.company_name} • {lead.program_name}</p>
                             <div className="flex items-center gap-1.5 mt-1">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                                isOverdue ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
-                              }`}>
-                                {isOverdue ? 'Overdue' : 'Hari Ini'}
+                              <span className={`cms-badge ${isOverdue ? 'cms-badge-danger' : 'cms-badge-warning'}`}>
+                                {isOverdue ? t('Terlambat') : t('Hari Ini')}
                               </span>
-                              <span className="text-[9px] text-slate-400 font-semibold">PIC: {lead.pic_staff_name}</span>
+                              <span className="text-[11px] text-slate-500">{t('PIC:')} {lead.pic_staff_name}</span>
                             </div>
                           </div>
                           {cleanPhone && (
@@ -739,8 +596,9 @@ export default function DashboardPage() {
                               href={`https://wa.me/${cleanPhone}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0"
-                              title="Chat WhatsApp"
+                              className="cms-btn-secondary !h-8 !w-8 !p-0 justify-center shrink-0"
+                              title={t('Chat WhatsApp')}
+                              aria-label={t('Chat WhatsApp {contact_name}', { contact_name: lead.contact_name })}
                             >
                               <span className="material-symbols-outlined text-base">chat</span>
                             </Link>
@@ -754,23 +612,24 @@ export default function DashboardPage() {
             </div>
 
             {/* Demand by Program */}
-            <div className="cms-card flex flex-col bg-white h-[350px]">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+            <div className="cms-card flex flex-col h-[360px]">
+              <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Peminat per Program Pelatihan</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Top program dengan akumulasi peminat.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">{t('Peminat per Program Pelatihan')}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('Top program dengan akumulasi peminat.')}</p>
                 </div>
-                <Link href="/crm/waiting-list" className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold hover:bg-blue-100">
-                  Waiting List
-                </Link>
+                <Link href="/crm/waiting-list" className="shrink-0 text-[13px] font-medium text-blue-600 hover:text-blue-700">
+                  {t('Waiting List')}</Link>
               </div>
 
               <div className="overflow-y-auto flex-grow table-scroll pr-1">
-                {demandByProgram.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                    <span className="material-symbols-outlined text-3xl text-slate-300">query_stats</span>
-                    <p className="text-xs font-semibold text-slate-700">Belum ada data peminat</p>
-                    <p className="text-[9px] text-slate-400">Data akan terakumulasi dari leads.</p>
+                {loading ? (
+                  <ListRowsSkeleton rows={4} withBar={true} />
+                ) : demandByProgram.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-slate-400" aria-hidden="true">query_stats</span>
+                    <p className="text-sm font-medium text-slate-900">{t('Belum ada data peminat')}</p>
+                    <p className="text-[11px] text-slate-500">{t('Data akan terakumulasi dari leads.')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3.5">
@@ -780,8 +639,8 @@ export default function DashboardPage() {
                       return (
                         <div key={item.name} className="flex flex-col gap-1.5">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-800 truncate pr-2">{item.name}</span>
-                            <span className="font-bold text-blue-600 shrink-0">{item.seats} Kursi</span>
+                            <span className="font-medium text-slate-900 truncate pr-2">{item.name}</span>
+                            <span className="text-slate-600 tabular-nums shrink-0">{item.seats} {t('kursi')}</span>
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full bg-blue-600 rounded-full transition-all duration-300" style={{ width: `${pct}%` }}></div>
@@ -797,21 +656,22 @@ export default function DashboardPage() {
         ) : (
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Active Batches Progress Tracker */}
-            <div className="cms-card flex flex-col bg-white h-[350px]">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+            <div className="cms-card flex flex-col h-[360px]">
+              <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Active Batches Progress</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Certificates completion rates for active training batches.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">{t('Progres Batch Aktif')}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('Tingkat penyelesaian sertifikat untuk batch training aktif.')}</p>
                 </div>
-                <span className="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">In Progress</span>
-              </div>
+                              </div>
               
               <div className="overflow-y-auto flex-grow table-scroll pr-1">
-                {activeBatches.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
+                {loading ? (
+                  <ListRowsSkeleton rows={4} withBar={true} />
+                ) : activeBatches.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 gap-2 h-full">
                     <span className="material-symbols-outlined text-3xl text-slate-400">inbox</span>
-                    <p className="text-xs font-semibold text-slate-700">No active batches</p>
-                    <p className="text-[9px] text-slate-400">All training batches are currently completed.</p>
+                    <p className="text-sm font-medium text-slate-900">{t('Tidak ada batch aktif')}</p>
+                    <p className="text-[11px] text-slate-500">{t('Semua batch training sudah selesai.')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
@@ -821,21 +681,21 @@ export default function DashboardPage() {
                         <div key={b.id} className="flex flex-col gap-2">
                           <div className="flex justify-between items-center text-left">
                             <div className="min-w-0 flex-grow pr-2">
-                              <Link href={`/trainings/${b.id}`} className="text-xs font-bold text-slate-800 hover:text-blue-600 hover:underline truncate block">
+                              <Link href={`/trainings/${b.id}`} className="text-[13px] font-medium text-slate-900 hover:text-blue-600 truncate block">
                                 {b.program_name} ({b.batch_code})
                               </Link>
-                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">
-                                Method: {b.learning_method} | PIC: {b.pic || 'Not Set'}
+                              <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                                {t('Metode:')} {b.learning_method} {t('| PIC:')} {b.pic || t('Belum Diatur')}
                               </p>
                             </div>
                             <div className="shrink-0 text-right">
-                              <span className={`text-xs font-bold ${isDone ? 'text-green-600' : 'text-slate-700'}`}>{b.percentage}%</span>
-                              <p className="text-[9px] text-slate-400 font-semibold">{b.completedCount}/{b.totalCerts}</p>
+                              <span className={`text-xs font-medium tabular-nums ${isDone ? 'text-emerald-700' : 'text-slate-900'}`}>{b.percentage}%</span>
+                              <p className="text-[11px] text-slate-500">{b.completedCount}/{b.totalCerts}</p>
                             </div>
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-green-500' : 'bg-blue-600'}`}
+                              className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-emerald-500' : 'bg-blue-600'}`}
                               style={{ width: `${b.percentage}%` }}
                             ></div>
                           </div>
@@ -848,21 +708,22 @@ export default function DashboardPage() {
             </div>
 
             {/* Actionable Overdue List */}
-            <div className="cms-card flex flex-col bg-white h-[350px]">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200 mb-4 bg-white">
+            <div className="cms-card flex flex-col h-[360px]">
+              <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Actionable Overdue List</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Certificates breaching standard SLA thresholds.</p>
+                  <h2 className="font-semibold text-slate-900 text-sm">{t('Daftar Keterlambatan yang Perlu Ditindak')}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('Sertifikat yang melewati batas SLA standar.')}</p>
                 </div>
-                <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Immediate Action</span>
-              </div>
+                              </div>
 
               <div className="overflow-y-auto flex-grow table-scroll pr-1">
-                {overdueList.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                    <span className="material-symbols-outlined text-3xl text-green-500">verified</span>
-                    <p className="text-xs font-semibold text-slate-700">All caught up!</p>
-                    <p className="text-[9px] text-slate-400">No overdue certificates in queue.</p>
+                {loading ? (
+                  <ListRowsSkeleton rows={3} withBar={false} />
+                ) : overdueList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 gap-2 h-full">
+                    <span className="material-symbols-outlined text-3xl text-emerald-600" aria-hidden="true">verified</span>
+                    <p className="text-sm font-medium text-slate-900">{t('Semua beres!')}</p>
+                    <p className="text-[11px] text-slate-500">{t('Tidak ada sertifikat terlambat dalam antrean.')}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -870,15 +731,14 @@ export default function DashboardPage() {
                       const name = c.participants?.name || 'Unknown';
                       const program = `${c.trainings?.program_name} ${c.trainings?.batch_code}`;
                       return (
-                        <div key={c.id} className="flex justify-between items-center p-3 rounded-lg border border-red-100 bg-red-50/10 hover:bg-red-50/20 transition-all gap-3">
+                        <div key={c.id} className="flex justify-between items-center p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors gap-3">
                           <div className="text-left min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-800 truncate">{name}</p>
-                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{program}</p>
+                            <p className="text-[13px] font-medium text-slate-900 truncate">{name}</p>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{program}</p>
                             <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-100 px-1.5 py-0.2 rounded uppercase">
-                                {c.sla_age_days}d overdue
-                              </span>
-                              <span className="text-[9px] text-slate-400 font-semibold">{c.certificate_type}</span>
+                              <span className="cms-badge cms-badge-danger">
+                                {t('{days} hari terlambat', { days: c.sla_age_days })}</span>
+                              <span className="text-[11px] text-slate-500">{certTypeLabel(t, c.certificate_type)}</span>
                             </div>
                           </div>
                           <div className="shrink-0">
@@ -893,13 +753,14 @@ export default function DashboardPage() {
                                   console.error('Failed to update certificate status:', err);
                                 }
                               }}
-                              className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              aria-label={t('Ubah status {name}', { name })}
+                              className="cms-select-filter !h-8 !text-xs"
                             >
-                              <option value="Pending">Pending</option>
-                              <option value="Processing">Processing</option>
-                              <option value="Printing">Printing</option>
-                              <option value="Shipping">Shipping</option>
-                              <option value="Completed">Completed</option>
+                              <option value="Pending">{t('Menunggu')}</option>
+                              <option value="Processing">{t('Diproses')}</option>
+                              <option value="Printing">{t('Dicetak')}</option>
+                              <option value="Shipping">{t('Pengiriman')}</option>
+                              <option value="Completed">{t('Selesai')}</option>
                             </select>
                           </div>
                         </div>
@@ -913,30 +774,32 @@ export default function DashboardPage() {
         )}
 
         {/* Row 2 Right Column: Recent Activity */}
-        <div className="cms-card flex flex-col h-[350px] p-0 overflow-hidden bg-white">
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center sticky top-0 z-10">
-            <h3 className="font-bold text-slate-800 text-sm">Recent Activity</h3>
-            <Link className="text-xs font-semibold text-blue-600 hover:underline" href="/history-logs">View All</Link>
+        <div className="cms-card flex flex-col h-[360px] !p-0 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+            <h2 className="font-semibold text-slate-900 text-sm">{t('Aktivitas Terbaru')}</h2>
+            <Link className="text-[13px] font-medium text-blue-600 hover:text-blue-700" href="/history-logs">{t('Lihat semua')}</Link>
           </div>
 
-          <div className="overflow-y-auto p-4 flex-grow table-scroll bg-white">
-            {filteredActivities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center py-12 text-slate-400 gap-2 h-full">
-                <span className="material-symbols-outlined text-3xl">history</span>
-                <p className="text-xs font-semibold text-slate-700">No recent activity</p>
-                <p className="text-[10px] text-slate-400">Actions will be logged here</p>
+          <div className="overflow-y-auto p-5 flex-grow table-scroll">
+            {loading ? (
+                  <ListRowsSkeleton rows={4} withBar={false} />
+                ) : filteredActivities.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 gap-2 h-full">
+                <span className="material-symbols-outlined text-3xl text-slate-400" aria-hidden="true">history</span>
+                <p className="text-sm font-medium text-slate-900">{t('Belum ada aktivitas terbaru')}</p>
+                <p className="text-[11px] text-slate-500">{t('Aktivitas akan dicatat di sini')}</p>
               </div>
             ) : (
               <div className="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-200">
                 {filteredActivities.map((act, index) => (
-                  <div key={index} className="relative pl-8 mb-6 animate-in fade-in slide-in-from-bottom-1 duration-150">
-                    <div className={`absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${act.dotColor} ring-4 ring-white`}></div>
-                    <p className="text-sm text-slate-700">
-                      {act.title}: <span dangerouslySetInnerHTML={{ __html: act.desc }}></span>
+                  <div key={index} className="relative pl-8 mb-5 last:mb-0">
+                    <div className={`absolute left-[8px] top-1.5 w-2 h-2 rounded-full ${act.dotColor} ring-4 ring-card`}></div>
+                    <p className="text-[13px] text-slate-700">
+                      <span className="font-medium text-slate-900">{act.title}</span>: <span>{act.desc}</span>
                     </p>
                     <div className="mt-1.5">{act.badgeHtml}</div>
-                    <span className="text-[10px] text-slate-400 block mt-2 font-semibold uppercase tracking-wider">
-                      {formatRelativeTime(act.time)}
+                    <span className="text-xs text-slate-500 block mt-1.5">
+                      {formatRelTime(act.time)}
                     </span>
                   </div>
                 ))}
@@ -944,6 +807,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </DashboardLayout>
   );

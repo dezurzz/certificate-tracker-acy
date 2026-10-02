@@ -3,11 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import { DB } from '@/lib/db';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { notify } from '@/lib/notify';
+import { useT, useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/context/AuthContext';
+import { isSupabaseEnvConfigured } from '@/lib/supabase/config';
+import { fetchSlaSetting, saveSlaDays, isValidSlaDays, SLA_DEFAULT_DAYS, SLA_MIN_DAYS, SLA_MAX_DAYS, type SlaSetting } from '@/lib/settings';
 
 export default function SystemSettingsPage() {
-  const [sla, setSla] = useState('4');
-  const [buffer, setBuffer] = useState('30');
-  const [template, setTemplate] = useState('Standard Corporate Issue v2.1');
+  const t = useT();
+  const { locale } = useLanguage();
+  const { user } = useAuth();
+  const [sla, setSla] = useState(String(SLA_DEFAULT_DAYS));
+  const [slaInfo, setSlaInfo] = useState<SlaSetting | null>(null);
+  const [saving, setSaving] = useState(false);
   const [dbUrl, setDbUrl] = useState('');
   const [dbKey, setDbKey] = useState('');
 
@@ -31,49 +39,70 @@ export default function SystemSettingsPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setSla(localStorage.getItem('sys_sla') || '4');
-      setBuffer(localStorage.getItem('sys_buffer') || '30');
-      setTemplate(localStorage.getItem('sys_template') || 'Standard Corporate Issue v2.1');
       setDbUrl(localStorage.getItem('supabase_url') || '');
       setDbKey(localStorage.getItem('supabase_key') || '');
     }
+    // SLA comes from the central setting (Supabase), not from this browser
+    fetchSlaSetting().then(info => {
+      setSla(String(info.days));
+      setSlaInfo(info);
+    });
   }, []);
 
-  const handleApplyConfig = (e: React.FormEvent) => {
+  const reportSlaError = (err: unknown) => {
+    const e = err as Error & { tableMissing?: boolean };
+    notify.error(
+      t('Gagal menyimpan SLA'),
+      e.tableMissing ? t('Tabel app_settings belum ada. Jalankan supabase_schema_settings.sql di Supabase.') : e.message
+    );
+  };
+
+  const handleApplyConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sys_sla', sla);
-      localStorage.setItem('sys_buffer', buffer);
-      localStorage.setItem('sys_template', template);
-      localStorage.setItem('supabase_url', dbUrl.trim());
-      localStorage.setItem('supabase_key', dbKey.trim());
-      alert('System configurations applied successfully!');
+    const days = Number(sla);
+    if (!isValidSlaDays(days)) {
+      notify.warning(t('SLA harus bilangan bulat {min} sampai {max} hari', { min: SLA_MIN_DAYS, max: SLA_MAX_DAYS }));
+      return;
+    }
+    // The connection must be saved first: the SLA write goes through it
+    localStorage.setItem('supabase_url', dbUrl.trim());
+    localStorage.setItem('supabase_key', dbKey.trim());
+    setSaving(true);
+    try {
+      const { shared } = await saveSlaDays(days, user?.name || user?.email);
+      setSlaInfo(await fetchSlaSetting());
+      if (shared) notify.success(t('Konfigurasi sistem diterapkan'), t('SLA {days} hari berlaku untuk semua admin.', { days }));
+      else notify.success(t('Konfigurasi sistem diterapkan'), t('Supabase belum terhubung: SLA hanya tersimpan di browser ini.'));
+    } catch (err) {
+      reportSlaError(err);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleResetToDefaults = () => {
     setConfirmConfig({
       isOpen: true,
-      title: 'Reset Configurations',
-      message: 'Reset all configurations to standard values (4 days SLA, 30 days buffer)? This will overwrite active parameters.',
-      confirmLabel: 'Reset Defaults',
+      title: t('Reset Konfigurasi'),
+      message: t('Reset semua konfigurasi ke nilai standar (SLA 4 hari)? Ini akan menimpa parameter aktif.'),
+      confirmLabel: t('Kembalikan ke Default'),
       type: 'warning',
-      onConfirm: () => {
+      onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        setSla('4');
-        setBuffer('30');
-        setTemplate('Standard Corporate Issue v2.1');
+        try {
+          // Reset the shared SLA first, while the Supabase connection still exists
+          await saveSlaDays(SLA_DEFAULT_DAYS, user?.name || user?.email);
+        } catch (err) {
+          reportSlaError(err);
+          return;
+        }
+        setSla(String(SLA_DEFAULT_DAYS));
         setDbUrl('');
         setDbKey('');
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sys_sla', '4');
-          localStorage.setItem('sys_buffer', '30');
-          localStorage.setItem('sys_template', 'Standard Corporate Issue v2.1');
-          localStorage.setItem('supabase_url', '');
-          localStorage.setItem('supabase_key', '');
-        }
-        alert('Configurations reset to system defaults.');
+        localStorage.setItem('supabase_url', '');
+        localStorage.setItem('supabase_key', '');
+        setSlaInfo(await fetchSlaSetting());
+        notify.success(t('Konfigurasi dikembalikan ke default sistem.'));
       }
     });
   };
@@ -84,27 +113,32 @@ export default function SystemSettingsPage() {
 
     try {
       await DB.registerNewUser(provEmail.trim(), provPassword);
-      alert(`Account for ${provEmail} has been registered successfully!`);
+      notify.success(t('Akun untuk {provEmail} berhasil didaftarkan', { provEmail }));
       setProvEmail('');
       setProvPassword('');
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      alert('Failed to register user: ' + err?.message);
+      const e = err as Error & { code?: string };
+      const known: Record<string, string> = {
+        service_role_missing: t('Pembuatan akun belum aktif: isi SUPABASE_SERVICE_ROLE_KEY di environment server.'),
+        email_exists: t('Email ini sudah terdaftar.'),
+        invalid_input: t('Email harus valid dan password minimal 8 karakter.'),
+        forbidden: t('Hanya admin yang boleh membuat akun.'),
+      };
+      notify.error(t('Gagal mendaftarkan pengguna'), (e.code && known[e.code]) || e.message);
     } finally {
       setProvSubmitting(false);
     }
   };
 
   return (
-    <div className="flex-1 cms-card bg-white w-full border border-slate-200 shadow-sm p-6 rounded-xl">
+    <div className="flex-1 cms-card w-full !p-6">
       <section id="system">
         {/* Header */}
         <div className="border-b border-slate-200 pb-4 mb-6">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <span className="material-symbols-outlined text-blue-600 fill">dns</span>
-            System Configuration
-          </h3>
-          <p className="text-xs text-slate-500 mt-1">Configure global Service Level Agreements (SLAs) and processing parameters.</p>
+          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            {t('Konfigurasi Sistem')}</h2>
+          <p className="text-xs text-slate-500 mt-1">{t('Atur Service Level Agreement (SLA) global dan parameter pemrosesan.')}</p>
         </div>
 
         {/* Configuration Form */}
@@ -113,8 +147,8 @@ export default function SystemSettingsPage() {
             {/* SLA setting */}
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 text-left">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-700">Standard Processing SLA (Days)</label>
-                <span className="text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold">Critical Metric</span>
+                <label className="text-xs font-semibold text-slate-700">{t('SLA Pemrosesan Standar (Hari)')}</label>
+                <span className="cms-badge cms-badge-neutral">{t('Metrik Kritis')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <input
@@ -123,92 +157,87 @@ export default function SystemSettingsPage() {
                   onChange={(e) => setSla(e.target.value)}
                   className="cms-input w-24 text-center font-semibold"
                   type="number"
-                  min="1"
+                  min={SLA_MIN_DAYS}
+                  max={SLA_MAX_DAYS}
+                  step={1}
                   required
                 />
-                <span className="text-xs text-slate-500 font-medium">days from completion</span>
+                <span className="text-xs text-slate-500 font-medium">{t('hari sejak selesai')}</span>
               </div>
-              <p className="text-[11px] text-slate-400">Threshold before a certificate request is flagged as delayed.</p>
-            </div>
-
-            {/* Buffer setting */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 text-left">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-700">Certificate Validity Buffer</label>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  id="sys-buffer"
-                  value={buffer}
-                  onChange={(e) => setBuffer(e.target.value)}
-                  className="cms-input w-24 text-center font-semibold"
-                  type="number"
-                  min="1"
-                  required
-                />
-                <span className="text-xs text-slate-500 font-medium">days prior to expiry</span>
-              </div>
-              <p className="text-[11px] text-slate-400">When to start displaying 'Expiring Soon' warnings in dashboards.</p>
-            </div>
-
-            {/* Template setting */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 md:col-span-2 text-left">
-              <label className="text-xs font-bold text-slate-700" htmlFor="sys-template">Default Certificate Template</label>
-              <div className="relative">
-                <select
-                  id="sys-template"
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                  className="cms-input appearance-none pr-10 cursor-pointer text-slate-700"
-                >
-                  <option>Standard Corporate Issue v2.1</option>
-                  <option>Legacy Certificate Format v1.0</option>
-                  <option>External Training Record Template</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
-              </div>
+              <p className="text-[11px] text-slate-500">{t('Batas sebelum permintaan sertifikat ditandai terlambat.')}</p>
+              {slaInfo && (
+                slaInfo.source === 'server' ? (
+                  <p className="flex items-start gap-1.5 text-[11px] text-emerald-700" role="status">
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">cloud_done</span>
+                    <span>
+                      {t('Tersimpan terpusat di Supabase dan berlaku untuk semua admin.')}
+                      {slaInfo.updatedAt && (
+                        <> {t('Terakhir diubah {by} pada {date}.', { by: slaInfo.updatedBy || '-', date: new Date(slaInfo.updatedAt).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) })}</>
+                      )}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="flex items-start gap-1.5 text-[11px] text-amber-700" role="status">
+                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">cloud_off</span>
+                    <span>
+                      {slaInfo.unavailableReason === 'table-missing'
+                        ? t('Hanya tersimpan di browser ini. Jalankan supabase_schema_settings.sql di Supabase agar berlaku untuk semua admin.')
+                        : slaInfo.unavailableReason === 'error'
+                        ? t('Tidak dapat membaca pengaturan dari Supabase. Menampilkan nilai di browser ini.')
+                        : t('Supabase belum terhubung: SLA hanya tersimpan di browser ini.')}
+                    </span>
+                  </p>
+                )
+              )}
             </div>
 
             {/* Supabase setting */}
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-4 md:col-span-2 text-left">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-700">Supabase Connection Settings</label>
-                <span className="text-blue-700 font-semibold bg-blue-100 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold">Database Sync</span>
+                <label className="text-xs font-semibold text-slate-700">{t('Pengaturan Koneksi Supabase')}</label>
+                <span className="cms-badge cms-badge-neutral">{t('Sinkronisasi Database')}</span>
               </div>
+              {isSupabaseEnvConfigured && (
+                <p className="flex items-start gap-1.5 text-[11px] text-blue-700" role="note">
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">lock</span>
+                  <span>{t('Koneksi Supabase diatur di environment server (NEXT_PUBLIC_SUPABASE_URL dan ANON_KEY). Isian di bawah diabaikan.')}</span>
+                </p>
+              )}
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project URL</label>
+                  <label className="text-[13px] font-medium text-slate-700">{t('URL Proyek')}</label>
                   <input
                     id="sys-supabase-url"
+                    disabled={isSupabaseEnvConfigured}
                     value={dbUrl}
                     onChange={(e) => setDbUrl(e.target.value)}
                     className="cms-input font-mono text-xs"
-                    placeholder="https://xxxxxx.supabase.co"
+                    placeholder={t('https://xxxxxx.supabase.co')}
                     type="url"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Anon API Key</label>
+                  <label className="text-[13px] font-medium text-slate-700">{t('Anon API Key')}</label>
                   <input
                     id="sys-supabase-key"
+                    disabled={isSupabaseEnvConfigured}
                     value={dbKey}
                     onChange={(e) => setDbKey(e.target.value)}
                     className="cms-input font-mono text-xs"
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    placeholder={t('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')}
                     type="password"
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Provide your Supabase URL and Anon API key to sync training, attendee, and certificate data in real-time. Leave blank to run locally in localStorage mock database.
-              </p>
+              <p className="text-[11px] text-slate-500">
+                {t('Isi URL Supabase dan Anon API key untuk sinkronisasi data training, peserta, dan sertifikat secara real-time. Kosongkan untuk berjalan lokal dengan data mock di localStorage.')}</p>
             </div>
           </div>
 
           {/* Footer Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <button type="button" onClick={handleResetToDefaults} className="cms-btn-secondary">Reset to Defaults</button>
-            <button type="submit" className="cms-btn-primary">Apply Configuration</button>
+            <button type="button" onClick={handleResetToDefaults} className="cms-btn-secondary">{t('Reset ke Default')}</button>
+            <button type="submit" disabled={saving} className="cms-btn-primary disabled:opacity-50">{saving ? t('Menyimpan...') : t('Terapkan Konfigurasi')}</button>
           </div>
         </form>
       </section>
@@ -216,36 +245,34 @@ export default function SystemSettingsPage() {
       {/* User Provisioning section */}
       <section id="user-provisioning" className="border-t border-slate-200 pt-6 mt-6">
         <div className="pb-4 mb-4 text-left">
-          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <span className="material-symbols-outlined text-blue-600 fill">person_add</span>
-            Add New Staff Account
-          </h3>
+          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            {t('Tambah Akun Staf Baru')}</h2>
           <p className="text-xs text-slate-500 mt-1">
-            Register new administrative or operator accounts. They can login with the default password and change it later.
-          </p>
+            {t('Daftarkan akun administrator atau operator baru. Mereka bisa masuk dengan password default dan mengubahnya nanti.')}</p>
         </div>
 
         <form onSubmit={handleRegisterUser} className="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">User Email Address</label>
+              <label className="text-[13px] font-medium text-slate-700">{t('Alamat Email Pengguna')}</label>
               <input
                 value={provEmail}
                 onChange={(e) => setProvEmail(e.target.value)}
                 className="cms-input text-xs font-semibold"
-                placeholder="operator@bkiacademy.com"
+                placeholder={t('operator@bkiacademy.com')}
                 type="email"
                 required
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Default Password</label>
+              <label className="text-[13px] font-medium text-slate-700">{t('Password Default')}</label>
               <input
                 value={provPassword}
                 onChange={(e) => setProvPassword(e.target.value)}
                 className="cms-input text-xs font-semibold font-mono"
-                placeholder="e.g. BKI12345"
+                placeholder={t('mis. BKI12345')}
                 type="text"
+                minLength={8}
                 required
               />
             </div>
@@ -254,14 +281,12 @@ export default function SystemSettingsPage() {
             <button type="submit" disabled={provSubmitting} className="cms-btn-primary py-2 px-4 text-xs flex items-center gap-1 cursor-pointer">
               {provSubmitting ? (
                 <>
-                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full align-middle mr-1.5"></span>
-                  Registering...
-                </>
+                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-card border-t-transparent rounded-full align-middle mr-1.5"></span>
+                  {t('Mendaftarkan...')}</>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[16px]">person_add</span>
-                  Register User
-                </>
+                  {t('Daftarkan Pengguna')}</>
               )}
             </button>
           </div>

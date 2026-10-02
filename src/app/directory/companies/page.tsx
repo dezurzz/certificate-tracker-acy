@@ -3,8 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Company } from '@/lib/db';
+import Button from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
+import { notify } from '@/lib/notify';
+import Modal from '@/components/Modal';
+import { useT } from '@/i18n/LanguageContext';
+import { CardGridSkeleton } from '@/components/Skeleton';
 
 export default function CompaniesDirectoryPage() {
+  const t = useT();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,7 +53,7 @@ export default function CompaniesDirectoryPage() {
         industry: industry.trim() || undefined,
         address: address.trim() || undefined
       });
-      alert('Perusahaan berhasil disimpan ke direktori master!');
+      notify.success(t('Perusahaan berhasil disimpan ke direktori master'));
       setIsAddModalOpen(false);
       setName('');
       setAlias('');
@@ -54,7 +61,7 @@ export default function CompaniesDirectoryPage() {
       setAddress('');
       loadData();
     } catch (err: any) {
-      alert('Gagal menyimpan: ' + err.message);
+      notify.error(t('Gagal menyimpan'), err.message);
     }
   };
 
@@ -66,68 +73,56 @@ export default function CompaniesDirectoryPage() {
   return (
     <DashboardLayout pageTitle="Direktori Perusahaan Rekanan">
       <div className="space-y-6">
-        {/* Banner */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">corporate_fare</span>
-              Direktori Perusahaan & Klien B2B
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Data master perusahaan rekanan BKI Academy untuk mencegah duplikasi penulisan nama PT.
-            </p>
-          </div>
+        <PageHeader
+          title={t('Perusahaan')}
+          description={t('Data master perusahaan rekanan BKI Academy untuk mencegah duplikasi penulisan nama PT.')}
+          actions={
+            <Button variant="primary" icon="add_business" onClick={() => setIsAddModalOpen(true)}>
+              {t('Tambah Perusahaan')}</Button>
+          }
+        />
 
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-3.5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition"
-          >
-            <span className="material-symbols-outlined text-base">add_business</span>
-            Tambah Perusahaan
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Cari nama perusahaan, alias, atau bidang industri..."
-              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
-            />
-          </div>
+        <div className="relative max-w-md">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={t('Cari nama perusahaan, alias, atau bidang industri...')}
+            aria-label={t('Cari perusahaan')}
+            className="cms-input h-9 !pl-10 !text-[13px]"
+          />
         </div>
 
         {/* Companies Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {loading ? (
-            <div className="col-span-3 bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-              Memuat data perusahaan...
+            <div className="col-span-full">
+              <CardGridSkeleton label={t('Memuat data perusahaan...')} />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="col-span-3 bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-              Tidak ada perusahaan yang cocok.
+            <div className="col-span-full bg-card p-12 text-center text-slate-500 rounded-xl border border-dashed border-slate-300">
+              <span className="material-symbols-outlined mb-2 text-3xl text-slate-400" aria-hidden="true">domain_disabled</span>
+              <p className="text-sm font-medium text-slate-900">{t('Tidak ada perusahaan yang cocok')}</p>
+              <p className="mt-1 text-xs">{t('Ubah kata kunci pencarian atau tambahkan perusahaan baru.')}</p>
             </div>
           ) : (
             filtered.map(comp => (
-              <div key={comp.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition space-y-2">
+              <div key={comp.id} className="cms-card !p-4 space-y-3">
                 <div className="flex items-start justify-between">
-                  <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
-                    <span className="material-symbols-outlined text-xl">business</span>
+                  <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-xl" aria-hidden="true">business</span>
                   </div>
                   {comp.alias && (
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
-                      Alias: {comp.alias}
+                    <span className="cms-badge cms-badge-neutral">
+                      {t('Alias:')} {comp.alias}
                     </span>
                   )}
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm leading-tight">{comp.name}</h3>
-                  <p className="text-[11px] text-blue-600 font-medium mt-0.5">{comp.industry || 'Industri Maritim / Pelayaran'}</p>
+                  <h3 className="font-semibold text-slate-900 text-sm leading-tight">{comp.name}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{comp.industry || t('Industri Maritim / Pelayaran')}</p>
                 </div>
 
                 {comp.address && (
@@ -142,25 +137,14 @@ export default function CompaniesDirectoryPage() {
 
         {/* Modal: Tambah Perusahaan */}
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-600">add_business</span>
-                  Tambah Perusahaan Master
-                </h3>
-                <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleAddCompany} className="p-5 space-y-3.5 text-xs">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nama Perusahaan Resmi *</label>
+          <Modal isOpen={true} onClose={() => setIsAddModalOpen(false)} title={t('Tambah Perusahaan Master')} onSubmit={handleAddCompany} cancelLabel={t('Batal')} submitLabel={t('Simpan Perusahaan')}>
+<div className="space-y-3.5 text-xs">
+<div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Nama Perusahaan Resmi *')}</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: PT Pelayaran Bahtera Samudra"
+                    placeholder={t('Contoh: PT Pelayaran Bahtera Samudra')}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     className="cms-input text-xs"
@@ -168,10 +152,10 @@ export default function CompaniesDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nama Singkatan / Alias</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Nama Singkatan / Alias')}</label>
                   <input
                     type="text"
-                    placeholder="Contoh: Bahtera Line"
+                    placeholder={t('Contoh: Bahtera Line')}
                     value={alias}
                     onChange={e => setAlias(e.target.value)}
                     className="cms-input text-xs"
@@ -179,10 +163,10 @@ export default function CompaniesDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Bidang Industri</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Bidang Industri')}</label>
                   <input
                     type="text"
-                    placeholder="Contoh: Shipping, Port, Oil & Gas"
+                    placeholder={t('Contoh: Shipping, Port, Oil & Gas')}
                     value={industry}
                     onChange={e => setIndustry(e.target.value)}
                     className="cms-input text-xs"
@@ -190,34 +174,17 @@ export default function CompaniesDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Alamat Kantor</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Alamat Kantor')}</label>
                   <textarea
                     rows={2}
-                    placeholder="Alamat kantor..."
+                    placeholder={t('Alamat kantor...')}
                     value={address}
                     onChange={e => setAddress(e.target.value)}
                     className="cms-input text-xs"
                   />
                 </div>
-
-                <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
-                  >
-                    Simpan Perusahaan
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+</div>
+</Modal>
         )}
       </div>
     </DashboardLayout>

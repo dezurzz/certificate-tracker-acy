@@ -3,9 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Contact, Company } from '@/lib/db';
+import Button from '@/components/Button';
+import PageHeader from '@/components/PageHeader';
 import { createWhatsAppUrl } from '@/lib/whatsapp';
+import { notify } from '@/lib/notify';
+import Modal from '@/components/Modal';
+import { useT } from '@/i18n/LanguageContext';
+import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
+
+const CONTACT_SKELETON_COLUMNS: SkeletonColumn[] = [
+  'w-36',
+  'w-44',
+  'w-28',
+  { w: 'w-32', kind: 'twoLine' },
+  { w: '', kind: 'action', align: 'center' },
+];
 
 export default function ContactsDirectoryPage() {
+  const t = useT();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +69,7 @@ export default function ContactsDirectoryPage() {
         company_name: companyName.trim() || 'PRIBADI',
         position: position.trim() || undefined
       });
-      alert('Kontak berhasil disimpan!');
+      notify.success(t('Kontak berhasil disimpan'));
       setIsAddModalOpen(false);
       setName('');
       setPhone('');
@@ -63,7 +78,7 @@ export default function ContactsDirectoryPage() {
       setPosition('');
       loadData();
     } catch (err: any) {
-      alert('Gagal menyimpan: ' + err.message);
+      notify.error(t('Gagal menyimpan'), err.message);
     }
   };
 
@@ -80,80 +95,67 @@ export default function ContactsDirectoryPage() {
   return (
     <DashboardLayout pageTitle="Direktori Kontak Pelanggan">
       <div className="space-y-6">
-        {/* Banner */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">contacts</span>
-              Direktori Kontak & PIC Pelanggan
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Daftar terpusat nomor kontak calon peserta dan perwakilan perusahaan untuk kemudahan komunikasi dan follow-up.
-            </p>
-          </div>
+        <PageHeader
+          title={t('Kontak')}
+          description={t('Daftar terpusat kontak calon peserta dan perwakilan perusahaan untuk komunikasi dan follow-up.')}
+          actions={
+            <Button variant="primary" icon="person_add" onClick={() => setIsAddModalOpen(true)}>
+              {t('Tambah Kontak')}</Button>
+          }
+        />
 
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs px-3.5 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition"
-          >
-            <span className="material-symbols-outlined text-base">person_add</span>
-            Tambah Kontak
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Cari nama kontak, nomor telepon, atau perusahaan..."
-              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
-            />
-          </div>
+        <div className="relative max-w-md">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={t('Cari nama kontak, nomor telepon, atau perusahaan...')}
+            aria-label={t('Cari kontak')}
+            className="cms-input h-9 !pl-10 !text-[13px]"
+          />
         </div>
 
         {/* Contacts Table */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto table-scroll">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="cms-table w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Nama Lengkap</th>
-                  <th className="py-3.5 px-4">Perusahaan / Afiliasi</th>
-                  <th className="py-3.5 px-4">Jabatan</th>
-                  <th className="py-3.5 px-4">Kontak Telepon & Email</th>
-                  <th className="py-3.5 px-4 text-center">Aksi Cepat</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+                  <th className="py-3.5 px-4">{t('Nama Lengkap')}</th>
+                  <th className="py-3.5 px-4">{t('Perusahaan / Afiliasi')}</th>
+                  <th className="py-3.5 px-4">{t('Jabatan')}</th>
+                  <th className="py-3.5 px-4">{t('Kontak Telepon & Email')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('Aksi Cepat')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400">Memuat data kontak...</td>
-                  </tr>
+                  <TableSkeletonRows label={t('Memuat data kontak...')} columns={CONTACT_SKELETON_COLUMNS} />
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-slate-400">Tidak ada kontak yang cocok.</td>
+                    <td colSpan={5} className="py-12 text-center text-slate-500">
+                      <p className="text-sm font-medium text-slate-900">{t('Tidak ada kontak yang cocok')}</p>
+                      <p className="mt-1 text-xs">{t('Ubah kata kunci pencarian atau tambahkan kontak baru.')}</p>
+                    </td>
                   </tr>
                 ) : (
                   filtered.map(cnt => (
-                    <tr key={cnt.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">{cnt.name}</td>
-                      <td className="py-3.5 px-4 text-slate-700">{cnt.company_name || 'PRIBADI'}</td>
+                    <tr key={cnt.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4 font-medium text-slate-900">{cnt.name}</td>
+                      <td className="py-3.5 px-4 text-slate-700">{cnt.company_name || t('PRIBADI')}</td>
                       <td className="py-3.5 px-4 text-slate-500">{cnt.position || '-'}</td>
                       <td className="py-3.5 px-4">
-                        <p className="font-mono text-blue-700 font-semibold">{cnt.phone}</p>
-                        {cnt.email && <p className="text-[11px] text-slate-400">{cnt.email}</p>}
+                        <p className="font-mono text-slate-700">{cnt.phone}</p>
+                        {cnt.email && <p className="text-[11px] text-slate-500">{cnt.email}</p>}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <button
                           onClick={() => handleOpenWA(cnt.phone, cnt.name)}
-                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-2 mx-auto transition"
+                          className="cms-btn-secondary !h-8 !px-3 !text-xs mx-auto"
                         >
                           <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">chat</span>
-                          <span className="leading-none whitespace-nowrap">Chat WhatsApp</span>
+                          <span className="leading-none whitespace-nowrap">{t('Chat WhatsApp')}</span>
                         </button>
                       </td>
                     </tr>
@@ -166,25 +168,14 @@ export default function ContactsDirectoryPage() {
 
         {/* Modal: Tambah Kontak */}
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-600">person_add</span>
-                  Tambah Kontak Baru
-                </h3>
-                <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleAddContact} className="p-5 space-y-3.5 text-xs">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nama Lengkap *</label>
+          <Modal isOpen={true} onClose={() => setIsAddModalOpen(false)} title={t('Tambah Kontak Baru')} onSubmit={handleAddContact} cancelLabel={t('Batal')} submitLabel={t('Simpan Kontak')}>
+<div className="space-y-3.5 text-xs">
+<div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Nama Lengkap *')}</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Rian Prasetya"
+                    placeholder={t('Contoh: Rian Prasetya')}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     className="cms-input text-xs"
@@ -193,7 +184,7 @@ export default function ContactsDirectoryPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">No. WhatsApp / HP *</label>
+                    <label className="block font-semibold text-slate-700 mb-1">{t('No. WhatsApp / HP *')}</label>
                     <input
                       type="tel"
                       required
@@ -204,10 +195,10 @@ export default function ContactsDirectoryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Email</label>
+                    <label className="block font-semibold text-slate-700 mb-1">{t('Email')}</label>
                     <input
                       type="email"
-                      placeholder="rian@company.com"
+                      placeholder={t('rian@company.com')}
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       className="cms-input text-xs"
@@ -216,11 +207,11 @@ export default function ContactsDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Perusahaan / Instansi</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Perusahaan / Instansi')}</label>
                   <input
                     type="text"
                     list="companySuggestions"
-                    placeholder="Pilih atau ketik nama perusahaan..."
+                    placeholder={t('Pilih atau ketik nama perusahaan...')}
                     value={companyName}
                     onChange={e => setCompanyName(e.target.value)}
                     className="cms-input text-xs"
@@ -233,34 +224,17 @@ export default function ContactsDirectoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Jabatan / Posisi</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t('Jabatan / Posisi')}</label>
                   <input
                     type="text"
-                    placeholder="Contoh: HR Manager / Crewing Staff"
+                    placeholder={t('Contoh: HR Manager / Crewing Staff')}
                     value={position}
                     onChange={e => setPosition(e.target.value)}
                     className="cms-input text-xs"
                   />
                 </div>
-
-                <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
-                  >
-                    Simpan Kontak
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+</div>
+</Modal>
         )}
       </div>
     </DashboardLayout>

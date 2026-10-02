@@ -3,7 +3,7 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'warning';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   iconRight?: React.ReactNode;
@@ -22,15 +22,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
   ...props
 }, ref) => {
   // Base classes that guarantee clean alignment, no overlapping, and smooth transitions
-  const baseClasses = 'inline-flex items-center justify-center font-medium transition-all select-none cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClasses = 'inline-flex items-center justify-center font-medium transition-colors select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
   // Variant styling matching BKI Academy design system
   const variantClasses = {
     primary: 'cms-btn-primary',
     secondary: 'cms-btn-secondary',
     danger: 'cms-btn-danger',
-    success: 'bg-emerald-600 hover:bg-emerald-700 text-white border border-transparent shadow-xs active:scale-[0.98]',
-    ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 active:scale-[0.98]',
+    success: 'bg-emerald-700 hover:bg-emerald-800 text-white border border-transparent shadow-xs active:scale-[0.98]',
+    warning: 'bg-amber-700 hover:bg-amber-800 text-white border border-transparent shadow-xs active:scale-[0.98]',
+    ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 hover:text-slate-900 active:scale-[0.98]',
   }[variant];
 
   // Size variations
@@ -38,7 +39,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     xs: '!h-7 !px-2.5 !py-1 !text-[11px] !gap-1.5 !rounded-md',
     sm: '!h-8 !px-3 !py-1.5 !text-xs !gap-2 !rounded-lg',
     md: '!h-10 !px-4 !py-2 !text-sm !gap-2 !rounded-lg',
-    lg: '!h-11 !px-5 !py-2.5 !text-base !gap-2.5 !rounded-xl',
+    lg: '!h-11 !px-5 !py-2.5 !text-base !gap-2.5 !rounded-lg',
   }[size];
 
   // Render icon helper
@@ -47,7 +48,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({
     if (typeof iconNode === 'string') {
       const iconSizeClass = size === 'xs' ? 'text-[14px]' : size === 'sm' ? 'text-[16px]' : size === 'lg' ? 'text-[20px]' : 'text-[18px]';
       return (
-        <span className={`material-symbols-outlined ${iconSizeClass} shrink-0 leading-none ${isRight ? '-mr-0.5' : '-ml-0.5'}`}>
+        <span aria-hidden="true" className={`material-symbols-outlined ${iconSizeClass} shrink-0 leading-none ${isRight ? '-mr-0.5' : '-ml-0.5'}`}>
           {iconNode}
         </span>
       );

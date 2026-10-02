@@ -5,9 +5,16 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, LeadActivity } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import Modal from '@/components/Modal';
+import PageHeader from '@/components/PageHeader';
+import Tabs from '@/components/Tabs';
 import { useAuth } from '@/context/AuthContext';
+import { notify } from '@/lib/notify';
+import { useT } from '@/i18n/LanguageContext';
+import { CardListSkeleton } from '@/components/Skeleton';
 
 export default function FollowUpsPage() {
+  const t = useT();
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,14 +90,14 @@ export default function FollowUpsPage() {
       await DB.insertLeadActivity({
         lead_id: lead.id,
         action_type: 'follow_up',
-        note: `Target follow-up digeser ke besok (${tomorrowStr}).`,
+        note: t('Target follow-up digeser ke besok ({tomorrowStr}).', { tomorrowStr }),
         actor: user?.name || 'System Admin',
         previous_status: lead.status,
         new_status: lead.status
       });
       loadData();
     } catch (e: any) {
-      alert('Error: ' + e.message);
+      notify.error(t('Terjadi kesalahan'), e.message);
     }
   };
 
@@ -121,11 +128,11 @@ export default function FollowUpsPage() {
         new_status: selectedLead.status
       });
 
-      alert('Follow-up berhasil dicatat!');
+      notify.success(t('Follow-up berhasil dicatat'));
       setIsFollowUpModalOpen(false);
       loadData();
     } catch (e: any) {
-      alert('Error: ' + e.message);
+      notify.error(t('Terjadi kesalahan'), e.message);
     }
   };
 
@@ -143,100 +150,49 @@ export default function FollowUpsPage() {
   return (
     <DashboardLayout pageTitle="Tugas & Antrean Follow-up Harian">
       <div className="space-y-6">
-        {/* Banner Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">notification_important</span>
-              Antrean Pekerjaan Follow-up Staf
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Fokus pada tugas yang jatuh tempo hari ini dan yang terlambat agar tidak ada calon peserta yang terlewatkan.
-            </p>
-          </div>
+        <PageHeader
+          title={t('Tugas Follow-up')}
+          description={t('Fokus pada tugas yang jatuh tempo hari ini dan yang terlambat agar tidak ada calon peserta yang terlewatkan.')}
+          actions={
+            <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
+              <span className="material-symbols-outlined text-[18px] text-slate-400" aria-hidden="true">today</span>
+              {t('Hari ini')} <span className="font-medium text-slate-900 tabular-nums">{todayStr}</span>
+            </span>
+          }
+        />
 
-          <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 font-mono">
-            <span className="material-symbols-outlined text-base text-blue-600">today</span>
-            Hari Ini: <b>{todayStr}</b>
-          </div>
-        </div>
+        <Tabs
+          value={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { id: 'overdue', label: t('Terlambat'), icon: 'warning', count: overdueList.length, countTone: 'danger' },
+            { id: 'today', label: t('Jatuh tempo hari ini'), icon: 'calendar_today', count: todayList.length, countTone: 'warning' },
+            { id: 'link_sent', label: t('Link terkirim, belum terdaftar'), icon: 'link', count: linkSentList.length },
+            { id: 'all', label: t('Semua tugas terbuka'), icon: 'list', count: leads.length },
+          ]}
+        />
 
-        {/* Tab Badges */}
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            onClick={() => setActiveTab('overdue')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-              activeTab === 'overdue'
-                ? 'bg-red-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">warning</span>
-            Terlambat / Overdue ({overdueList.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-              activeTab === 'today'
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">calendar_today</span>
-            Jatuh Tempo Hari Ini ({todayList.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('link_sent')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-              activeTab === 'link_sent'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">link</span>
-            Link Terkirim Belum Terdaftar ({linkSentList.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-              activeTab === 'all'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">list</span>
-            Semua Tugas Terbuka ({leads.length})
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-          <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Cari kontak atau perusahaan pada antrean ini..."
-              className="w-full h-9 !pl-10 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/15 transition-all text-slate-800"
-            />
-          </div>
+        <div className="relative max-w-md">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder={t('Cari kontak atau perusahaan pada antrean ini...')}
+            aria-label={t('Cari antrean follow-up')}
+            className="cms-input h-9 !pl-10 !text-[13px]"
+          />
         </div>
 
         {/* Task Cards / Table */}
         <div className="space-y-3">
           {loading ? (
-            <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-              Memuat antrean tugas...
-            </div>
+            <CardListSkeleton label={t('Memuat antrean tugas...')} />
           ) : filtered.length === 0 ? (
-            <div className="bg-white p-12 text-center text-slate-400 rounded-xl border border-slate-200">
-              <span className="material-symbols-outlined text-4xl text-emerald-500 mb-1">task_alt</span>
-              <p className="font-bold text-slate-700 text-sm">Bagus! Tidak ada antrean tugas pada kategori ini.</p>
-              <p className="text-xs text-slate-400 mt-1">Seluruh tindak lanjut calon peserta telah tertangani dengan baik.</p>
+            <div className="bg-card p-12 text-center text-slate-500 rounded-xl border border-slate-200">
+              <span className="material-symbols-outlined text-4xl text-emerald-600 mb-2" aria-hidden="true">task_alt</span>
+              <p className="font-semibold text-slate-900 text-sm">{t('Bagus! Tidak ada antrean tugas pada kategori ini.')}</p>
+              <p className="text-xs text-slate-500 mt-1">{t('Seluruh tindak lanjut calon peserta telah tertangani dengan baik.')}</p>
             </div>
           ) : (
             filtered.map(lead => {
@@ -246,36 +202,27 @@ export default function FollowUpsPage() {
               return (
                 <div
                   key={lead.id}
-                  className={`bg-white border rounded-xl p-4 shadow-sm transition hover:shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
-                    isOverdueTask
-                      ? 'border-l-4 border-l-red-500 border-slate-200'
-                      : isTodayTask
-                      ? 'border-l-4 border-l-amber-500 border-slate-200'
-                      : 'border-slate-200'
-                  }`}
+                  className="bg-card border border-slate-200 rounded-xl p-4 shadow-[0_1px_2px_rgb(15_23_42/0.04)] transition-colors hover:border-slate-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
                 >
                   {/* Left Info */}
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900 text-sm">{lead.contact_name}</span>
+                      <span className="font-semibold text-slate-900 text-sm">{lead.contact_name}</span>
                       <span className="text-[11px] text-slate-500 font-medium">({lead.company_name})</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="cms-badge cms-badge-neutral">
                         {lead.status}
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                      <span className="font-medium text-blue-700">{lead.program_name}</span>
-                      <span>•</span>
-                      <span>Kebutuhan: <b>{lead.estimated_seats} Pax</b></span>
-                      <span>•</span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <span className="font-medium text-slate-900">{lead.program_name}</span>
+                      <span>{t('Kebutuhan:')} <b>{lead.estimated_seats} {t('Pax')}</b></span>
                       <span className="font-mono text-slate-500">{lead.contact_phone}</span>
-                      <span>•</span>
-                      <span>PIC: <b>{lead.pic_staff_name}</b></span>
+                      <span>{t('PIC:')} <b>{lead.pic_staff_name}</b></span>
                     </div>
 
                     {lead.notes && (
-                      <p className="text-[11px] text-slate-500 italic mt-1 bg-slate-50 p-2 rounded border border-slate-100">
+                      <p className="text-xs text-slate-500 italic mt-1">
                         "{lead.notes}"
                       </p>
                     )}
@@ -284,8 +231,8 @@ export default function FollowUpsPage() {
                   {/* Right Actions */}
                   <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
                     <div className="text-right mr-2 hidden md:block">
-                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Jatuh Tempo</span>
-                      <p className={`font-bold text-xs ${isOverdueTask ? 'text-red-600' : isTodayTask ? 'text-amber-600' : 'text-slate-800'}`}>
+                      <span className="text-[11px] text-slate-500 font-semibold">{t('Jatuh Tempo')}</span>
+                      <p className={`font-semibold text-xs tabular-nums ${isOverdueTask ? 'text-red-700' : isTodayTask ? 'text-amber-700' : 'text-slate-900'}`}>
                         {lead.next_follow_up_date}
                       </p>
                     </div>
@@ -293,30 +240,30 @@ export default function FollowUpsPage() {
                     {/* WhatsApp */}
                     <button
                       onClick={() => handleOpenWA(lead)}
-                      title="Hubungi via WhatsApp"
-                      className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
+                      title={t('Hubungi via WhatsApp')}
+                      className="cms-btn-secondary !h-8 !px-3 !text-xs"
                     >
                       <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">chat</span>
-                      <span className="leading-none whitespace-nowrap">WA Pengingat</span>
+                      <span className="leading-none whitespace-nowrap">{t('WA Pengingat')}</span>
                     </button>
 
                     {/* Quick Postpone to Tomorrow */}
                     <button
                       onClick={() => handlePostponeTomorrow(lead)}
-                      title="Tunda follow-up ke besok"
-                      className="px-3.5 py-2 bg-slate-50 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
+                      title={t('Tunda follow-up ke besok')}
+                      className="cms-btn-secondary !h-8 !px-3 !text-xs"
                     >
                       <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">snooze</span>
-                      <span className="leading-none whitespace-nowrap">Besok</span>
+                      <span className="leading-none whitespace-nowrap">{t('Besok')}</span>
                     </button>
 
                     {/* Record Follow-up */}
                     <button
                       onClick={() => openFollowUpModal(lead)}
-                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition shadow-xs"
+                      className="cms-btn-primary !h-8 !px-3 !text-xs"
                     >
                       <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">check</span>
-                      <span className="leading-none whitespace-nowrap">Selesai Follow-up</span>
+                      <span className="leading-none whitespace-nowrap">{t('Selesai Follow-up')}</span>
                     </button>
                   </div>
                 </div>
@@ -327,32 +274,21 @@ export default function FollowUpsPage() {
 
         {/* Modal: Catat Hasil Follow-up */}
         {isFollowUpModalOpen && selectedLead && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-blue-600">event_repeat</span>
-                  Catat Hasil Follow-up
-                </h3>
-                <button onClick={() => setIsFollowUpModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleRecordSubmit} className="p-5 space-y-3.5 text-xs">
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <Modal isOpen={true} onClose={() => setIsFollowUpModalOpen(false)} title={t('Catat Hasil Follow-up')} icon="event_repeat" onSubmit={handleRecordSubmit} cancelLabel={t('Batal')} submitLabel={t('Simpan & Jadwalkan')}>
+<div className="space-y-3.5 text-xs">
+<div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                   <p className="font-semibold text-slate-800">{selectedLead.contact_name} ({selectedLead.company_name})</p>
                   <p className="text-slate-500 text-[11px]">{selectedLead.program_name}</p>
                 </div>
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Catatan Respon Calon Peserta / PIC <span className="text-red-500 font-semibold">*</span>
+                    {t('Catatan Respon Calon Peserta / PIC')} <span className="text-red-500 font-semibold">*</span>
                   </label>
                   <textarea
                     rows={3}
                     required
-                    placeholder="Contoh: Sudah ditelepon/chat WA, PIC mengonfirmasi akan mengirimkan form pendaftaran siang ini..."
+                    placeholder={t('Contoh: Sudah ditelepon/chat WA, PIC mengonfirmasi akan mengirimkan form pendaftaran siang ini...')}
                     value={actionNote}
                     onChange={e => setActionNote(e.target.value)}
                     className="cms-input text-xs"
@@ -361,7 +297,7 @@ export default function FollowUpsPage() {
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Jadwal Follow-up / Pengecekan Berikutnya <span className="text-red-500 font-semibold">*</span>
+                    {t('Jadwal Follow-up / Pengecekan Berikutnya')} <span className="text-red-500 font-semibold">*</span>
                   </label>
                   <input
                     type="date"
@@ -371,25 +307,8 @@ export default function FollowUpsPage() {
                     className="cms-input text-xs"
                   />
                 </div>
-
-                <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsFollowUpModalOpen(false)}
-                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="cms-btn-primary bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-xs"
-                  >
-                    Simpan & Jadwalkan
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+</div>
+</Modal>
         )}
 
         {/* Global Confirmation Modal */}
