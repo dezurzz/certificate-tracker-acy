@@ -9,7 +9,11 @@ import { createWhatsAppUrl } from '@/lib/whatsapp';
 import { notify } from '@/lib/notify';
 import Modal from '@/components/Modal';
 import { useT } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc } from '@/lib/sort';
 import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 const CONTACT_SKELETON_COLUMNS: SkeletonColumn[] = [
   'w-36',
@@ -25,6 +29,9 @@ export default function ContactsDirectoryPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'name_asc' | 'name_desc' | 'company_asc' | 'newest' | 'oldest'>('name_asc');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Form
@@ -33,6 +40,28 @@ export default function ContactsDirectoryPage() {
   const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [position, setPosition] = useState('');
+
+  const [syncing, setSyncing] = useState(false);
+  const handleSyncFromLeads = async () => {
+    setSyncing(true);
+    try {
+      const r = await DB.syncLeadsToDirectory();
+      if (r.failed > 0) {
+        notify.warning(t('Sinkronisasi selesai dengan {failed} kegagalan.', { failed: r.failed }));
+      } else if (r.leadsLinked === 0 && r.newCompanies === 0 && r.newContacts === 0) {
+        notify.info(t('Semua lead sudah tersinkron.'));
+      } else {
+        notify.success(
+          t('Sinkronisasi selesai.'),
+          t('{contacts} kontak dan {companies} perusahaan baru, {leads} lead terhubung.', { contacts: r.newContacts, companies: r.newCompanies, leads: r.leadsLinked })
+        );
+      }
+    } catch (e) {
+      notify.error(t('Gagal sinkronisasi'), getErrorMessage(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -77,15 +106,29 @@ export default function ContactsDirectoryPage() {
       setCompanyName('');
       setPosition('');
       loadData();
-    } catch (err: any) {
-      notify.error(t('Gagal menyimpan'), err.message);
+    } catch (err) {
+      notify.error(t('Gagal menyimpan'), getErrorMessage(err));
     }
   };
 
   const filtered = contacts.filter(c => {
     const text = `${c.name} ${c.company_name || ''} ${c.phone} ${c.position || ''}`.toLowerCase();
-    return !searchTerm || text.includes(searchTerm.toLowerCase());
+    if (searchTerm && !text.includes(searchTerm.toLowerCase())) return false;
+    if (companyFilter && (c.company_name || '') !== companyFilter) return false;
+    if (positionFilter && (c.position || '') !== positionFilter) return false;
+    return true;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'name_desc': return cmpText(b.name, a.name);
+      case 'company_asc': return cmpText(a.company_name, b.company_name) || cmpText(a.name, b.name);
+      case 'newest': return cmpDateDesc(a.created_at, b.created_at);
+      case 'oldest': return cmpDate(a.created_at, b.created_at);
+      default: return cmpText(a.name, b.name);
+    }
   });
+
+  const companyOptions = Array.from(new Set(contacts.map(c => (c.company_name || '').trim()).filter(Boolean))).sort(cmpText);
+  const positionOptions = Array.from(new Set(contacts.map(c => (c.position || '').trim()).filter(Boolean))).sort(cmpText);
 
   const handleOpenWA = (phoneStr: string, nameStr: string) => {
     const url = createWhatsAppUrl(phoneStr, `Halo Bpk/Ibu ${nameStr},\n\nSalam dari Tim BKI Academy.`);
@@ -99,22 +142,43 @@ export default function ContactsDirectoryPage() {
           title={t('Kontak')}
           description={t('Daftar terpusat kontak calon peserta dan perwakilan perusahaan untuk komunikasi dan follow-up.')}
           actions={
-            <Button variant="primary" icon="person_add" onClick={() => setIsAddModalOpen(true)}>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads}>
+                {t('Sinkronkan dari Leads')}</Button>
+              <Button variant="primary" icon="person_add" onClick={() => setIsAddModalOpen(true)}>
               {t('Tambah Kontak')}</Button>
+            </div>
           }
         />
 
-        <div className="relative max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder={t('Cari nama kontak, nomor telepon, atau perusahaan...')}
-            aria-label={t('Cari kontak')}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-          />
-        </div>
+        <FilterBar
+          summary={t('Menampilkan {shown} dari {total} kontak', { shown: filtered.length, total: contacts.length })}
+          hasActive={Boolean(searchTerm || companyFilter || positionFilter)}
+          onReset={() => { setSearchTerm(''); setCompanyFilter(''); setPositionFilter(''); }}
+          sort={
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'name_asc', label: t('Nama A–Z') },
+                { value: 'name_desc', label: t('Nama Z–A') },
+                { value: 'company_asc', label: t('Perusahaan A–Z') },
+                { value: 'newest', label: t('Terbaru ditambahkan') },
+                { value: 'oldest', label: t('Terlama ditambahkan') },
+              ]}
+            />
+          }
+        >
+          <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari nama kontak, nomor telepon, atau perusahaan...')} label={t('Cari kontak')} />
+          <FilterSelect value={companyFilter} onChange={setCompanyFilter} label={t('Filter berdasarkan perusahaan')}>
+            <option value="">{t('Semua Perusahaan')}</option>
+            {companyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+          </FilterSelect>
+          <FilterSelect value={positionFilter} onChange={setPositionFilter} label={t('Filter berdasarkan jabatan')}>
+            <option value="">{t('Semua Jabatan')}</option>
+            {positionOptions.map(v => <option key={v} value={v}>{v}</option>)}
+          </FilterSelect>
+        </FilterBar>
 
         {/* Contacts Table */}
         <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -175,7 +239,7 @@ export default function ContactsDirectoryPage() {
                   <input
                     type="text"
                     required
-                    placeholder={t('Contoh: Rian Prasetya')}
+                    placeholder={t('Contoh: Ahmad Shafwan')}
                     value={name}
                     onChange={e => setName(e.target.value)}
                     className="cms-input text-xs"
@@ -198,7 +262,7 @@ export default function ContactsDirectoryPage() {
                     <label className="block font-semibold text-slate-700 mb-1">{t('Email')}</label>
                     <input
                       type="email"
-                      placeholder={t('rian@company.com')}
+                      placeholder={t('ahmad.shafwan@company.com')}
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       className="cms-input text-xs"

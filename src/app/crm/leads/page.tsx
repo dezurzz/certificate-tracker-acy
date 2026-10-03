@@ -7,14 +7,18 @@ import DropdownButton from '@/components/DropdownButton';
 import ActionMenu from '@/components/ActionMenu';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
-import { DB, Lead, LeadStatus, LeadSource, WaitingReason, TrainingProgram, Training, LeadActivity, BKI_TRAINING_PROGRAMS } from '@/lib/db';
+import { DB, Lead, LeadStatus, LeadSource, WaitingReason, Training, LeadActivity, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import { useAuth } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect, FilterDateRange } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
 import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 const LEAD_SKELETON_COLUMNS: SkeletonColumn[] = [
   'w-4',
@@ -26,6 +30,10 @@ const LEAD_SKELETON_COLUMNS: SkeletonColumn[] = [
   { w: '', kind: 'action' },
 ];
 
+type LeadSortKey = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'company_asc' | 'followup_asc' | 'seats_desc' | 'updated';
+
+const LEAD_SOURCES: LeadSource[] = ['WA Bisnis', 'WA Pribadi', 'Website', 'Referral', 'Event', 'Lainnya'];
+
 export default function LeadsPage() {
   const t = useT();
   const { locale } = useLanguage();
@@ -33,7 +41,6 @@ export default function LeadsPage() {
 
   // Data states
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,6 +49,10 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [picFilter, setPicFilter] = useState('');
   const [programFilter, setProgramFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [sortKey, setSortKey] = useState<LeadSortKey>('newest');
   const [onlyOverdue, setOnlyOverdue] = useState(false);
 
   // Modal states
@@ -103,13 +114,11 @@ export default function LeadsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [leadList, progList, trainList] = await Promise.all([
+      const [leadList, trainList] = await Promise.all([
         DB.getLeads(),
-        DB.getTrainingPrograms(),
         DB.getTrainings()
       ]);
       setLeads(leadList);
-      setPrograms(progList);
       setTrainings(trainList);
 
       // If drawer is currently open on a lead, refresh it
@@ -179,7 +188,22 @@ export default function LeadsPage() {
     if (picFilter && l.pic_staff_name !== picFilter) return false;
     if (programFilter && l.program_name !== programFilter) return false;
     if (onlyOverdue && (!isOverdue(l.next_follow_up_date) || l.status === 'Selesai Training' || l.status === 'Batal')) return false;
+    if (sourceFilter && l.source !== sourceFilter) return false;
+    const created = (l.created_at || '').slice(0, 10);
+    if (createdFrom && (!created || created < createdFrom)) return false;
+    if (createdTo && (!created || created > createdTo)) return false;
     return true;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'oldest': return cmpDate(a.created_at, b.created_at);
+      case 'name_asc': return cmpText(a.contact_name, b.contact_name);
+      case 'name_desc': return cmpText(b.contact_name, a.contact_name);
+      case 'company_asc': return cmpText(a.company_name, b.company_name);
+      case 'followup_asc': return cmpDate(a.next_follow_up_date, b.next_follow_up_date);
+      case 'seats_desc': return cmpNumberDesc(a.estimated_seats, b.estimated_seats);
+      case 'updated': return cmpDateDesc(a.updated_at, b.updated_at);
+      default: return cmpDateDesc(a.created_at, b.created_at);
+    }
   });
 
   // Unique PICs for filter
@@ -324,8 +348,8 @@ export default function LeadsPage() {
       setNewEstimatedSeats(1);
       setNewNotes('');
       loadData();
-    } catch (err: any) {
-      notify.error(t('Gagal menambahkan lead'), err.message);
+    } catch (err) {
+      notify.error(t('Gagal menambahkan lead'), getErrorMessage(err));
     }
   };
 
@@ -347,8 +371,8 @@ export default function LeadsPage() {
             actor: user?.name || 'System Admin'
           });
           loadData();
-        } catch (e: any) {
-          notify.error(t('Terjadi kesalahan'), e.message);
+        } catch (e) {
+          notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
         }
       }
     });
@@ -381,8 +405,8 @@ export default function LeadsPage() {
       setIsRegisterModalOpen(false);
       setActionNote('');
       loadData();
-    } catch (e: any) {
-      notify.error(t('Gagal konfirmasi'), e.message);
+    } catch (e) {
+      notify.error(t('Gagal konfirmasi'), getErrorMessage(e));
     }
   };
 
@@ -408,8 +432,8 @@ export default function LeadsPage() {
       setIsRescheduleModalOpen(false);
       setActionNote('');
       loadData();
-    } catch (e: any) {
-      notify.error(t('Gagal reschedule'), e.message);
+    } catch (e) {
+      notify.error(t('Gagal reschedule'), getErrorMessage(e));
     }
   };
 
@@ -442,8 +466,8 @@ export default function LeadsPage() {
       notify.success(t('Aktivitas follow-up tersimpan'));
       setIsFollowUpModalOpen(false);
       loadData();
-    } catch (e: any) {
-      notify.error(t('Terjadi kesalahan'), e.message);
+    } catch (e) {
+      notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
     }
   };
 
@@ -462,8 +486,8 @@ export default function LeadsPage() {
             actor: user?.name || 'System Admin'
           });
           loadData();
-        } catch (e: any) {
-          notify.error(t('Terjadi kesalahan'), e.message);
+        } catch (e) {
+          notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
         }
       }
     });
@@ -487,8 +511,8 @@ export default function LeadsPage() {
       notify.success(t('Peluang ditandai Batal.'));
       setIsCancelModalOpen(false);
       loadData();
-    } catch (e: any) {
-      notify.error(t('Terjadi kesalahan'), e.message);
+    } catch (e) {
+      notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
     }
   };
 
@@ -506,8 +530,8 @@ export default function LeadsPage() {
           notify.success(t('Lead berhasil dihapus.'));
           setIsDetailDrawerOpen(false);
           loadData();
-        } catch (e: any) {
-          notify.error(t('Terjadi kesalahan'), e.message);
+        } catch (e) {
+          notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
         }
       }
     });
@@ -566,27 +590,39 @@ export default function LeadsPage() {
           />
         </div>
 
-        {/* Filters with Search Integrated */}
-        <div className="bg-card border border-slate-200 rounded-xl p-4 shadow-sm flex gap-3 items-center flex-wrap">
-
-          {/* Search bar */}
-          <div className="relative w-full md:w-64">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder={t('Cari kontak, PT, WA, program...')}
-              className="cms-input h-9 !pl-10 !text-[13px]"
+        {/* Filters, search and sorting */}
+        <FilterBar
+          summary={t('Menampilkan {shown} dari {total} lead', { shown: filteredLeads.length, total: leads.length })}
+          hasActive={Boolean(searchTerm || statusFilter || picFilter || programFilter || sourceFilter || createdFrom || createdTo || onlyOverdue)}
+          onReset={() => {
+            setSearchTerm('');
+            setStatusFilter('');
+            setPicFilter('');
+            setProgramFilter('');
+            setSourceFilter('');
+            setCreatedFrom('');
+            setCreatedTo('');
+            setOnlyOverdue(false);
+          }}
+          sort={
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'newest', label: t('Terbaru masuk') },
+                { value: 'oldest', label: t('Terlama masuk') },
+                { value: 'updated', label: t('Terakhir diperbarui') },
+                { value: 'name_asc', label: t('Nama kontak A–Z') },
+                { value: 'name_desc', label: t('Nama kontak Z–A') },
+                { value: 'company_asc', label: t('Perusahaan A–Z') },
+                { value: 'followup_asc', label: t('Follow-up terdekat') },
+                { value: 'seats_desc', label: t('Estimasi kursi terbanyak') },
+              ]}
             />
-          </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="cms-select-filter min-w-[130px]"
-          >
+          }
+        >
+          <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari kontak, PT, WA, program...')} />
+          <FilterSelect value={statusFilter} onChange={setStatusFilter} label={t('Filter berdasarkan status')}>
             <option value="">{t('Semua Status')}</option>
             <option value="Baru">{t('Baru')}</option>
             <option value="Waiting List">{t('Waiting List')}</option>
@@ -595,63 +631,38 @@ export default function LeadsPage() {
             <option value="Terdaftar">{t('Terdaftar')}</option>
             <option value="Selesai Training">{t('Selesai')}</option>
             <option value="Batal">{t('Batal')}</option>
-          </select>
-
-          {/* PIC Filter */}
-          <select
-            value={picFilter}
-            onChange={e => setPicFilter(e.target.value)}
-            className="cms-select-filter min-w-[130px]"
-          >
+          </FilterSelect>
+          <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
             <option value="">{t('Semua PIC')}</option>
             {uniquePics.map(pic => (
               <option key={pic} value={pic}>{pic}</option>
             ))}
-          </select>
-
-          {/* Program Filter */}
-          <select
-            value={programFilter}
-            onChange={e => setProgramFilter(e.target.value)}
-            className="cms-select-filter max-w-[240px] truncate"
-          >
+          </FilterSelect>
+          <FilterSelect value={programFilter} onChange={setProgramFilter} label={t('Filter berdasarkan program')}>
             <option value="">{t('Semua Program Training')}</option>
             {BKI_TRAINING_PROGRAMS.map(progName => (
               <option key={progName} value={progName}>{progName}</option>
             ))}
-          </select>
-
-          {/* Overdue Quick Toggle */}
-          <button
-            type="button"
-            onClick={() => setOnlyOverdue(!onlyOverdue)}
-            className={`h-9 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
-              onlyOverdue
-                ? 'bg-red-50 text-red-700 border-red-200'
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[16px]">warning</span>
-            {t('Terlambat')}</button>
-
-          {(searchTerm || statusFilter || picFilter || programFilter || onlyOverdue) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('');
-                setPicFilter('');
-                setProgramFilter('');
-                setOnlyOverdue(false);
-              }}
-              className="ml-auto text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-            >
-              {t('Reset Filter')}</button>
-          )}
-        </div>
+          </FilterSelect>
+          <FilterSelect value={sourceFilter} onChange={setSourceFilter} label={t('Filter berdasarkan sumber lead')}>
+            <option value="">{t('Semua Sumber')}</option>
+            {LEAD_SOURCES.map(src => (
+              <option key={src} value={src}>{t(src)}</option>
+            ))}
+          </FilterSelect>
+          <FilterDateRange
+            from={createdFrom}
+            to={createdTo}
+            onFromChange={setCreatedFrom}
+            onToChange={setCreatedTo}
+            label={t('Masuk')}
+            fromLabel={t('Tanggal masuk dari')}
+            toLabel={t('Tanggal masuk sampai')}
+          />
+        </FilterBar>
 
         {/* Main Leads Table */}
-        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-8">
+        <div className={`bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden ${selectedLeads.length > 0 ? "mb-24" : "mb-8"}`}>
           <div className="overflow-x-auto table-scroll min-h-[160px]">
             <table className="cms-table w-full text-left border-collapse bg-card">
               <thead>
@@ -927,7 +938,7 @@ export default function LeadsPage() {
                     <input
                       type="text"
                       required
-                      placeholder={t('Contoh: Budi Santoso')}
+                      placeholder={t('Contoh: Ahmad Shafwan')}
                       value={newContactName}
                       onChange={e => setNewContactName(e.target.value)}
                       className="cms-input text-xs"
@@ -955,7 +966,7 @@ export default function LeadsPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder={t('Contoh: PT Pertamina Shipping (atau Pribadi)')}
+                      placeholder={t('Contoh: PT Biro Klasifikasi Indonesia (atau Pribadi)')}
                       value={newCompanyName}
                       onChange={e => setNewCompanyName(e.target.value)}
                       className="cms-input text-xs"
@@ -967,7 +978,7 @@ export default function LeadsPage() {
                     </label>
                     <input
                       type="email"
-                      placeholder={t('budi@perusahaan.com')}
+                      placeholder={t('ahmad.shafwan@perusahaan.com')}
                       value={newContactEmail}
                       onChange={e => setNewContactEmail(e.target.value)}
                       className="cms-input text-xs"

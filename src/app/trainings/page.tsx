@@ -14,8 +14,12 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeader from '@/components/PageHeader';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect, FilterDate } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc } from '@/lib/sort';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 const TRAINING_SKELETON_COLUMNS: SkeletonColumn[] = [
   { w: '', kind: 'check' },
@@ -46,6 +50,9 @@ function TrainingsContent() {
   const [dateFilter, setDateFilter] = useState('');
   const [picFilter, setPicFilter] = useState('');
   const [locFilter, setLocFilter] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'created' | 'start_desc' | 'start_asc' | 'name_asc' | 'name_desc' | 'batch_asc' | 'end_asc'>('created');
 
   // Selection States (Bulk Actions)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -123,8 +130,7 @@ function TrainingsContent() {
     setFormBatch(t.batch_code);
     setFormStart(t.start_date);
     setFormEnd(t.end_date);
-    // Find PIC from field, handling potential older properties
-    const picVal = (t as any).pic || '';
+    const picVal = t.pic || '';
     setFormPic(picVal);
     setFormModalOpen(true);
   };
@@ -148,7 +154,7 @@ function TrainingsContent() {
     });
 
     if (!validation.success) {
-      notify.warning(t('Periksa kembali isian training'), validation.error.issues.map((err: any) => err.message).join(', '));
+      notify.warning(t('Periksa kembali isian training'), validation.error.issues.map((err) => err.message).join(', '));
       return;
     }
 
@@ -162,7 +168,7 @@ function TrainingsContent() {
           end_date: formEnd,
           location: editingTraining.location,
           status: editingTraining.status,
-          ...({ pic: cleanPic } as any) // support custom mock fields
+          pic: cleanPic
         });
         notify.success(t('Batch training diperbarui'));
       } else {
@@ -173,15 +179,15 @@ function TrainingsContent() {
           end_date: formEnd,
           location: 'Jakarta Training Center',
           status: 'Processing',
-          ...({ pic: cleanPic } as any) // support custom mock fields
+          pic: cleanPic
         });
         notify.success(t('Batch training baru dibuat'));
       }
       setFormModalOpen(false);
       loadData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Tindakan gagal'), err?.message);
+      notify.error(t('Tindakan gagal'), getErrorMessage(err));
     } finally {
       setSpinnerMsg('');
     }
@@ -201,9 +207,9 @@ function TrainingsContent() {
           await DB.deleteTraining(id);
           notify.success(t('Batch training dihapus.'));
           loadData();
-        } catch (err: any) {
+        } catch (err) {
           console.error(err);
-          notify.error(t('Gagal menghapus batch training'), err?.message);
+          notify.error(t('Gagal menghapus batch training'), getErrorMessage(err));
         } finally {
           setSpinnerMsg('');
         }
@@ -230,9 +236,9 @@ function TrainingsContent() {
           notify.success(t('Batch terpilih dihapus.'));
           setSelectedIds([]);
           loadData();
-        } catch (err: any) {
+        } catch (err) {
           console.error(err);
-          notify.error(t('Gagal menghapus batch terpilih'), err?.message);
+          notify.error(t('Gagal menghapus batch terpilih'), getErrorMessage(err));
         } finally {
           setSpinnerMsg('');
         }
@@ -321,9 +327,9 @@ function TrainingsContent() {
       notify.success(t('Semua batch dinormalisasi dan disinkronkan ke database'));
       setPreviewModalOpen(false);
       loadData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Sinkronisasi gagal'), err?.message);
+      notify.error(t('Sinkronisasi gagal'), getErrorMessage(err));
     } finally {
       setSpinnerMsg('');
     }
@@ -370,6 +376,8 @@ function TrainingsContent() {
   const picOptions = unique(trainings.map(t => t.pic));
   const locationOptions = unique(trainings.map(t => t.location));
   const statusOptions = unique(trainings.map(t => t.status));
+  const serviceOptions = unique(trainings.map(t => t.service_type));
+  const methodOptions = unique(trainings.map(t => t.learning_method));
 
   // Filter computation
   const filteredTrainings = trainings.filter(t => {
@@ -385,21 +393,36 @@ function TrainingsContent() {
     // Batch is "on" the chosen date when the date falls inside its start-end range
     const matchesDate = !dateFilter || (t.start_date <= dateFilter && dateFilter <= t.end_date);
 
-    return matchesSearch && matchesStatus && matchesPic && matchesLoc && matchesDate;
+    const matchesService = !serviceFilter || (t.service_type || '') === serviceFilter;
+    const matchesMethod = !methodFilter || (t.learning_method || '') === methodFilter;
+
+    return matchesSearch && matchesStatus && matchesPic && matchesLoc && matchesDate && matchesService && matchesMethod;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'start_desc': return cmpDateDesc(a.start_date, b.start_date);
+      case 'start_asc': return cmpDate(a.start_date, b.start_date);
+      case 'end_asc': return cmpDate(a.end_date, b.end_date);
+      case 'name_asc': return cmpText(a.program_name, b.program_name);
+      case 'name_desc': return cmpText(b.program_name, a.program_name);
+      case 'batch_asc': return cmpText(a.batch_code, b.batch_code);
+      default: return cmpDateDesc(a.created_at, b.created_at);
+    }
   });
 
   const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
     filteredTrainings,
-    [searchTerm, statusFilter, picFilter, locFilter, dateFilter].join('|')
+    [searchTerm, statusFilter, picFilter, locFilter, dateFilter, serviceFilter, methodFilter, sortKey].join('|')
   );
 
-  const hasActiveFilters = Boolean(searchTerm || statusFilter || picFilter || locFilter || dateFilter);
+  const hasActiveFilters = Boolean(searchTerm || statusFilter || picFilter || locFilter || dateFilter || serviceFilter || methodFilter);
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setPicFilter('');
     setLocFilter('');
     setDateFilter('');
+    setServiceFilter('');
+    setMethodFilter('');
   };
 
   return (
@@ -416,72 +439,50 @@ function TrainingsContent() {
         }
       />
 
-      {/* Filters & Controls */}
-      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        <div className="flex flex-col md:flex-row gap-3 items-center justify-between w-full">
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Search */}
-            <div className="relative w-full md:w-64">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="cms-input h-9 !pl-10 !text-[13px]"
-                aria-label={t('Cari training')}
-                placeholder={t('Cari training...')}
-                type="text"
-              />
-            </div>
-
-            {/* Status */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="cms-select-filter min-w-[130px]"
-              aria-label={t('Filter berdasarkan status')}
-            >
-              <option value="">{t('Semua Status Training')}</option>
-              {statusOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* PIC */}
-            <select
-              value={picFilter}
-              onChange={(e) => setPicFilter(e.target.value)}
-              className="cms-select-filter min-w-[130px]"
-              aria-label={t('Filter berdasarkan PIC')}
-            >
-              <option value="">{t('Semua PIC')}</option>
-              {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* Location */}
-            <select
-              value={locFilter}
-              onChange={(e) => setLocFilter(e.target.value)}
-              className="cms-select-filter min-w-[150px] max-w-[220px]"
-              aria-label={t('Filter berdasarkan lokasi')}
-            >
-              <option value="">{t('Semua Lokasi')}</option>
-              {locationOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* Date: batches running on this day */}
-            <input
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="cms-input h-9 !w-auto !py-0 !text-[13px] text-slate-700"
-              aria-label={t('Tampilkan batch yang berjalan pada tanggal')}
-              title={t('Tampilkan batch yang berjalan pada tanggal ini')}
-              type="date"
-            />
-          </div>
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 md:ml-auto">
-              {t('Hapus filter')}</button>
-          )}
-        </div>
-      </div>
+      {/* Filters, search and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} batch', { shown: filteredTrainings.length, total: trainings.length })}
+        hasActive={hasActiveFilters}
+        onReset={clearFilters}
+        sort={
+          <SortSelect
+            value={sortKey}
+            onChange={setSortKey}
+            options={[
+              { value: 'created', label: t('Terbaru ditambahkan') },
+              { value: 'start_desc', label: t('Tanggal mulai terbaru') },
+              { value: 'start_asc', label: t('Tanggal mulai terlama') },
+              { value: 'end_asc', label: t('Tanggal selesai terdekat') },
+              { value: 'name_asc', label: t('Nama training A–Z') },
+              { value: 'name_desc', label: t('Nama training Z–A') },
+              { value: 'batch_asc', label: t('Kode batch A–Z') },
+            ]}
+          />
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari training...')} label={t('Cari training')} />
+        <FilterSelect value={statusFilter} onChange={setStatusFilter} label={t('Filter berdasarkan status')}>
+          <option value="">{t('Semua Status Training')}</option>
+          {statusOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={locFilter} onChange={setLocFilter} label={t('Filter berdasarkan lokasi')}>
+          <option value="">{t('Semua Lokasi')}</option>
+          {locationOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={serviceFilter} onChange={setServiceFilter} label={t('Filter berdasarkan jenis layanan')}>
+          <option value="">{t('Semua Jenis Layanan')}</option>
+          {serviceOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={methodFilter} onChange={setMethodFilter} label={t('Filter berdasarkan metode belajar')}>
+          <option value="">{t('Semua Metode')}</option>
+          {methodOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterDate value={dateFilter} onChange={setDateFilter} label={t('Berjalan pada')} />
+      </FilterBar>
 
       {/* Data Table */}
       <div className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden flex flex-col">
@@ -518,7 +519,7 @@ function TrainingsContent() {
                   </tr>
                 ) : (
                   pageItems.map(training => {
-                    const initials = ((training as any).pic || 'AD').substring(0, 2).toUpperCase();
+                    const initials = (training.pic || 'AD').substring(0, 2).toUpperCase();
                     const start = new Date(training.start_date);
                     const end = new Date(training.end_date);
                     const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
@@ -570,11 +571,11 @@ function TrainingsContent() {
                             className="training-select-checkbox rounded border-slate-200 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-[13px] font-medium text-slate-900">{training.program_name}</div>
+                        <td className="px-4 py-3 min-w-[200px] max-w-[300px]">
+                          <div className="text-[13px] font-medium text-slate-900 break-words">{training.program_name}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-xs font-mono text-slate-500">{training.batch_code}</div>
+                        <td className="px-4 py-3 max-w-[120px]">
+                          <div className="text-xs font-mono text-slate-500 truncate" title={training.batch_code}>{training.batch_code}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-xs text-slate-500">{dateText}</div>
@@ -609,9 +610,9 @@ function TrainingsContent() {
                               {initials}
                             </div>
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs text-slate-700 font-medium truncate">{(training as any).pic || '-'}</span>
+                              <span className="text-xs text-slate-700 font-medium truncate">{training.pic || '-'}</span>
                               {lastModifier && lastModTime && (
-                                <span className="text-[11px] text-slate-500 leading-tight whitespace-nowrap">
+                                <span className="text-[11px] text-slate-500 leading-tight">
                                   {t('oleh')} {lastModifier} {t('·')} {getTimeAgo(lastModTime)}
                                 </span>
                               )}
@@ -839,7 +840,7 @@ function TrainingsContent() {
                     id="picSelect"
                     value={formPic}
                     onChange={(e) => setFormPic(e.target.value)}
-                    placeholder={t('mis. Budi Santoso')}
+                    placeholder={t('mis. Ahmad Shafwan')}
                     type="text"
                     required
                   />

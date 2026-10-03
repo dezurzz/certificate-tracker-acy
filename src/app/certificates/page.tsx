@@ -12,6 +12,9 @@ import PageHeader from '@/components/PageHeader';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
 import { useT } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
 import { useSlaDays } from '@/lib/settings';
 import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
 
@@ -41,6 +44,9 @@ function CertificatesContent() {
   const [trainFilter, setTrainFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'updated' | 'updated_old' | 'sla_desc' | 'sla_asc' | 'name_asc' | 'name_desc' | 'training_asc' | 'number_asc'>('updated');
   
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -129,6 +135,8 @@ function CertificatesContent() {
     setTrainFilter('');
     setTypeFilter('');
     setStateFilter('');
+    setCompanyFilter('');
+    setPicFilter('');
   };
 
   // Export report
@@ -169,15 +177,32 @@ function CertificatesContent() {
       matchesState = c.status === stateFilter;
     }
 
-    return matchesSearch && matchesTrain && matchesType && matchesState;
+    const matchesCompany = !companyFilter || (c.participants?.company || '') === companyFilter;
+    const matchesPic = !picFilter || (c.trainings?.pic || '') === picFilter;
+
+    return matchesSearch && matchesTrain && matchesType && matchesState && matchesCompany && matchesPic;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'updated_old': return cmpDate(a.updated_at || a.created_at, b.updated_at || b.created_at);
+      case 'sla_desc': return cmpNumberDesc(a.sla_age_days, b.sla_age_days);
+      case 'sla_asc': return cmpNumberDesc(b.sla_age_days, a.sla_age_days);
+      case 'name_asc': return cmpText(a.participants?.name, b.participants?.name);
+      case 'name_desc': return cmpText(b.participants?.name, a.participants?.name);
+      case 'training_asc': return cmpText(a.trainings?.program_name, b.trainings?.program_name);
+      case 'number_asc': return cmpText(a.certificate_number, b.certificate_number);
+      default: return cmpDateDesc(a.updated_at || a.created_at, b.updated_at || b.created_at);
+    }
   });
+
+  const uniqueCompanies = Array.from(new Set(certificates.map(c => (c.participants?.company || '').trim()).filter(Boolean))).sort(cmpText);
+  const uniquePics = Array.from(new Set(certificates.map(c => (c.trainings?.pic || '').trim()).filter(Boolean))).sort(cmpText);
 
   // Full program names for the training filter
   const uniqueTrainings = Array.from(new Set(certificates.map(c => c.trainings?.program_name || '').filter(Boolean))).sort();
 
   const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
     filteredCerts,
-    [searchTerm, trainFilter, typeFilter, stateFilter].join('|')
+    [searchTerm, trainFilter, typeFilter, stateFilter, companyFilter, picFilter, sortKey].join('|')
   );
 
   return (
@@ -194,56 +219,55 @@ function CertificatesContent() {
         }
       />
 
-      {/* Filters */}
-      <div className="bg-card border border-slate-200 rounded-xl p-3 flex gap-3 items-center flex-wrap shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        {/* Search bar inside table filter section */}
-        <div className="relative w-full md:w-60">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-            aria-label={t('Cari sertifikat')}
-            placeholder={t('Cari sertifikat...')}
-            type="text"
+      {/* Filters, search and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} sertifikat', { shown: filteredCerts.length, total: certificates.length })}
+        hasActive={Boolean(searchTerm || trainFilter || typeFilter || stateFilter || companyFilter || picFilter)}
+        onReset={handleClearFilters}
+        sort={
+          <SortSelect
+            value={sortKey}
+            onChange={setSortKey}
+            options={[
+              { value: 'updated', label: t('Terakhir diperbarui') },
+              { value: 'updated_old', label: t('Terlama diperbarui') },
+              { value: 'sla_desc', label: t('Umur SLA terlama') },
+              { value: 'sla_asc', label: t('Umur SLA terbaru') },
+              { value: 'name_asc', label: t('Nama peserta A–Z') },
+              { value: 'name_desc', label: t('Nama peserta Z–A') },
+              { value: 'training_asc', label: t('Nama training A–Z') },
+              { value: 'number_asc', label: t('Nomor sertifikat') },
+            ]}
           />
-        </div>
-
-        <select
-          value={trainFilter}
-          onChange={(e) => setTrainFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari sertifikat...')} label={t('Cari sertifikat')} />
+        <FilterSelect value={trainFilter} onChange={setTrainFilter} label={t('Filter berdasarkan training')}>
           <option value="">{t('Semua Training')}</option>
-          {uniqueTrainings.map(t => t && <option key={t} value={t}>{t}</option>)}
-        </select>
-        
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+          {uniqueTrainings.map(name => name && <option key={name} value={name}>{name}</option>)}
+        </FilterSelect>
+        <FilterSelect value={typeFilter} onChange={setTypeFilter} label={t('Filter berdasarkan tipe')}>
           <option value="">{t('Semua Tipe')}</option>
           <option value="Qualification">{t('Kualifikasi')}</option>
           <option value="Attendance">{t('Kehadiran')}</option>
-        </select>
-
-        <select
-          value={stateFilter}
-          onChange={(e) => setStateFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+        </FilterSelect>
+        <FilterSelect value={stateFilter} onChange={setStateFilter} label={t('Filter berdasarkan status')}>
           <option value="">{t('Semua Status')}</option>
           <option value="Pending">{t('Menunggu')}</option>
           <option value="Processing">{t('Diproses')}</option>
           <option value="Printing">{t('Dicetak')}</option>
           <option value="Completed">{t('Selesai')}</option>
           <option value="Overdue">{t('Terlambat')}</option>
-        </select>
-
-        <button onClick={handleClearFilters} className="ml-auto text-[13px] font-medium text-blue-600 hover:text-blue-700">
-          {t('Hapus Filter')}</button>
-      </div>
+        </FilterSelect>
+        <FilterSelect value={companyFilter} onChange={setCompanyFilter} label={t('Filter berdasarkan perusahaan')}>
+          <option value="">{t('Semua Perusahaan')}</option>
+          {uniqueCompanies.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {uniquePics.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+      </FilterBar>
 
       {/* Data Table */}
       <div className="bg-card border border-slate-200 rounded-xl overflow-hidden shadow-[0_1px_2px_rgb(15_23_42/0.04)]">

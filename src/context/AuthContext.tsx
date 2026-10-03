@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/db';
 import { MOCK_SESSION_COOKIE as MOCK_COOKIE } from '@/lib/supabase/config';
 import { useT } from '@/i18n/LanguageContext';
+import { getErrorMessage } from '@/lib/errors';
 
 interface User {
   name: string;
@@ -145,9 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setLoading(false);
       return { success: false, error: 'Login failed: Invalid email or password' };
-    } catch (err: any) {
+    } catch (err) {
       setLoading(false);
-      return { success: false, error: err?.message || 'Authentication error' };
+      return { success: false, error: getErrorMessage(err, 'Authentication error') };
     }
   };
 
@@ -180,8 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(prev => prev ? { ...prev, name } : null);
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err?.message || 'Failed to update profile' };
+    } catch (err) {
+      return { success: false, error: getErrorMessage(err, 'Failed to update profile') };
     }
   };
 

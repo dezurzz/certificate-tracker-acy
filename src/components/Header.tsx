@@ -78,7 +78,6 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
           const cert = certificates.find(c => c.id === h.certificate_id);
           const name = cert?.participants ? cert.participants.name : 'Unknown';
           const progName = cert?.trainings ? cert.trainings.program_name : 'Training';
-          const certType = cert ? cert.certificate_type : 'Certificate';
 
           let icon = 'info';
           let iconColor = 'text-slate-400';

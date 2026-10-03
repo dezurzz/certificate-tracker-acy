@@ -37,7 +37,9 @@ export default async function RootLayout({
       <head>
         {/* Sets the theme class before first paint (static string, no flash) */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        {/* Icon font: no next/font equivalent for Material Symbols */}
+        {/* Icon font: no next/font equivalent for Material Symbols. The App Router root layout is the
+            right place for it (the pages-router rule below does not apply), and swap would flash ligature text. */}
+        {/* eslint-disable-next-line @next/next/google-font-display, @next/next/no-page-custom-font */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
       <body className="bg-slate-50 text-slate-900 min-h-screen font-sans">

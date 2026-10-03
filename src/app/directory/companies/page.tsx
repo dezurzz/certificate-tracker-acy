@@ -8,13 +8,19 @@ import PageHeader from '@/components/PageHeader';
 import { notify } from '@/lib/notify';
 import Modal from '@/components/Modal';
 import { useT } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc } from '@/lib/sort';
 import { CardGridSkeleton } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function CompaniesDirectoryPage() {
   const t = useT();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [industryFilter, setIndustryFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'name_asc' | 'name_desc' | 'newest' | 'oldest' | 'industry_asc'>('name_asc');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Form fields
@@ -22,6 +28,28 @@ export default function CompaniesDirectoryPage() {
   const [alias, setAlias] = useState('');
   const [industry, setIndustry] = useState('');
   const [address, setAddress] = useState('');
+
+  const [syncing, setSyncing] = useState(false);
+  const handleSyncFromLeads = async () => {
+    setSyncing(true);
+    try {
+      const r = await DB.syncLeadsToDirectory();
+      if (r.failed > 0) {
+        notify.warning(t('Sinkronisasi selesai dengan {failed} kegagalan.', { failed: r.failed }));
+      } else if (r.leadsLinked === 0 && r.newCompanies === 0 && r.newContacts === 0) {
+        notify.info(t('Semua lead sudah tersinkron.'));
+      } else {
+        notify.success(
+          t('Sinkronisasi selesai.'),
+          t('{contacts} kontak dan {companies} perusahaan baru, {leads} lead terhubung.', { contacts: r.newContacts, companies: r.newCompanies, leads: r.leadsLinked })
+        );
+      }
+    } catch (e) {
+      notify.error(t('Gagal sinkronisasi'), getErrorMessage(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -60,15 +88,27 @@ export default function CompaniesDirectoryPage() {
       setIndustry('');
       setAddress('');
       loadData();
-    } catch (err: any) {
-      notify.error(t('Gagal menyimpan'), err.message);
+    } catch (err) {
+      notify.error(t('Gagal menyimpan'), getErrorMessage(err));
     }
   };
 
   const filtered = companies.filter(c => {
     const text = `${c.name} ${c.alias || ''} ${c.industry || ''}`.toLowerCase();
-    return !searchTerm || text.includes(searchTerm.toLowerCase());
+    if (searchTerm && !text.includes(searchTerm.toLowerCase())) return false;
+    if (industryFilter && (c.industry || '') !== industryFilter) return false;
+    return true;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'name_desc': return cmpText(b.name, a.name);
+      case 'newest': return cmpDateDesc(a.created_at, b.created_at);
+      case 'oldest': return cmpDate(a.created_at, b.created_at);
+      case 'industry_asc': return cmpText(a.industry, b.industry) || cmpText(a.name, b.name);
+      default: return cmpText(a.name, b.name);
+    }
   });
+
+  const industries = Array.from(new Set(companies.map(c => (c.industry || '').trim()).filter(Boolean))).sort(cmpText);
 
   return (
     <DashboardLayout pageTitle="Direktori Perusahaan Rekanan">
@@ -77,22 +117,39 @@ export default function CompaniesDirectoryPage() {
           title={t('Perusahaan')}
           description={t('Data master perusahaan rekanan BKI Academy untuk mencegah duplikasi penulisan nama PT.')}
           actions={
-            <Button variant="primary" icon="add_business" onClick={() => setIsAddModalOpen(true)}>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads}>
+                {t('Sinkronkan dari Leads')}</Button>
+              <Button variant="primary" icon="add_business" onClick={() => setIsAddModalOpen(true)}>
               {t('Tambah Perusahaan')}</Button>
+            </div>
           }
         />
 
-        <div className="relative max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder={t('Cari nama perusahaan, alias, atau bidang industri...')}
-            aria-label={t('Cari perusahaan')}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-          />
-        </div>
+        <FilterBar
+          summary={t('Menampilkan {shown} dari {total} perusahaan', { shown: filtered.length, total: companies.length })}
+          hasActive={Boolean(searchTerm || industryFilter)}
+          onReset={() => { setSearchTerm(''); setIndustryFilter(''); }}
+          sort={
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'name_asc', label: t('Nama A–Z') },
+                { value: 'name_desc', label: t('Nama Z–A') },
+                { value: 'newest', label: t('Terbaru ditambahkan') },
+                { value: 'oldest', label: t('Terlama ditambahkan') },
+                { value: 'industry_asc', label: t('Industri A–Z') },
+              ]}
+            />
+          }
+        >
+          <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari nama perusahaan, alias, atau bidang industri...')} label={t('Cari perusahaan')} />
+          <FilterSelect value={industryFilter} onChange={setIndustryFilter} label={t('Filter berdasarkan industri')}>
+            <option value="">{t('Semua Industri')}</option>
+            {industries.map(v => <option key={v} value={v}>{v}</option>)}
+          </FilterSelect>
+        </FilterBar>
 
         {/* Companies Grid */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

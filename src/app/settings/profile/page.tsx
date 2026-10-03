@@ -86,7 +86,7 @@ export default function ProfileSettingsPage() {
                 id="prof-name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder={t('mis. Andi Pratama')}
+                placeholder={t('mis. Ahmad Shafwan')}
                 type="text"
                 required
               />
@@ -98,7 +98,7 @@ export default function ProfileSettingsPage() {
                 id="prof-email"
                 value={email}
                 readOnly
-                placeholder={t('mis. andi.pratama@bki.co.id')}
+                placeholder={t('mis. ahmad.shafwan@bki.co.id')}
                 type="email"
                 required
               />

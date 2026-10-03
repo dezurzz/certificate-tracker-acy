@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createBrowserClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
+import { getErrorMessage } from '@/lib/errors';
 
 // Cache singleton client instance to avoid recreating GoTrueClient instances
 let cachedClient: SupabaseClient | null = null;
@@ -62,8 +63,8 @@ const notifyDbUpdate = () => {
   }
 };
 
-const isValidUUID = (str?: string): boolean => {
-  if (!str) return false;
+const isValidUUID = (str?: unknown): boolean => {
+  if (typeof str !== 'string' || !str) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
 };
 
@@ -222,6 +223,18 @@ export interface LeadActivity {
   new_status?: LeadStatus;
   created_at: string;
 }
+
+/** Digits-only phone in local form, so 0812…, +62812… and 62812… match. */
+export const normalizePhone = (raw?: string): string => {
+  let d = (raw || '').replace(/\D/g, '');
+  if (d.startsWith('62')) d = '0' + d.slice(2);
+  else if (d && !d.startsWith('0')) d = '0' + d;
+  return d;
+};
+
+/** Company names that are individuals, not organisations: never added to the company directory. */
+const isPersonalCompany = (name?: string) => !name || name.trim().toUpperCase() === 'PRIBADI';
+const cleanName = (name: string) => name.trim().replace(/\s+/g, ' ');
 
 export interface LeadStatusOptions {
   note?: string;
@@ -614,7 +627,10 @@ export const DB = {
   },
 
   // Insert a training batch
-  async insertTraining(batch: Omit<Training, 'id'>): Promise<Training> {
+  // service_type / learning_method are optional on insert (the batch form does not set them)
+  async insertTraining(
+    batch: Omit<Training, 'id' | 'service_type' | 'learning_method'> & Partial<Pick<Training, 'service_type' | 'learning_method'>>
+  ): Promise<Training> {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -625,10 +641,12 @@ export const DB = {
       }
     }
     const newId = "t-" + Date.now();
-    const record: Training = { 
-      id: newId, 
+    const record: Training = {
+      id: newId,
       created_at: new Date().toISOString(),
-      ...batch 
+      service_type: '',
+      learning_method: '',
+      ...batch
     };
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_trainings') || '[]');
@@ -752,7 +770,7 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       // Filter out fields that do not exist in the Supabase schema to prevent PGRST204 errors
-      const dbPayload: any = {
+      const dbPayload: Record<string, unknown> = {
         name: participant.name,
         company: participant.company,
         registration_number: participant.registration_number,
@@ -774,7 +792,7 @@ export const DB = {
     }
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_participants') || '[]');
-      let existing = list.find((p: Participant) => p.name === participant.name && p.company === participant.company);
+      const existing = list.find((p: Participant) => p.name === participant.name && p.company === participant.company);
       if (existing) {
         return existing;
       }
@@ -981,7 +999,7 @@ export const DB = {
       if (typeof window !== 'undefined') {
         const { data: certs } = await supabase.from('certificates').select('id').eq('training_id', trainingId);
         if (certs) {
-          const certIds = certs.map((c: any) => c.id);
+          const certIds = certs.map((c: { id: string }) => c.id);
           const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
           return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
         }
@@ -1016,7 +1034,7 @@ export const DB = {
       if (typeof window !== 'undefined') {
         const { data: certs } = await supabase.from('certificates').select('id');
         if (certs) {
-          const certIds = certs.map((c: any) => c.id);
+          const certIds = certs.map((c: { id: string }) => c.id);
           const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
           return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
         }
@@ -1050,15 +1068,13 @@ export const DB = {
   },
 
   // Update password
-  async updateUserPassword(newPassword: string): Promise<any> {
+  async updateUserPassword(newPassword: string): Promise<void> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       notifyDbUpdate();
-      return data;
     }
-    return { success: true };
   },
 
   // Verify the current password by re-authenticating (no-op without Supabase)
@@ -1086,17 +1102,15 @@ export const DB = {
   },
 
   // Update profile
-  async updateUserProfile(fullName: string): Promise<any> {
+  async updateUserProfile(fullName: string): Promise<void> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         data: { full_name: fullName }
       });
       if (error) throw error;
       notifyDbUpdate();
-      return data;
     }
-    return { success: true };
   },
 
   // --- CRM & LEADS METHODS ---
@@ -1120,7 +1134,7 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...company };
+      const payload: Record<string, unknown> = { ...company };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('companies').upsert([payload], { onConflict: 'name' }).select();
       if (!error && data && data.length > 0) {
@@ -1163,7 +1177,7 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...contact };
+      const payload: Record<string, unknown> = { ...contact };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       if (payload.company_id && !isValidUUID(payload.company_id)) delete payload.company_id;
       const { data, error } = await supabase.from('contacts').upsert([payload]).select();
@@ -1207,7 +1221,7 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...prog };
+      const payload: Record<string, unknown> = { ...prog };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('training_programs').upsert([payload], { onConflict: 'code' }).select();
       if (!error && data && data.length > 0) {
@@ -1245,6 +1259,114 @@ export const DB = {
     return [];
   },
 
+  // Find-or-create the company and contact behind a lead and return their ids.
+  // Supabase only (the localStorage demo path keeps its own upsert). Companies
+  // match by name ignoring case; contacts by normalized phone number. Existing
+  // rows are only filled in where empty, never overwritten.
+  async resolveDirectoryLinks(input: {
+    contact_name: string;
+    contact_phone: string;
+    contact_email?: string;
+    company_name?: string;
+  }): Promise<{ company_id?: string; contact_id?: string }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return {};
+    const result: { company_id?: string; contact_id?: string } = {};
+
+    // Company
+    if (!isPersonalCompany(input.company_name)) {
+      const name = cleanName(input.company_name!);
+      const escaped = name.replace(/[\\%_]/g, m => '\\' + m);
+      const found = await supabase.from('companies').select('id').ilike('name', escaped).limit(1);
+      if (found.error) throw new Error(found.error.message);
+      if (found.data && found.data.length > 0) {
+        result.company_id = found.data[0].id;
+      } else {
+        const created = await supabase.from('companies').insert([{ name }]).select('id');
+        if (created.error) {
+          // Lost a race with another insert of the same name: read it back
+          const again = await supabase.from('companies').select('id').ilike('name', escaped).limit(1);
+          if (again.error || !again.data?.length) throw new Error(created.error.message);
+          result.company_id = again.data[0].id;
+        } else {
+          result.company_id = created.data[0].id;
+        }
+      }
+    }
+
+    // Contact
+    const phone = normalizePhone(input.contact_phone);
+    if (phone) {
+      const all = await supabase.from('contacts').select('*');
+      if (all.error) throw new Error(all.error.message);
+      const existing = (all.data as Contact[] | null)?.find(c => normalizePhone(c.phone) === phone);
+      if (existing) {
+        result.contact_id = existing.id;
+        const fill: Partial<Contact> = {};
+        if (!existing.email && input.contact_email) fill.email = input.contact_email;
+        if (!existing.company_id && result.company_id) {
+          fill.company_id = result.company_id;
+          fill.company_name = cleanName(input.company_name!);
+        }
+        if (Object.keys(fill).length > 0) {
+          await supabase.from('contacts').update(fill).eq('id', existing.id);
+        }
+      } else {
+        const created = await supabase.from('contacts').insert([{
+          name: cleanName(input.contact_name),
+          phone: input.contact_phone.trim(),
+          email: input.contact_email || null,
+          company_id: result.company_id ?? null,
+          company_name: input.company_name ? cleanName(input.company_name) : null,
+        }]).select('id');
+        if (created.error) throw new Error(created.error.message);
+        result.contact_id = created.data[0].id;
+      }
+    }
+    return result;
+  },
+
+  // One-off backfill: link existing leads that have no contact/company yet and
+  // fill the directories from them. Safe to run repeatedly.
+  async syncLeadsToDirectory(): Promise<{ leadsLinked: number; newCompanies: number; newContacts: number; failed: number }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return { leadsLinked: 0, newCompanies: 0, newContacts: 0, failed: 0 };
+
+    const [leads, companiesBefore, contactsBefore] = await Promise.all([
+      this.getLeads(), this.getCompanies(), this.getContacts(),
+    ]);
+    const todo = leads.filter(l => isValidUUID(l.id) && (!l.contact_id || (!l.company_id && !isPersonalCompany(l.company_name))));
+
+    let leadsLinked = 0;
+    let failed = 0;
+    // Oldest first so the earliest lead of a contact defines the contact name
+    for (const lead of [...todo].reverse()) {
+      try {
+        const links = await this.resolveDirectoryLinks(lead);
+        const patch: { contact_id?: string; company_id?: string } = {};
+        if (!lead.contact_id && links.contact_id) patch.contact_id = links.contact_id;
+        if (!lead.company_id && links.company_id) patch.company_id = links.company_id;
+        if (Object.keys(patch).length > 0) {
+          const { error } = await supabase.from('leads').update(patch).eq('id', lead.id);
+          if (error) throw new Error(error.message);
+          leadsLinked++;
+        }
+      } catch (e) {
+        console.error('Directory sync failed for lead', lead.id, e);
+        failed++;
+      }
+    }
+
+    const [companiesAfter, contactsAfter] = await Promise.all([this.getCompanies(), this.getContacts()]);
+    notifyDbUpdate();
+    return {
+      leadsLinked,
+      newCompanies: Math.max(0, companiesAfter.length - companiesBefore.length),
+      newContacts: Math.max(0, contactsAfter.length - contactsBefore.length),
+      failed,
+    };
+  },
+
   // Get lead by ID
   async getLeadById(leadId: string): Promise<Lead | null> {
     this.initMock();
@@ -1274,14 +1396,27 @@ export const DB = {
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...leadData };
+      const payload: Record<string, unknown> = { ...leadData };
       if (!isValidUUID(payload.contact_id)) delete payload.contact_id;
       if (!isValidUUID(payload.company_id)) delete payload.company_id;
       if (!isValidUUID(payload.program_id)) delete payload.program_id;
       if (!isValidUUID(payload.batch_id)) delete payload.batch_id;
 
+      // Keep the company/contact directories in sync. A failure here must not
+      // block saving the lead: the "Sinkronkan" backfill can link it later.
+      try {
+        const links = await this.resolveDirectoryLinks(leadData);
+        if (links.company_id && !payload.company_id) payload.company_id = links.company_id;
+        if (links.contact_id && !payload.contact_id) payload.contact_id = links.contact_id;
+      } catch (e) {
+        console.error('Could not sync company/contact directory:', e);
+      }
+
       const { data, error } = await supabase.from('leads').insert([payload]).select();
-      if (!error && data && data.length > 0) {
+      // A configured database that rejects the insert must surface the error;
+      // silently saving to localStorage would lose the lead.
+      if (error) throw new Error(error.message);
+      if (data && data.length > 0) {
         // Log activity
         await this.insertLeadActivity({
           lead_id: data[0].id,
@@ -1331,7 +1466,7 @@ export const DB = {
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead | null> {
     this.initMock();
     const now = new Date().toISOString();
-    const payload: any = { ...updates, updated_at: now };
+    const payload: Record<string, unknown> = { ...updates, updated_at: now };
 
     const supabase = getSupabaseClient();
     if (supabase && isValidUUID(leadId)) {
@@ -1447,8 +1582,8 @@ export const DB = {
           const result = await DB.updateLeadStatus(id, newStatus, { ...options, ...perLead?.(id) });
           if (result) succeeded.push(id);
           else failed.push({ id, message: 'Lead tidak ditemukan' });
-        } catch (e: any) {
-          failed.push({ id, message: e?.message || 'Gagal memperbarui' });
+        } catch (e) {
+          failed.push({ id, message: getErrorMessage(e, 'Gagal memperbarui') });
         }
       }
     } finally {
@@ -1518,7 +1653,7 @@ export const DB = {
 
     const supabase = getSupabaseClient();
     if (supabase && isValidUUID(act.lead_id)) {
-      const payload: any = { ...act };
+      const payload: Record<string, unknown> = { ...act };
       const { data, error } = await supabase.from('lead_activities').insert([payload]).select();
       if (!error && data && data.length > 0) {
         notifyDbUpdate();

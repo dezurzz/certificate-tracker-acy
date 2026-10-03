@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate, Participant, CertificateHistory } from '@/lib/db';
 import { sanitizeString } from '@/lib/safety';
@@ -11,13 +10,13 @@ import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
 import Tabs from '@/components/Tabs';
-import StatCard from '@/components/StatCard';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
 import { useSlaDays } from '@/lib/settings';
 import { Skeleton, TableSkeletonRows, KanbanCardsSkeleton, ListRowsSkeleton } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -35,7 +34,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const t = useT();
   const slaThreshold = useSlaDays();
   const { locale } = useLanguage();
-  const router = useRouter();
   
   // Unpack params
   const [trainingId, setTrainingId] = useState<string>('');
@@ -59,7 +57,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
   const [editBatchModalOpen, setEditBatchModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [certDetailsModalOpen, setCertDetailsModalOpen] = useState(false);
   const [addParticipantModalOpen, setAddParticipantModalOpen] = useState(false);
   const [activeBulkMenu, setActiveBulkMenu] = useState<{ col: string; dir: 'left' | 'right' } | null>(null);
@@ -123,7 +120,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
         setEditStart(match.start_date);
         setEditEnd(match.end_date);
         setEditLoc(match.location || 'Jakarta Training Center');
-        setEditPic((match as any).pic || '');
+        setEditPic(match.pic || '');
       }
 
       const certList = await DB.getCertificates();
@@ -184,7 +181,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const qualPercent = qualCerts.length > 0 ? Math.round(qualProgressSum / qualCerts.length) : 0;
 
   const attCerts = certificates.filter(c => c.certificate_type === 'Attendance');
-  const presentCount = attCerts.filter(c => c.status === 'Completed').length;
   const attProgressSum = attCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
   const attPercent = attCerts.length > 0 ? Math.round((attProgressSum / attCerts.length) * 1.5) : 100; // matching mockup
   const displayAttPercent = attCerts.length > 0 ? Math.round(attProgressSum / attCerts.length) : 100;
@@ -201,14 +197,14 @@ export default function TrainingDetailPage({ params }: PageProps) {
         start_date: editStart,
         end_date: editEnd,
         location: sanitizeString(editLoc),
-        ...({ pic: sanitizeString(editPic) } as any)
+        pic: sanitizeString(editPic)
       });
       notify.success(t('Detail training diperbarui'));
       setEditBatchModalOpen(false);
       loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui'), err?.message);
+      notify.error(t('Gagal memperbarui'), getErrorMessage(err));
     }
   };
 
@@ -310,9 +306,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       // Local state update
       setCertificates(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
       loadBatchDetails(); // Refresh all summaries & timelines
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui status'), err?.message);
+      notify.error(t('Gagal memperbarui status'), getErrorMessage(err));
     }
   };
 
@@ -349,9 +345,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
           // Reload details
           await loadBatchDetails();
           setActiveBulkMenu(null);
-        } catch (e: any) {
+        } catch (e) {
           console.error(e);
-          notify.error(t('Kesalahan saat pembaruan massal'), e.message);
+          notify.error(t('Kesalahan saat pembaruan massal'), getErrorMessage(e));
         }
       }
     });
@@ -394,9 +390,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       notify.success(t('Status sertifikat diperbarui ke: {status}', { status: certStatusLabel(t, certStatusSelect) }));
       setCertDetailsModalOpen(false);
       loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui status sertifikat'), err?.message);
+      notify.error(t('Gagal memperbarui status sertifikat'), getErrorMessage(err));
     }
   };
 
@@ -450,9 +446,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
       // Reload UI
       await loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal menambahkan peserta'), err.message);
+      notify.error(t('Gagal menambahkan peserta'), getErrorMessage(err));
     }
   };
 
@@ -485,7 +481,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
         color: 'bg-blue-600',
         title: t('Batch training dibuat'),
         detail: t('Batch training "{program_name}" ({batch_code}) dimulai.', { program_name: currentTraining.program_name, batch_code: currentTraining.batch_code }),
-        by: (currentTraining as any).pic || 'System'
+        by: currentTraining.pic || 'System'
       });
     }
 
@@ -509,7 +505,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
     certificateHistories.forEach(h => {
       const cert = certificates.find(c => c.id === h.certificate_id);
       const name = cert?.participants ? cert.participants.name : 'Unknown';
-      const certType = cert ? cert.certificate_type : 'Certificate';
       const certNum = cert ? (cert.certificate_number || cert.id) : h.certificate_id;
 
       let color = 'bg-blue-500';
@@ -587,7 +582,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px] text-slate-400" aria-hidden="true">manage_accounts</span>
-              {t('PIC:')} {(currentTraining as any)?.pic || t('Belum diatur')}
+              {t('PIC:')} {currentTraining?.pic || t('Belum diatur')}
             </span>
           </span>
           )
@@ -992,7 +987,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-semibold text-slate-500">{t('Penanggung Jawab (PIC)')}</label>
-                <input className="cms-input" value={editPic} onChange={(e) => setEditPic(e.target.value)} placeholder={t('mis. Budi Santoso')} type="text" required />
+                <input className="cms-input" value={editPic} onChange={(e) => setEditPic(e.target.value)} placeholder={t('mis. Ahmad Shafwan')} type="text" required />
               </div>
 </div>
 </Modal>
@@ -1008,11 +1003,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5 col-span-2">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Nama Lengkap')} <span className="text-red-500">*</span></label>
-                    <input className="cms-input" value={newPartName} onChange={(e) => setNewPartName(e.target.value)} placeholder={t('mis. Ahmad Rizky')} type="text" required />
+                    <input className="cms-input" value={newPartName} onChange={(e) => setNewPartName(e.target.value)} placeholder={t('mis. Ahmad Shafwan')} type="text" required />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Perusahaan / Organisasi')} <span className="text-red-500">*</span></label>
-                    <input className="cms-input" value={newPartCompany} onChange={(e) => setNewPartCompany(e.target.value)} placeholder={t('mis. Pertamina Shipping')} type="text" required />
+                    <input className="cms-input" value={newPartCompany} onChange={(e) => setNewPartCompany(e.target.value)} placeholder={t('mis. Biro Klasifikasi Indonesia')} type="text" required />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Nomor Registrasi / ID')} <span className="text-red-500">*</span></label>
@@ -1020,7 +1015,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                   </div>
                   <div className="flex flex-col gap-1.5 col-span-2">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Alamat Email')}</label>
-                    <input className="cms-input" value={newPartEmail} onChange={(e) => setNewPartEmail(e.target.value)} placeholder={t('mis. arizky@pertamina.com')} type="email" />
+                    <input className="cms-input" value={newPartEmail} onChange={(e) => setNewPartEmail(e.target.value)} placeholder={t('mis. ahmad.shafwan@bki.co.id')} type="email" />
                   </div>
                 </div>
               </div>

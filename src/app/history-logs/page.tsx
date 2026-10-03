@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Training, Certificate } from '@/lib/db';
+import { DB } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect, FilterDateRange } from '@/components/FilterBar';
+import { cmpText } from '@/lib/sort';
 import { TimelineSkeleton } from '@/components/Skeleton';
 
 interface ActivityLogItem {
@@ -28,6 +31,11 @@ export default function HistoryLogsPage() {
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortKey, setSortKey] = useState<'newest' | 'oldest' | 'pic_asc' | 'training_asc'>('newest');
   const [groupBy, setGroupBy] = useState<'time' | 'pic' | 'training'>('time');
 
   const loadData = async () => {
@@ -47,7 +55,7 @@ export default function HistoryLogsPage() {
           title: t('Batch Training Dibuat'),
           desc: t('Batch program "{program_name}" ({batch_code}) dimulai.', { program_name: training.program_name, batch_code: training.batch_code }),
           time: training.created_at ? new Date(training.created_at) : (training.start_date ? new Date(training.start_date) : new Date()),
-          pic: (t as any).pic || 'System',
+          pic: training.pic || 'System',
           trainingName: `${training.program_name} (${training.batch_code})`,
           dotColor: 'bg-blue-500',
           badgeClass: 'cms-badge-neutral'
@@ -166,14 +174,34 @@ export default function HistoryLogsPage() {
   // 1. Filter activities
   const filtered = activities.filter(act => {
     const term = searchTerm.toLowerCase();
-    return act.title.toLowerCase().includes(term) ||
+    const matchesText = act.title.toLowerCase().includes(term) ||
            act.desc.toLowerCase().includes(term) ||
            act.pic.toLowerCase().includes(term) ||
            act.trainingName.toLowerCase().includes(term);
+    if (!matchesText) return false;
+    if (typeFilter && act.type !== typeFilter) return false;
+    if (picFilter && act.pic !== picFilter) return false;
+    const day = act.time.toISOString().slice(0, 10);
+    if (dateFrom && day < dateFrom) return false;
+    if (dateTo && day > dateTo) return false;
+    return true;
   });
 
-  // Sort descending by time
-  filtered.sort((a, b) => b.time.getTime() - a.time.getTime());
+  // Event types and PICs present in the data (for the filters)
+  const typeOptions = Array.from(new Map(activities.map(a => [a.type, a.title] as const)).entries())
+    .sort((x, y) => cmpText(x[1], y[1]));
+  const picOptions = Array.from(new Set(activities.map(a => a.pic).filter(Boolean))).sort(cmpText);
+  const hasFilters = Boolean(searchTerm || typeFilter || picFilter || dateFrom || dateTo);
+
+  // Order within each group
+  filtered.sort((a, b) => {
+    switch (sortKey) {
+      case 'oldest': return a.time.getTime() - b.time.getTime();
+      case 'pic_asc': return cmpText(a.pic, b.pic) || b.time.getTime() - a.time.getTime();
+      case 'training_asc': return cmpText(a.trainingName, b.trainingName) || b.time.getTime() - a.time.getTime();
+      default: return b.time.getTime() - a.time.getTime();
+    }
+  });
 
   // 2. Group activities
   const groups: Record<string, ActivityLogItem[]> = {};
@@ -209,34 +237,58 @@ export default function HistoryLogsPage() {
         actions={<Button variant="secondary" icon="download" onClick={handleExportCSV}>{t('Ekspor Jejak Audit')}</Button>}
       />
 
-      {/* Controls & Grouping Filter */}
-      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center justify-between shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        <div className="relative w-full md:w-80">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-            aria-label={t('Cari log')}
-            placeholder={t('Cari log...')}
-            type="text"
-          />
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <label htmlFor="group-by" className="text-[13px] text-slate-500 whitespace-nowrap">{t('Kelompokkan menurut')}</label>
-          <select
-            value={groupBy}
-            id="group-by"
-            onChange={(e) => setGroupBy(e.target.value as any)}
-            className="cms-select-filter min-w-[180px]"
-          >
-            <option value="time">{t('Waktu')}</option>
-            <option value="pic">{t('PIC (operator)')}</option>
-            <option value="training">{t('Batch training')}</option>
-          </select>
-        </div>
-      </div>
+      {/* Filters, search, grouping and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} log', { shown: filtered.length, total: activities.length })}
+        hasActive={hasFilters}
+        onReset={() => { setSearchTerm(''); setTypeFilter(''); setPicFilter(''); setDateFrom(''); setDateTo(''); }}
+        sort={
+          <>
+            <label className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-500">
+              <span className="material-symbols-outlined text-[18px] text-slate-400" aria-hidden="true">workspaces</span>
+              <span className="whitespace-nowrap">{t('Kelompokkan menurut')}</span>
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as 'time' | 'pic' | 'training')}
+                className="cms-select-filter min-w-[150px]"
+              >
+                <option value="time">{t('Waktu')}</option>
+                <option value="pic">{t('PIC (operator)')}</option>
+                <option value="training">{t('Batch training')}</option>
+              </select>
+            </label>
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'newest', label: t('Terbaru dulu') },
+                { value: 'oldest', label: t('Terlama dulu') },
+                { value: 'pic_asc', label: t('PIC A–Z') },
+                { value: 'training_asc', label: t('Batch training A–Z') },
+              ]}
+            />
+          </>
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari log...')} label={t('Cari log')} />
+        <FilterSelect value={typeFilter} onChange={setTypeFilter} label={t('Filter berdasarkan jenis event')}>
+          <option value="">{t('Semua Jenis Event')}</option>
+          {typeOptions.map(([type, title]) => <option key={type} value={type}>{title}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterDateRange
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+          label={t('Tanggal')}
+          fromLabel={t('Dari tanggal')}
+          toLabel={t('Sampai tanggal')}
+        />
+      </FilterBar>
 
       {/* History List Output */}
       <div className="flex flex-col gap-6">
