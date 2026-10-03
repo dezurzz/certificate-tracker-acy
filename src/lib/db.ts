@@ -628,7 +628,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('trainings').select('*').order('created_at', { ascending: false });
-      if (!error && data) return data as Training[];
+      throwIfError(error);
+      return (data ?? []) as Training[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_trainings') || '[]');
@@ -768,7 +769,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('participants').select('*');
-      if (!error && data) return data as Participant[];
+      throwIfError(error);
+      return (data ?? []) as Participant[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_participants') || '[]');
@@ -824,7 +826,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('certificates').select('*, trainings(*), participants(*)');
-      if (!error && data) return data as Certificate[];
+      throwIfError(error);
+      return (data ?? []) as Certificate[];
     }
     
     if (typeof window !== 'undefined') {
@@ -876,8 +879,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('certificates').select('*, participants(name)').eq('id', certId).single();
-      if (!error && data) return data as Certificate;
+      if (!isValidUUID(certId)) return null;
+      const { data, error } = await supabase.from('certificates').select('*, participants(name)').eq('id', certId).maybeSingle();
+      throwIfError(error);
+      return (data as Certificate | null) ?? null;
     }
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
@@ -1006,19 +1011,8 @@ export const DB = {
         .select('*, certificates!inner(training_id)')
         .eq('certificates.training_id', trainingId)
         .order('created_at', { ascending: false });
-      if (!error && data) return data as unknown as CertificateHistory[];
-
-      // Fallback: If Supabase connection is active but table is missing,
-      // return only localStorage logs that match the active Supabase certificate IDs
-      if (typeof window !== 'undefined') {
-        const { data: certs } = await supabase.from('certificates').select('id').eq('training_id', trainingId);
-        if (certs) {
-          const certIds = certs.map((c: { id: string }) => c.id);
-          const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
-          return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
-        }
-      }
-      return [];
+      throwIfError(error);
+      return (data ?? []) as unknown as CertificateHistory[];
     }
 
     if (typeof window !== 'undefined') {
@@ -1041,19 +1035,8 @@ export const DB = {
         .from('certificate_history')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) return data as CertificateHistory[];
-
-      // Fallback: If Supabase connection is active but table is missing,
-      // return only localStorage logs that match active Supabase certificate IDs
-      if (typeof window !== 'undefined') {
-        const { data: certs } = await supabase.from('certificates').select('id');
-        if (certs) {
-          const certIds = certs.map((c: { id: string }) => c.id);
-          const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
-          return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
-        }
-      }
-      return [];
+      throwIfError(error);
+      return (data ?? []) as CertificateHistory[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
@@ -1135,7 +1118,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('companies').select('*').order('name');
-      if (!error && data) return data as Company[];
+      throwIfError(error);
+      return (data ?? []) as Company[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_companies') || '[]');
@@ -1180,7 +1164,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('contacts').select('*').order('name');
-      if (!error && data) return data as Contact[];
+      throwIfError(error);
+      return (data ?? []) as Contact[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_contacts') || '[]');
@@ -1226,7 +1211,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('training_programs').select('*').order('name');
-      if (!error && data) return data as TrainingProgram[];
+      throwIfError(error);
+      return (data ?? []) as TrainingProgram[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_programs') || '[]');
@@ -1271,7 +1257,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (!error && data) return data as Lead[];
+      throwIfError(error);
+      return (data ?? []) as Lead[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1392,8 +1379,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).single();
-      if (!error && data) return data as Lead;
+      if (!isValidUUID(leadId)) return null;
+      const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).maybeSingle();
+      throwIfError(error);
+      return (data as Lead | null) ?? null;
     }
     if (typeof window !== 'undefined') {
       const list: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1656,7 +1645,8 @@ export const DB = {
         query = query.eq('lead_id', leadId);
       }
       const { data, error } = await query;
-      if (!error && data) return data as LeadActivity[];
+      throwIfError(error);
+      return (data ?? []) as LeadActivity[];
     }
     if (typeof window !== 'undefined') {
       const list: LeadActivity[] = JSON.parse(localStorage.getItem('bki_lead_activities') || '[]');

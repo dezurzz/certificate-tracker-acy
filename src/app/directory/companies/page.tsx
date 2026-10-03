@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Company } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { notify } from '@/lib/notify';
 import Modal from '@/components/Modal';
 import { useT } from '@/i18n/LanguageContext';
@@ -18,6 +19,7 @@ export default function CompaniesDirectoryPage() {
   const t = useT();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [industryFilter, setIndustryFilter] = useState('');
   const [sortKey, setSortKey] = useState<'name_asc' | 'name_desc' | 'newest' | 'oldest' | 'industry_asc'>('name_asc');
@@ -53,10 +55,12 @@ export default function CompaniesDirectoryPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const list = await DB.getCompanies();
       setCompanies(list);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -125,6 +129,8 @@ export default function CompaniesDirectoryPage() {
             </div>
           }
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <FilterBar
           summary={t('Menampilkan {shown} dari {total} perusahaan', { shown: filtered.length, total: companies.length })}

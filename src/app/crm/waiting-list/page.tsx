@@ -7,6 +7,7 @@ import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import StatCard from '@/components/StatCard';
 import { useAuth } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
@@ -32,6 +33,7 @@ export default function WaitingListPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,6 +63,7 @@ export default function WaitingListPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [allLeads, allTrainings] = await Promise.all([
         DB.getLeads(),
@@ -70,6 +73,7 @@ export default function WaitingListPage() {
       setLeads(allLeads.filter(l => l.status === 'Waiting List'));
       setTrainings(allTrainings);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -207,6 +211,8 @@ export default function WaitingListPage() {
           title={t('Waiting List')}
           description={t('Pantau calon peserta yang menunggu jadwal dibuka atau melakukan reschedule, lalu pasangkan langsung dengan batch aktif.')}
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard label={t('Total waiting list')} value={totalWaitingLeads} hint={t('peluang')} />

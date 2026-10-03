@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, TrainingProgram } from '@/lib/db';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import StatCard from '@/components/StatCard';
 import { useT } from '@/i18n/LanguageContext';
 import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
@@ -35,9 +37,11 @@ export default function CrmReportsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [allLeads, allPrograms] = await Promise.all([
         DB.getLeads(),
@@ -46,6 +50,7 @@ export default function CrmReportsPage() {
       setLeads(allLeads);
       setPrograms(allPrograms);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -140,6 +145,8 @@ export default function CrmReportsPage() {
           title={t('Rekap Minat')}
           description={t('Permintaan kursi pelatihan, antrean waiting list, dan distribusi sumber prospek BKI Academy.')}
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard label={t('Total peluang tercatat')} value={totalLeads} />

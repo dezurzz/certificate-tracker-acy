@@ -5,6 +5,8 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
@@ -30,6 +32,7 @@ export default function HistoryLogsPage() {
   const { locale } = useLanguage();
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [picFilter, setPicFilter] = useState('');
@@ -40,6 +43,7 @@ export default function HistoryLogsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const trainings = await DB.getTrainings();
       const certificates = await DB.getCertificates();
@@ -113,6 +117,7 @@ export default function HistoryLogsPage() {
 
       setActivities(acts);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -236,6 +241,8 @@ export default function HistoryLogsPage() {
         description={t('Lacak semua penyelenggaraan training dan pembaruan status sertifikat.')}
         actions={<Button variant="secondary" icon="download" onClick={handleExportCSV}>{t('Ekspor Jejak Audit')}</Button>}
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       {/* Filters, search, grouping and sorting */}
       <FilterBar

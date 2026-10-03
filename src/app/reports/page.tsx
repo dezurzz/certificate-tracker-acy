@@ -7,6 +7,8 @@ import { DB, Training, Certificate } from '@/lib/db';
 import Button from '@/components/Button';
 import DropdownButton from '@/components/DropdownButton';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import { useT, useLanguage, msg } from '@/i18n/LanguageContext';
 import { useSlaDays } from '@/lib/settings';
 import { Skeleton, ChartSkeleton, ListRowsSkeleton, TableSkeletonRows } from '@/components/Skeleton';
@@ -44,15 +46,18 @@ export default function ReportsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState<string>('6m');
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [trainList, certList] = await Promise.all([DB.getTrainings(), DB.getCertificates()]);
       setTrainings(trainList);
       setCertificates(certList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -167,6 +172,8 @@ export default function ReportsPage() {
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       {loading ? (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12" role="status" aria-busy="true">

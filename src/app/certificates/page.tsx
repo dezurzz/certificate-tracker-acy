@@ -9,9 +9,11 @@ import ActionMenu from '@/components/ActionMenu';
 import Pagination, { usePagination } from '@/components/Pagination';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
 import { useT } from '@/i18n/LanguageContext';
+import { getErrorMessage } from '@/lib/errors';
 import SortSelect from '@/components/SortSelect';
 import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
 import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
@@ -38,6 +40,7 @@ function CertificatesContent() {
   // Data states
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,10 +69,12 @@ function CertificatesContent() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const list = await DB.getCertificates();
       setCertificates(list);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -218,6 +223,8 @@ function CertificatesContent() {
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       {/* Filters, search and sorting */}
       <FilterBar

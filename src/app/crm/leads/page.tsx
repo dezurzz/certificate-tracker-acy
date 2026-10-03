@@ -6,6 +6,7 @@ import Button from '@/components/Button';
 import DropdownButton from '@/components/DropdownButton';
 import ActionMenu from '@/components/ActionMenu';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import StatCard from '@/components/StatCard';
 import { DB, Lead, LeadStatus, LeadSource, WaitingReason, Training, LeadActivity, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
@@ -43,6 +44,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,6 +115,7 @@ export default function LeadsPage() {
   // Load all required data
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [leadList, trainList] = await Promise.all([
         DB.getLeads(),
@@ -131,6 +134,7 @@ export default function LeadsPage() {
         }
       }
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error('Error loading CRM leads:', e);
     } finally {
       setLoading(false);
@@ -573,6 +577,8 @@ export default function LeadsPage() {
               {t('Input Lead Baru')}</Button>
           }
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         {/* KPI filters: click to filter the table */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

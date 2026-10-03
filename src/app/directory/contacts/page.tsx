@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Contact, Company } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { createWhatsAppUrl } from '@/lib/whatsapp';
 import { notify } from '@/lib/notify';
 import Modal from '@/components/Modal';
@@ -28,6 +29,7 @@ export default function ContactsDirectoryPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
@@ -65,6 +67,7 @@ export default function ContactsDirectoryPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [cntList, compList] = await Promise.all([
         DB.getContacts(),
@@ -73,6 +76,7 @@ export default function ContactsDirectoryPage() {
       setContacts(cntList);
       setCompanies(compList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -150,6 +154,8 @@ export default function ContactsDirectoryPage() {
             </div>
           }
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <FilterBar
           summary={t('Menampilkan {shown} dari {total} kontak', { shown: filtered.length, total: contacts.length })}

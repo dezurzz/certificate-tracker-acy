@@ -7,6 +7,8 @@ import { DB, Training, Certificate, Lead } from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import StatCard from '@/components/StatCard';
 import Tabs from '@/components/Tabs';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const [todayDate, setTodayDate] = useState('');
   // true only until the first load finishes (later refreshes update in place, no flicker)
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   // KPI Stats
   const [completedTrainings, setCompletedTrainings] = useState(0);
@@ -58,6 +61,7 @@ export default function DashboardPage() {
   const [overdueList, setOverdueList] = useState<Certificate[]>([]);
 
   async function loadData() {
+    setLoadError(null);
     try {
       const [trainList, certList, leadList, leadActList] = await Promise.all([
         DB.getTrainings(),
@@ -248,6 +252,7 @@ export default function DashboardPage() {
       setActivities(acts.slice(0, 5));
 
     } catch (err) {
+      setLoadError(getErrorMessage(err));
       console.error('Failed to load dashboard statistics:', err);
     } finally {
       setLoading(false);
@@ -347,6 +352,8 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       <Tabs
         value={activeModuleTab}

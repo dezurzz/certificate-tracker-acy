@@ -919,4 +919,6 @@ export const en: Record<string, string> = {
   "Filter berdasarkan training": "Filter by training",
   "Filter berdasarkan tipe": "Filter by type",
   "Semua Tugas": "All Tasks",
+  "Gagal memuat data": "Failed to load data",
+  "Coba lagi": "Try again",
 };

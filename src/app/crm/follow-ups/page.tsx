@@ -7,6 +7,7 @@ import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import Tabs from '@/components/Tabs';
 import { useAuth } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
@@ -22,6 +23,7 @@ export default function FollowUpsPage() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filter tab
   const [activeTab, setActiveTab] = useState<'overdue' | 'today' | 'link_sent' | 'all'>('overdue');
@@ -53,12 +55,14 @@ export default function FollowUpsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const all = await DB.getLeads();
       // Exclude finished / cancelled
       const activeLeads = all.filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal');
       setLeads(activeLeads);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -186,6 +190,8 @@ export default function FollowUpsPage() {
             </span>
           }
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <Tabs
           value={activeTab}

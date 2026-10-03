@@ -12,6 +12,7 @@ import ActionMenu from '@/components/ActionMenu';
 import Button from '@/components/Button';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import SortSelect from '@/components/SortSelect';
@@ -42,6 +43,7 @@ function TrainingsContent() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [spinnerMsg, setSpinnerMsg] = useState('');
 
   // Filtering States
@@ -89,12 +91,14 @@ function TrainingsContent() {
   // Load Data
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const trainList = await DB.getTrainings();
       const certList = await DB.getCertificates();
       setTrainings(trainList);
       setCertificates(certList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -438,6 +442,8 @@ function TrainingsContent() {
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       {/* Filters, search and sorting */}
       <FilterBar

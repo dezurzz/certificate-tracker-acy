@@ -9,6 +9,7 @@ import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import Tabs from '@/components/Tabs';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
@@ -48,6 +49,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const [participantList, setParticipantList] = useState<Participant[]>([]);
   const [certificateHistories, setCertificateHistories] = useState<CertificateHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'certificates' | 'activity'>('overview');
@@ -109,6 +111,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const loadBatchDetails = async () => {
     if (!trainingId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const trainList = await DB.getTrainings();
       const match = trainList.find(t => t.id === trainingId);
@@ -139,6 +142,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
       const histList = await DB.getCertificateHistoryForTraining(trainingId);
       setCertificateHistories(histList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -594,6 +598,8 @@ export default function TrainingDetailPage({ params }: PageProps) {
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadBatchDetails} />}
 
       <Tabs
         value={activeTab}
