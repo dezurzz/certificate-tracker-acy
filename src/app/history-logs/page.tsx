@@ -27,6 +27,9 @@ interface ActivityLogItem {
   badgeClass: string;
 }
 
+// Rendering ~1000 timeline rows at once is slow; show a page at a time
+const LOG_PAGE_SIZE = 50;
+
 export default function HistoryLogsPage() {
   const t = useT();
   const { locale } = useLanguage();
@@ -39,6 +42,7 @@ export default function HistoryLogsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortKey, setSortKey] = useState<'newest' | 'oldest' | 'pic_asc' | 'training_asc'>('newest');
+  const [visible, setVisible] = useState<{ limit: number; key: string }>({ limit: LOG_PAGE_SIZE, key: '' });
   const [groupBy, setGroupBy] = useState<'time' | 'pic' | 'training'>('time');
 
   const loadData = async () => {
@@ -208,18 +212,28 @@ export default function HistoryLogsPage() {
     }
   });
 
-  // 2. Group activities
-  const groups: Record<string, ActivityLogItem[]> = {};
-  filtered.forEach(act => {
-    let key = '';
-    if (groupBy === 'time') {
-      key = getGroupTimeLabel(act.time);
-    } else if (groupBy === 'pic') {
-      key = act.pic || 'System / Batch';
-    } else if (groupBy === 'training') {
-      key = act.trainingName || 'Unassociated';
-    }
+  // Only the first `limit` rows are rendered; the limit resets whenever the view (filters/sort/grouping) changes
+  const viewKey = [searchTerm, typeFilter, picFilter, dateFrom, dateTo, sortKey, groupBy].join('|');
+  const limit = visible.key === viewKey ? visible.limit : LOG_PAGE_SIZE;
+  const shownLogs = filtered.slice(0, limit);
 
+  const timeGroupLabel = (key: string) =>
+    ({ Today: t('Hari ini'), Yesterday: t('Kemarin'), 'This Week': t('Minggu ini'), 'Older Logs': t('Log lama') }[key] ?? key);
+
+  // 2. Group activities (group totals count every matching row, not just the rendered ones)
+  const groupTotals: Record<string, number> = {};
+  const groups: Record<string, ActivityLogItem[]> = {};
+  const groupKeyOf = (act: ActivityLogItem) => {
+    if (groupBy === 'time') return getGroupTimeLabel(act.time);
+    if (groupBy === 'pic') return act.pic || 'System / Batch';
+    return act.trainingName || 'Unassociated';
+  };
+  filtered.forEach(act => {
+    const k = groupKeyOf(act);
+    groupTotals[k] = (groupTotals[k] || 0) + 1;
+  });
+  shownLogs.forEach(act => {
+    const key = groupKeyOf(act);
     if (!groups[key]) groups[key] = [];
     groups[key].push(act);
   });
@@ -246,7 +260,7 @@ export default function HistoryLogsPage() {
 
       {/* Filters, search, grouping and sorting */}
       <FilterBar
-        summary={t('Menampilkan {shown} dari {total} log', { shown: filtered.length, total: activities.length })}
+        summary={t('Menampilkan {shown} dari {total} log', { shown: shownLogs.length, total: filtered.length })}
         hasActive={hasFilters}
         onReset={() => { setSearchTerm(''); setTypeFilter(''); setPicFilter(''); setDateFrom(''); setDateTo(''); }}
         sort={
@@ -316,8 +330,8 @@ export default function HistoryLogsPage() {
             return (
               <div key={groupKey} className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="text-sm font-semibold text-slate-900">{groupKey}</h2>
-                  <span className="text-xs text-slate-500 tabular-nums">{items.length === 1 ? t('1 event') : t('{count} event', { count: items.length })}</span>
+                  <h2 className="text-sm font-semibold text-slate-900">{groupBy === 'time' ? timeGroupLabel(groupKey) : groupKey}</h2>
+                  <span className="text-xs text-slate-500 tabular-nums">{groupTotals[groupKey] === 1 ? t('1 event') : t('{count} event', { count: groupTotals[groupKey] })}</span>
                 </div>
                 <div className="p-5">
                   <div className="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-100 flex flex-col gap-6">
@@ -354,6 +368,14 @@ export default function HistoryLogsPage() {
               </div>
             );
           })
+        )}
+
+        {!loading && filtered.length > limit && (
+          <div className="flex justify-center">
+            <Button variant="secondary" icon="expand_more" onClick={() => setVisible({ limit: limit + LOG_PAGE_SIZE, key: viewKey })}>
+              {t('Muat {count} lagi ({remaining} tersisa)', { count: Math.min(LOG_PAGE_SIZE, filtered.length - limit), remaining: filtered.length - limit })}
+            </Button>
+          </div>
         )}
       </div>
       </div>

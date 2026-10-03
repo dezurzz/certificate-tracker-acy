@@ -65,8 +65,26 @@ const throwIfError = (error: { message: string } | null | undefined) => {
   if (error) throw new Error(error.message);
 };
 
+// Read de-duplication: concurrent callers (header, page, repeated events) share
+// one in-flight request, and a fresh result is reused for a few seconds. Any
+// write clears the cache (notifyDbUpdate); failed reads are never cached.
+const READ_CACHE_TTL_MS = 3000;
+const readCache = new Map<string, { at: number; promise: Promise<unknown> }>();
+const clearReadCache = () => readCache.clear();
+function cachedRead<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const hit = readCache.get(key);
+  if (hit && Date.now() - hit.at < READ_CACHE_TTL_MS) return hit.promise as Promise<T>;
+  const promise = fetcher();
+  readCache.set(key, { at: Date.now(), promise });
+  promise.catch(() => {
+    if (readCache.get(key)?.promise === promise) readCache.delete(key);
+  });
+  return promise;
+}
+
 let dbNotifyPaused = false;
 const notifyDbUpdate = () => {
+  clearReadCache();
   if (dbNotifyPaused) return;
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('bki-db-update'));
@@ -245,6 +263,13 @@ export const normalizePhone = (raw?: string): string => {
 /** Company names that are individuals, not organisations: never added to the company directory. */
 const isPersonalCompany = (name?: string) => !name || name.trim().toUpperCase() === 'PRIBADI';
 const cleanName = (name: string) => name.trim().replace(/\s+/g, ' ');
+
+/** Slim rows for the header bell: only what the notification text needs. */
+export interface NotificationSources {
+  overdue: { id: string; participant_name: string; program_name: string; sla_age_days: number; time: string }[];
+  history: { id: string; participant_name: string; program_name: string; new_status: string; changed_by: string; time: string }[];
+  trainings: { id: string; program_name: string; batch_code: string; time: string }[];
+}
 
 export interface LeadStatusOptions {
   note?: string;
@@ -1279,6 +1304,7 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (!supabase) return {};
     const result: { company_id?: string; contact_id?: string } = {};
+    clearReadCache(); // writes companies/contacts directly
 
     // Company
     if (!isPersonalCompany(input.company_name)) {
@@ -1371,6 +1397,105 @@ export const DB = {
       newCompanies: Math.max(0, companiesAfter.length - companiesBefore.length),
       newContacts: Math.max(0, contactsAfter.length - contactsBefore.length),
       failed,
+    };
+  },
+
+  // Header bell: the newest `limit` items of each notification source, fetched
+  // with narrow queries (no full-table loads). limit=1 is enough to know whether
+  // anything is newer than the last-read timestamp.
+  async getNotificationSources(slaThreshold: number, limit: number): Promise<NotificationSources> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      type Embedded = { participants?: { name: string } | null; trainings?: { program_name: string } | null };
+      const [overdueRes, historyRes, trainingRes] = await Promise.all([
+        supabase
+          .from('certificates')
+          .select('id, sla_age_days, updated_at, created_at, participants(name), trainings(program_name)')
+          .neq('status', 'Completed')
+          .gt('sla_age_days', slaThreshold)
+          .order('updated_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('certificate_history')
+          .select('id, new_status, changed_by, created_at, certificates(participants(name), trainings(program_name))')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('trainings')
+          .select('id, program_name, batch_code, start_date, created_at')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+      ]);
+      throwIfError(overdueRes.error);
+      throwIfError(historyRes.error);
+      throwIfError(trainingRes.error);
+
+      const one = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.isArray(v) ? v[0] : v ?? undefined);
+      return {
+        overdue: (overdueRes.data ?? []).map(r => {
+          const row = r as unknown as Embedded & { id: string; sla_age_days: number; updated_at?: string; created_at?: string };
+          return {
+            id: row.id,
+            participant_name: one(row.participants)?.name ?? 'Unknown',
+            program_name: one(row.trainings)?.program_name ?? 'Training',
+            sla_age_days: row.sla_age_days,
+            time: row.updated_at || row.created_at || new Date(Date.now() - 86400000).toISOString(),
+          };
+        }),
+        history: (historyRes.data ?? []).map(r => {
+          const row = r as unknown as { id: string; new_status: string; changed_by: string; created_at: string; certificates?: Embedded | Embedded[] | null };
+          const cert = one(row.certificates);
+          return {
+            id: row.id,
+            participant_name: one(cert?.participants)?.name ?? 'Unknown',
+            program_name: one(cert?.trainings)?.program_name ?? 'Training',
+            new_status: row.new_status,
+            changed_by: row.changed_by,
+            time: row.created_at,
+          };
+        }),
+        trainings: (trainingRes.data ?? []).map(t => ({
+          id: t.id as string,
+          program_name: t.program_name as string,
+          batch_code: t.batch_code as string,
+          time: ((t.created_at as string | null) || (t.start_date as string)),
+        })),
+      };
+    }
+
+    // Demo mode (localStorage): small data, derive from the full local lists
+    const [trainings, certificates, histories] = await Promise.all([
+      this.getTrainings(), this.getCertificates(), this.getCertificateHistory(),
+    ]);
+    const byTimeDesc = <T extends { time: string }>(a: T, b: T) => Date.parse(b.time) - Date.parse(a.time);
+    return {
+      overdue: certificates
+        .filter(c => c.status !== 'Completed' && c.sla_age_days > slaThreshold)
+        .map(c => ({
+          id: c.id,
+          participant_name: c.participants?.name ?? 'Unknown',
+          program_name: c.trainings?.program_name ?? 'Training',
+          sla_age_days: c.sla_age_days,
+          time: c.updated_at || c.created_at || new Date(Date.now() - 86400000).toISOString(),
+        }))
+        .sort(byTimeDesc).slice(0, limit),
+      history: histories
+        .map(h => {
+          const cert = certificates.find(c => c.id === h.certificate_id);
+          return {
+            id: h.id,
+            participant_name: cert?.participants?.name ?? 'Unknown',
+            program_name: cert?.trainings?.program_name ?? 'Training',
+            new_status: h.new_status,
+            changed_by: h.changed_by,
+            time: h.created_at,
+          };
+        })
+        .sort(byTimeDesc).slice(0, limit),
+      trainings: trainings
+        .map(t => ({ id: t.id, program_name: t.program_name, batch_code: t.batch_code, time: t.created_at || t.start_date }))
+        .sort(byTimeDesc).slice(0, limit),
     };
   },
 
@@ -1689,3 +1814,16 @@ export const DB = {
     return record;
   }
 };
+
+// Share concurrent/rapid identical reads (see cachedRead). Callers get their own
+// array copy so an in-place sort cannot leak into another page's data.
+const CACHED_READS = [
+  'getTrainings', 'getParticipants', 'getCertificates', 'getCertificateHistory',
+  'getCompanies', 'getContacts', 'getTrainingPrograms', 'getLeads', 'getLeadActivities',
+  'getNotificationSources',
+] as const;
+for (const name of CACHED_READS) {
+  const original = DB[name] as (...args: unknown[]) => Promise<unknown>;
+  (DB as unknown as Record<string, unknown>)[name] = (...args: unknown[]) =>
+    cachedRead(name + JSON.stringify(args), () => original.apply(DB, args)).then(r => (Array.isArray(r) ? [...r] : r));
+}

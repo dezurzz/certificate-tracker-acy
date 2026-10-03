@@ -921,4 +921,9 @@ export const en: Record<string, string> = {
   "Semua Tugas": "All Tasks",
   "Gagal memuat data": "Failed to load data",
   "Coba lagi": "Try again",
+  "Memuat notifikasi...": "Loading notifications...",
+  "Gagal memuat notifikasi": "Failed to load notifications",
+  "Muat {count} lagi ({remaining} tersisa)": "Load {count} more ({remaining} remaining)",
+  "Minggu ini": "This week",
+  "Log lama": "Older logs",
 };
