@@ -55,6 +55,16 @@ if (typeof window !== 'undefined') {
 }
 
 // Dispatches a global event on the window to sync database states in real-time
+/**
+ * When a Supabase client exists, a rejected query must surface as an error.
+ * Falling through to the localStorage demo store would save the row in one
+ * browser only while the UI reports success. localStorage is for demo mode
+ * (no Supabase configured) only.
+ */
+const throwIfError = (error: { message: string } | null | undefined) => {
+  if (error) throw new Error(error.message);
+};
+
 let dbNotifyPaused = false;
 const notifyDbUpdate = () => {
   if (dbNotifyPaused) return;
@@ -635,10 +645,12 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('trainings').insert([batch]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Training;
       }
+      throw new Error('Batch training tidak tersimpan');
     }
     const newId = "t-" + Date.now();
     const record: Training = {
@@ -783,12 +795,12 @@ export const DB = {
       }
 
       const { data, error } = await supabase.from('participants').upsert([dbPayload], { onConflict: 'name,company' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Participant;
-      } else if (error) {
-        console.error("Supabase upsertParticipant error:", error);
       }
+      throw new Error('Peserta tidak tersimpan');
     }
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_participants') || '[]');
@@ -836,10 +848,12 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('certificates').insert([certWithSla]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Certificate;
       }
+      throw new Error('Sertifikat tidak tersimpan');
     }
     const newId = "c-" + Date.now() + Math.random().toString(36).substr(2, 4);
     const record: Certificate = { 
@@ -1137,10 +1151,12 @@ export const DB = {
       const payload: Record<string, unknown> = { ...company };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('companies').upsert([payload], { onConflict: 'name' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Company;
       }
+      throw new Error('Perusahaan tidak tersimpan');
     }
     const newId = company.id || "comp-" + Date.now();
     const record: Company = { id: newId, created_at: new Date().toISOString(), ...company };
@@ -1181,10 +1197,12 @@ export const DB = {
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       if (payload.company_id && !isValidUUID(payload.company_id)) delete payload.company_id;
       const { data, error } = await supabase.from('contacts').upsert([payload]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Contact;
       }
+      throw new Error('Kontak tidak tersimpan');
     }
     const newId = contact.id || "cnt-" + Date.now();
     const record: Contact = { id: newId, created_at: new Date().toISOString(), ...contact };
@@ -1224,10 +1242,12 @@ export const DB = {
       const payload: Record<string, unknown> = { ...prog };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('training_programs').upsert([payload], { onConflict: 'code' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as TrainingProgram;
       }
+      throw new Error('Program training tidak tersimpan');
     }
     const newId = prog.id || "prog-" + Date.now();
     const record: TrainingProgram = { id: newId, created_at: new Date().toISOString(), ...prog };
@@ -1415,19 +1435,24 @@ export const DB = {
       const { data, error } = await supabase.from('leads').insert([payload]).select();
       // A configured database that rejects the insert must surface the error;
       // silently saving to localStorage would lose the lead.
-      if (error) throw new Error(error.message);
+      throwIfError(error);
       if (data && data.length > 0) {
-        // Log activity
-        await this.insertLeadActivity({
-          lead_id: data[0].id,
-          action_type: 'created',
-          note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
-          actor: leadData.pic_staff_name || 'System',
-          new_status: leadData.status
-        });
+        // The lead is saved; a failed audit-log row must not report the whole save as failed
+        try {
+          await this.insertLeadActivity({
+            lead_id: data[0].id,
+            action_type: 'created',
+            note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
+            actor: leadData.pic_staff_name || 'System',
+            new_status: leadData.status
+          });
+        } catch (e) {
+          console.error('Lead saved but its activity log failed:', e);
+        }
         notifyDbUpdate();
         return data[0] as Lead;
       }
+      throw new Error('Lead tidak tersimpan');
     }
 
     if (typeof window !== 'undefined') {
@@ -1476,10 +1501,12 @@ export const DB = {
       if (payload.batch_id !== undefined && !isValidUUID(payload.batch_id)) delete payload.batch_id;
 
       const { data, error } = await supabase.from('leads').update(payload).eq('id', leadId).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Lead;
       }
+      return null; // no such row in the database
     }
 
     if (typeof window !== 'undefined') {
@@ -1598,12 +1625,12 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      await supabase.from('lead_activities').delete().eq('lead_id', leadId);
+      const acts = await supabase.from('lead_activities').delete().eq('lead_id', leadId);
+      throwIfError(acts.error);
       const { error } = await supabase.from('leads').delete().eq('id', leadId);
-      if (!error) {
-        notifyDbUpdate();
-        return { success: true };
-      }
+      throwIfError(error);
+      notifyDbUpdate();
+      return { success: true };
     }
     if (typeof window !== 'undefined') {
       const leads: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1655,10 +1682,12 @@ export const DB = {
     if (supabase && isValidUUID(act.lead_id)) {
       const payload: Record<string, unknown> = { ...act };
       const { data, error } = await supabase.from('lead_activities').insert([payload]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as LeadActivity;
       }
+      throw new Error('Aktivitas lead tidak tersimpan');
     }
 
     if (typeof window !== 'undefined') {
