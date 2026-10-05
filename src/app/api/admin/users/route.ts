@@ -1,58 +1,68 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { SUPABASE_URL, isSupabaseEnvConfigured } from '@/lib/supabase/config';
-import { getSessionClaims, isAdmin, isSameOrigin } from '@/lib/auth/guard';
+import { ROLES } from '@/lib/permissions';
+import { fail, getServiceClient, ok, requireAdminRequest, toManagedUser } from '@/lib/auth/adminApi';
 
 /**
- * Creates a staff account (admin only). Uses the Supabase service role key, which exists
- * ONLY on the server (SUPABASE_SERVICE_ROLE_KEY, never NEXT_PUBLIC_). This is what lets public
- * sign-up stay switched off in Supabase: accounts can only be created through this route.
+ * Account management (admin only). Uses the Supabase service role key, which exists ONLY on the
+ * server (SUPABASE_SERVICE_ROLE_KEY, never NEXT_PUBLIC_). Because accounts can only be created here,
+ * public sign-up stays switched off in Supabase.
  *
- * Responses: { id, email } on success; { error: <code>, message } otherwise.
+ *   GET  -> { users: ManagedUser[] }
+ *   POST { email, password, role? } -> { id, email, role }   (role defaults to "viewer")
+ *
+ * Errors: { error: <code>, message } with
  *   401 unauthenticated · 403 not allowed · 400 invalid input · 409 email exists
  *   501 service role key missing · 503 Supabase not configured
  */
 
-const bodySchema = z.object({
+const createSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(8).max(72),
+  role: z.enum(ROLES as [string, ...string[]]).default('viewer'),
 });
 
-const fail = (status: number, error: string, message: string) =>
-  NextResponse.json({ error, message }, { status, headers: { 'Cache-Control': 'no-store' } });
+export async function GET(request: NextRequest) {
+  const guard = await requireAdminRequest(request);
+  if (guard instanceof NextResponse) return guard;
+
+  const client = getServiceClient();
+  if (client instanceof NextResponse) return client;
+
+  const { data, error } = await client.auth.admin.listUsers({ page: 1, perPage: 200 });
+  if (error) return fail(500, 'list_failed', error.message);
+
+  const users = data.users
+    .map(toManagedUser)
+    .sort((a, b) => a.email.localeCompare(b.email));
+  return ok({ users });
+}
 
 export async function POST(request: NextRequest) {
-  if (!isSameOrigin(request)) return fail(403, 'forbidden_origin', 'Cross-origin request blocked.');
-
-  const claims = await getSessionClaims(request);
-  if (!claims) return fail(401, 'unauthenticated', 'Sign in required.');
-  if (!isAdmin(claims)) return fail(403, 'forbidden', 'Only admins can create accounts.');
+  const guard = await requireAdminRequest(request);
+  if (guard instanceof NextResponse) return guard;
 
   let parsed;
   try {
-    parsed = bodySchema.safeParse(await request.json());
+    parsed = createSchema.safeParse(await request.json());
   } catch {
     return fail(400, 'invalid_input', 'Request body must be JSON.');
   }
-  if (!parsed.success) return fail(400, 'invalid_input', 'A valid email and a password of at least 8 characters are required.');
+  if (!parsed.success) return fail(400, 'invalid_input', 'A valid email, a password of at least 8 characters and a valid role are required.');
 
-  if (!isSupabaseEnvConfigured) return fail(503, 'supabase_not_configured', 'Supabase is not configured on the server.');
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return fail(501, 'service_role_missing', 'SUPABASE_SERVICE_ROLE_KEY is not set on the server.');
-  }
+  const client = getServiceClient();
+  if (client instanceof NextResponse) return client;
 
-  const admin = createClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const { data, error } = await admin.auth.admin.createUser({
+  const { data, error } = await client.auth.admin.createUser({
     email: parsed.data.email,
     password: parsed.data.password,
     email_confirm: true,
+    app_metadata: { role: parsed.data.role },
   });
 
   if (error) {
     const exists = /already|registered|exists/i.test(error.message);
     return fail(exists ? 409 : 400, exists ? 'email_exists' : 'create_failed', exists ? 'This email is already registered.' : error.message);
   }
-  return NextResponse.json({ id: data.user?.id, email: data.user?.email }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+  return ok({ id: data.user?.id, email: data.user?.email, role: parsed.data.role }, 201);
 }

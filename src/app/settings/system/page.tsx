@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { DB } from '@/lib/db';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
@@ -20,9 +19,6 @@ export default function SystemSettingsPage() {
   const [dbKey, setDbKey] = useState('');
 
   // User Provisioning fields
-  const [provEmail, setProvEmail] = useState('');
-  const [provPassword, setProvPassword] = useState('');
-  const [provSubmitting, setProvSubmitting] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -105,30 +101,6 @@ export default function SystemSettingsPage() {
         notify.success(t('Konfigurasi dikembalikan ke default sistem.'));
       }
     });
-  };
-
-  const handleRegisterUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setProvSubmitting(true);
-
-    try {
-      await DB.registerNewUser(provEmail.trim(), provPassword);
-      notify.success(t('Akun untuk {provEmail} berhasil didaftarkan', { provEmail }));
-      setProvEmail('');
-      setProvPassword('');
-    } catch (err) {
-      console.error(err);
-      const e = err as Error & { code?: string };
-      const known: Record<string, string> = {
-        service_role_missing: t('Pembuatan akun belum aktif: isi SUPABASE_SERVICE_ROLE_KEY di environment server.'),
-        email_exists: t('Email ini sudah terdaftar.'),
-        invalid_input: t('Email harus valid dan password minimal 8 karakter.'),
-        forbidden: t('Hanya admin yang boleh membuat akun.'),
-      };
-      notify.error(t('Gagal mendaftarkan pengguna'), (e.code && known[e.code]) || e.message);
-    } finally {
-      setProvSubmitting(false);
-    }
   };
 
   return (
@@ -242,56 +214,6 @@ export default function SystemSettingsPage() {
         </form>
       </section>
 
-      {/* User Provisioning section */}
-      <section id="user-provisioning" className="border-t border-slate-200 pt-6 mt-6">
-        <div className="pb-4 mb-4 text-left">
-          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-            {t('Tambah Akun Staf Baru')}</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            {t('Daftarkan akun administrator atau operator baru. Mereka bisa masuk dengan password default dan mengubahnya nanti.')}</p>
-        </div>
-
-        <form onSubmit={handleRegisterUser} className="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-slate-700">{t('Alamat Email Pengguna')}</label>
-              <input
-                value={provEmail}
-                onChange={(e) => setProvEmail(e.target.value)}
-                className="cms-input text-xs font-semibold"
-                placeholder={t('operator@bkiacademy.com')}
-                type="email"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-slate-700">{t('Password Default')}</label>
-              <input
-                value={provPassword}
-                onChange={(e) => setProvPassword(e.target.value)}
-                className="cms-input text-xs font-semibold font-mono"
-                placeholder={t('mis. BKI12345')}
-                type="text"
-                minLength={8}
-                required
-              />
-            </div>
-          </div>
-          <div className="flex justify-end pt-2">
-            <button type="submit" disabled={provSubmitting} className="cms-btn-primary py-2 px-4 text-xs flex items-center gap-1 cursor-pointer">
-              {provSubmitting ? (
-                <>
-                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-card border-t-transparent rounded-full align-middle mr-1.5"></span>
-                  {t('Mendaftarkan...')}</>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[16px]">person_add</span>
-                  {t('Daftarkan Pengguna')}</>
-              )}
-            </button>
-          </div>
-        </form>
-      </section>
       <ConfirmationModal
         isOpen={confirmConfig.isOpen}
         title={confirmConfig.title}

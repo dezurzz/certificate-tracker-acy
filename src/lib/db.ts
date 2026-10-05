@@ -1069,25 +1069,6 @@ export const DB = {
     return [];
   },
 
-  // Register user
-  async registerNewUser(email: string, pass: string): Promise<{ id?: string; email?: string }> {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      // Accounts are created on the server (service role); public sign-up stays off in Supabase.
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw Object.assign(new Error(body.message || `Request failed (${res.status})`), { code: body.error as string | undefined });
-      }
-      notifyDbUpdate();
-      return body;
-    }
-    return { email, id: "u-mock-" + Date.now() };
-  },
 
   // Update password
   async updateUserPassword(newPassword: string): Promise<void> {

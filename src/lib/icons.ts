@@ -12,6 +12,7 @@ export const ICON_NAMES = [
   'arrow_forward',
   'assessment',
   'assignment_turned_in',
+  'autorenew',
   'badge',
   'bar_chart',
   'business',
