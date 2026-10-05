@@ -926,4 +926,7 @@ export const en: Record<string, string> = {
   "Muat {count} lagi ({remaining} tersisa)": "Load {count} more ({remaining} remaining)",
   "Minggu ini": "This week",
   "Log lama": "Older logs",
+  "Staf": "Staff",
+  "Executive": "Executive",
+  "Hanya-lihat": "View-only",
 };

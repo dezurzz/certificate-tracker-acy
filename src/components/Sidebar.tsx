@@ -110,7 +110,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium text-white">{user?.name || t('Admin')}</p>
-            <p className="truncate text-[11px] text-slate-500">{user?.role || t('Admin Sistem')}</p>
+            <p className="truncate text-[11px] text-slate-500">{user?.role || ''}</p>
           </div>
         </div>
       </div>

@@ -108,7 +108,7 @@ export default function ProfileSettingsPage() {
               <input
                 className="cms-input !bg-slate-50 !text-slate-600 cursor-not-allowed"
                 id="prof-role"
-                value={user?.role || 'System Administrator'}
+                value={user?.role || ''}
                 type="text"
                 readOnly
               />

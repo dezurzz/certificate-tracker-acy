@@ -1,19 +1,30 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/db';
 import { MOCK_SESSION_COOKIE as MOCK_COOKIE } from '@/lib/supabase/config';
 import { useT } from '@/i18n/LanguageContext';
 import { getErrorMessage } from '@/lib/errors';
+import { can, parseRole, type Action, type PermissionContext, type Role } from '@/lib/permissions';
+import { ROLE_LABELS } from '@/lib/roleLabels';
 
 interface User {
+  id: string;
   name: string;
   email: string;
+  /** Display label of the role (translated). */
   role: string;
+  /** Machine role from app_metadata (never from user_metadata). */
+  roleKey: Role;
 }
+
+/** What we keep in state; the translated role label is derived at render time. */
+type RawUser = Omit<User, 'role'>;
 
 interface AuthContextType {
   user: User | null;
+  /** Permission check for the signed-in user (false when signed out). */
+  can: (action: Action, ctx?: PermissionContext) => boolean;
   loading: boolean;
   signIn: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
@@ -38,10 +49,32 @@ function setMockCookie(on: boolean) {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** Minimal shape of a Supabase auth user that we read. */
+interface SupabaseAuthUser {
+  id: string;
+  email?: string;
+  user_metadata?: { full_name?: string } & Record<string, unknown>;
+  app_metadata?: { role?: unknown } & Record<string, unknown>;
+}
+
+function buildUser(u: SupabaseAuthUser): RawUser {
+  const roleKey = parseRole(u.app_metadata?.role);
+  return {
+    id: u.id,
+    name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Admin',
+    email: u.email || '',
+    roleKey,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const t = useT();
-  const [user, setUser] = useState<User | null>(null);
+  const [rawUser, setUser] = useState<RawUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const user = useMemo<User | null>(
+    () => (rawUser ? { ...rawUser, role: t(ROLE_LABELS[rawUser.roleKey]) } : null),
+    [rawUser, t]
+  );
 
   const fetchSession = async () => {
     try {
@@ -49,11 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && session.user) {
           const u = session.user;
-          setUser({
-            name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Admin',
-            email: u.email || '',
-            role: u.user_metadata?.role || 'Admin',
-          });
+          setUser(buildUser(u));
           setLoading(false);
           return;
         }
@@ -68,9 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMockCookie(true);
         const profileName = localStorage.getItem('profileName') || 'System Admin';
         setUser({
+          id: 'dev-mock-user',
           name: profileName,
           email: 'dzaky@bki.academy',
-          role: 'System Admin',
+          roleKey: 'admin',
         });
         setLoading(false);
         return;
@@ -91,11 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session && session.user) {
           const u = session.user;
-          setUser({
-            name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Admin',
-            email: u.email || '',
-            role: u.user_metadata?.role || 'Admin',
-          });
+          setUser(buildUser(u));
         } else {
           // If Supabase signed out, keep a dev-only mock session alive
           const mockActive =
@@ -118,11 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (supabase) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
         if (!error && data?.user) {
-          setUser({
-            name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Admin',
-            email: data.user.email || '',
-            role: data.user.user_metadata?.role || 'Admin',
-          });
+          setUser(buildUser(data.user));
           setLoading(false);
           return { success: true };
         }
@@ -135,9 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('profileName', 'System Admin');
           setMockCookie(true);
           setUser({
+            id: 'dev-mock-user',
             name: t('Admin Sistem'),
             email: 'dzaky@bki.academy',
-            role: 'System Admin',
+              roleKey: 'admin',
           });
           setLoading(false);
           return { success: true };
@@ -186,11 +209,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const canDo = useCallback(
+    (action: Action, ctx?: PermissionContext) =>
+      user ? can(user.roleKey, action, { userId: user.id, ...ctx }) : false,
+    [user]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, can: canDo, loading, signIn, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+/** `const can = useCan(); can('data.write')`, `can('delete.lead', { ownerId: lead.created_by })`. */
+export function useCan() {
+  return useAuth().can;
 }
 
 export function useAuth() {

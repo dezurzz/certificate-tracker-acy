@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
+import { parseRole, type Role } from '@/lib/permissions';
 
 /**
  * Server-side checks for route handlers (/api/*). proxy.ts already blocks signed-out
@@ -33,13 +34,24 @@ export async function getSessionClaims(request: NextRequest): Promise<SessionCla
 }
 
 /**
- * Who may manage accounts and system settings.
- * TODO(roles): today every signed-in user is an admin. When roles exist, check the
- * role stored in app_metadata (never user_metadata, which users can edit themselves).
+ * The role of a verified session. It comes from `app_metadata.role` in the JWT (writable only
+ * with the service key); `user_metadata` is user-editable and must never be trusted. A missing or
+ * unknown role is the least-privileged `viewer`. Note: a role change reaches the token only after
+ * it is refreshed (or the user signs in again).
  */
+export function getRole(claims: SessionClaims): Role {
+  const meta = claims.app_metadata as { role?: unknown } | undefined;
+  return parseRole(meta?.role);
+}
+
+/** Who may manage accounts and system settings. */
 export function isAdmin(claims: SessionClaims): boolean {
-  void claims;
-  return true;
+  return getRole(claims) === 'admin';
+}
+
+/** True when the session's role is one of `roles`. */
+export function hasRole(claims: SessionClaims, ...roles: Role[]): boolean {
+  return roles.includes(getRole(claims));
 }
 
 /** Same-origin guard for state-changing requests (cookies are SameSite=Lax; this is a second layer). */

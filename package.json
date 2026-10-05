@@ -9,6 +9,7 @@
     "lint": "eslint",
     "i18n:check": "node scripts/check-i18n.mjs",
     "icons:check": "node scripts/check-icons.mjs",
+    "permissions:check": "node scripts/check-permissions.mjs",
     "rls:check": "node --env-file=.env.local scripts/check-rls.mjs"
   },
   "dependencies": {
