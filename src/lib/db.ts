@@ -108,6 +108,8 @@ export interface Training {
   status: string;
   pic?: string;
   created_at?: string;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface Participant {
@@ -140,6 +142,8 @@ export interface Certificate {
   updated_by?: string;
   trainings?: Training;
   participants?: Participant;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface CertificateHistory {
@@ -239,6 +243,8 @@ export interface Lead {
   previous_batch_info?: string;
   created_at: string;
   updated_at?: string;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface LeadActivity {

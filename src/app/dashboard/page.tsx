@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate, Lead } from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
+import { useCan } from '@/context/AuthContext';
 import PageHeader from '@/components/PageHeader';
 import LoadError from '@/components/LoadError';
 import { getErrorMessage } from '@/lib/errors';
@@ -28,6 +29,7 @@ interface ActivityItem {
 
 export default function DashboardPage() {
   const t = useT();
+  const canWrite = useCan()('data.write');
   const slaThreshold = useSlaDays();
   const { locale } = useLanguage();
   const { user } = useAuth();
@@ -343,12 +345,16 @@ export default function DashboardPage() {
         actions={
           <>
             <Button variant="secondary" icon="download" onClick={downloadDashboardReport}>{t('Ekspor Laporan')}</Button>
-            <Link href="/crm/leads" className="cms-btn-secondary !h-10">
-              <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">person_add</span>
-              {t('Input Lead Baru')}</Link>
-            <Link href="/trainings?openModal=true" className="cms-btn-primary !h-10">
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
-              {t('Batch Baru')}</Link>
+            {canWrite && (
+              <>
+                <Link href="/crm/leads" className="cms-btn-secondary !h-10">
+                  <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">person_add</span>
+                  {t('Input Lead Baru')}</Link>
+                <Link href="/trainings?openModal=true" className="cms-btn-primary !h-10">
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+                  {t('Batch Baru')}</Link>
+              </>
+            )}
           </>
         }
       />

@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Certificate } from '@/lib/db';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import ActionMenu from '@/components/ActionMenu';
+import { useCan } from '@/context/AuthContext';
 import Pagination, { usePagination } from '@/components/Pagination';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
@@ -33,6 +34,9 @@ const CERT_SKELETON_COLUMNS: SkeletonColumn[] = [
 
 function CertificatesContent() {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const canDeleteCert = (c: Certificate) => can('delete.certificate', { ownerId: c.created_by });
   const slaThreshold = useSlaDays();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,7 +103,7 @@ function CertificatesContent() {
   // Bulk Actions
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(c => c.id)])));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.filter(canDeleteCert).map(c => c.id)])));
     } else {
       const pageIds = new Set(pageItems.map(c => c.id));
       setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
@@ -219,7 +223,7 @@ function CertificatesContent() {
         actions={
           <>
             <Button variant="secondary" icon="download" onClick={handleExport}>{t('Ekspor')}</Button>
-            <Button variant="primary" icon="add" onClick={() => router.push('/trainings?openModal=true')}>{t('Batch Baru')}</Button>
+            <Button variant="primary" icon="add" onClick={() => router.push('/trainings?openModal=true')} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Batch Baru')}</Button>
           </>
         }
       />
@@ -283,12 +287,15 @@ function CertificatesContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
                   <th className="p-4 w-12 text-center">
+                    {pageItems.some(canDeleteCert) && (
                     <input
-                      checked={pageItems.length > 0 && pageItems.every(c => selectedIds.includes(c.id))}
+                      aria-label={t('Pilih semua sertifikat yang bisa dihapus')}
+                      checked={pageItems.filter(canDeleteCert).every(c => selectedIds.includes(c.id))}
                       onChange={handleSelectAll}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                       type="checkbox"
                     />
+                    )}
                   </th>
                   <th className="p-4">{t('Nama Peserta')}</th>
                   <th className="p-4">{t('Training')}</th>
@@ -317,12 +324,14 @@ function CertificatesContent() {
                     return (
                       <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="p-4 text-center">
+                          {canDeleteCert(c) && (
                           <input
                             checked={selectedIds.includes(c.id)}
                             onChange={(e) => handleSelectRow(c.id, e.target.checked)}
                             className="row-checkbox rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                             type="checkbox"
                           />
+                          )}
                         </td>
                         <td className="p-4 font-medium text-slate-900">{c.participants?.name}</td>
                         <td className="p-4 text-slate-600">{c.trainings?.program_name} {c.trainings?.batch_code}</td>
@@ -353,8 +362,10 @@ function CertificatesContent() {
                         <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <ActionMenu align="right" menuWidth="w-44" items={[
                             { label: t('Lihat Batch'), icon: 'visibility', onClick: () => router.push(`/trainings/${c.training_id}`) },
-                            'divider',
-                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDeleteCert(c.id) },
+                            ...(canDeleteCert(c) ? [
+                              'divider' as const,
+                              { label: t('Hapus'), icon: 'delete', variant: 'danger' as const, onClick: () => handleDeleteCert(c.id) },
+                            ] : []),
                           ]} />
                         </td>
                       </tr>

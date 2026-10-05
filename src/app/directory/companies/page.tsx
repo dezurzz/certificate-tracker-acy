@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Company } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import { useCan } from '@/context/AuthContext';
 import LoadError from '@/components/LoadError';
 import { notify } from '@/lib/notify';
 import Modal from '@/components/Modal';
@@ -17,6 +18,8 @@ import { getErrorMessage } from '@/lib/errors';
 
 export default function CompaniesDirectoryPage() {
   const t = useT();
+  const canWrite = useCan()('data.write');
+  const noWriteHint = canWrite ? undefined : t('Peran Anda hanya bisa melihat data');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -122,9 +125,9 @@ export default function CompaniesDirectoryPage() {
           description={t('Data master perusahaan rekanan BKI Academy untuk mencegah duplikasi penulisan nama PT.')}
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads}>
+              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads} disabled={!canWrite} title={noWriteHint}>
                 {t('Sinkronkan dari Leads')}</Button>
-              <Button variant="primary" icon="add_business" onClick={() => setIsAddModalOpen(true)}>
+              <Button variant="primary" icon="add_business" onClick={() => setIsAddModalOpen(true)} disabled={!canWrite} title={noWriteHint}>
               {t('Tambah Perusahaan')}</Button>
             </div>
           }

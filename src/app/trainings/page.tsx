@@ -9,6 +9,7 @@ import { trainingSchema, sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import ActionMenu from '@/components/ActionMenu';
+import { useCan } from '@/context/AuthContext';
 import Button from '@/components/Button';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeader from '@/components/PageHeader';
@@ -35,6 +36,9 @@ const TRAINING_SKELETON_COLUMNS: SkeletonColumn[] = [
 
 function TrainingsContent() {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const canDeleteTraining = (tr: Training) => can('delete.training', { ownerId: tr.created_by });
   const { locale } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -109,10 +113,10 @@ function TrainingsContent() {
     loadData();
 
     // Check query params to open modal
-    if (searchParams.get('openModal') === 'true') {
+    if (searchParams.get('openModal') === 'true' && canWrite) {
       openAddModal();
     }
-  }, [searchParams]);
+  }, [searchParams, canWrite]);
 
   // Time ago helper
   const getTimeAgo = (dateStr?: string) => (dateStr ? formatRelativeTime(new Date(dateStr), t, locale, { short: true }) : '');
@@ -222,19 +226,23 @@ function TrainingsContent() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    
+    const deletableIds = selectedIds.filter(id => {
+      const tr = trainings.find(x => x.id === id);
+      return tr ? canDeleteTraining(tr) : false;
+    });
+    if (deletableIds.length === 0) return;
+
     setConfirmConfig({
       isOpen: true,
       title: t('Hapus Batch Sekaligus'),
-      message: t('Yakin ingin menghapus {length} batch training terpilih beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.', { length: selectedIds.length }),
+      message: t('Yakin ingin menghapus {length} batch training terpilih beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.', { length: deletableIds.length }),
       confirmLabel: t('Hapus Semua'),
       type: 'danger',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        setSpinnerMsg(t('Menghapus {length} batch...', { length: selectedIds.length }));
+        setSpinnerMsg(t('Menghapus {length} batch...', { length: deletableIds.length }));
         try {
-          for (const id of selectedIds) {
+          for (const id of deletableIds) {
             await DB.deleteTraining(id);
           }
           notify.success(t('Batch terpilih dihapus.'));
@@ -359,7 +367,7 @@ function TrainingsContent() {
   // Handle selection checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(t => t.id)])));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.filter(canDeleteTraining).map(t => t.id)])));
     } else {
       const pageIds = new Set(pageItems.map(t => t.id));
       setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
@@ -437,8 +445,8 @@ function TrainingsContent() {
         description={t('Kelola dan pantau semua program training.')}
         actions={
           <>
-            <Button variant="secondary" icon="upload_file" onClick={() => setImportModalOpen(true)}>{t('Impor Agenda CSV')}</Button>
-            <Button variant="primary" icon="add" onClick={openAddModal}>{t('Tambah Training')}</Button>
+            <Button variant="secondary" icon="upload_file" onClick={() => setImportModalOpen(true)} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Impor Agenda CSV')}</Button>
+            <Button variant="primary" icon="add" onClick={openAddModal} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Tambah Training')}</Button>
           </>
         }
       />
@@ -497,12 +505,15 @@ function TrainingsContent() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="px-4 py-3 w-12 text-center">
+                    {pageItems.some(canDeleteTraining) && (
                     <input
                       type="checkbox"
-                      checked={pageItems.length > 0 && pageItems.every(t => selectedIds.includes(t.id))}
+                      aria-label={t('Pilih semua batch yang bisa dihapus')}
+                      checked={pageItems.filter(canDeleteTraining).every(t => selectedIds.includes(t.id))}
                       onChange={handleSelectAll}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                     />
+                    )}
                   </th>
                   <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Nama Training')}</th>
                   <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Batch')}</th>
@@ -570,12 +581,14 @@ function TrainingsContent() {
                         onClick={() => router.push(`/trainings/${training.id}`)}
                       >
                         <td className="px-4 py-3 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                          {canDeleteTraining(training) && (
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(training.id)}
                             onChange={(e) => handleSelectRow(training.id, e.target.checked)}
                             className="training-select-checkbox rounded border-slate-200 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                           />
+                          )}
                         </td>
                         <td className="px-4 py-3 min-w-[200px] max-w-[300px]">
                           <div className="text-[13px] font-medium text-slate-900 break-words">{training.program_name}</div>
@@ -628,9 +641,11 @@ function TrainingsContent() {
                         <td className="px-4 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                           <ActionMenu align="right" menuWidth="w-44" items={[
                             { label: t('Lihat Detail'), icon: 'visibility', onClick: () => router.push(`/trainings/${training.id}`) },
-                            { label: t('Ubah Batch'), icon: 'edit', onClick: () => openEditModal(training) },
-                            'divider',
-                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDelete(training.id) },
+                            ...(canWrite ? [{ label: t('Ubah Batch'), icon: 'edit', onClick: () => openEditModal(training) }] : []),
+                            ...(canDeleteTraining(training) ? [
+                              'divider' as const,
+                              { label: t('Hapus'), icon: 'delete', variant: 'danger' as const, onClick: () => handleDelete(training.id) },
+                            ] : []),
                           ]} />
                         </td>
                       </tr>

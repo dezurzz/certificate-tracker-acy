@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Contact, Company } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import { useCan } from '@/context/AuthContext';
 import LoadError from '@/components/LoadError';
 import { createWhatsAppUrl } from '@/lib/whatsapp';
 import { notify } from '@/lib/notify';
@@ -26,6 +27,8 @@ const CONTACT_SKELETON_COLUMNS: SkeletonColumn[] = [
 
 export default function ContactsDirectoryPage() {
   const t = useT();
+  const canWrite = useCan()('data.write');
+  const noWriteHint = canWrite ? undefined : t('Peran Anda hanya bisa melihat data');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,9 +150,9 @@ export default function ContactsDirectoryPage() {
           description={t('Daftar terpusat kontak calon peserta dan perwakilan perusahaan untuk komunikasi dan follow-up.')}
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads}>
+              <Button variant="secondary" icon="sync" loading={syncing} onClick={handleSyncFromLeads} disabled={!canWrite} title={noWriteHint}>
                 {t('Sinkronkan dari Leads')}</Button>
-              <Button variant="primary" icon="person_add" onClick={() => setIsAddModalOpen(true)}>
+              <Button variant="primary" icon="person_add" onClick={() => setIsAddModalOpen(true)} disabled={!canWrite} title={noWriteHint}>
               {t('Tambah Kontak')}</Button>
             </div>
           }

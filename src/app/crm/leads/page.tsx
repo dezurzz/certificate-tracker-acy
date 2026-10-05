@@ -12,7 +12,7 @@ import { DB, Lead, LeadStatus, LeadSource, WaitingReason, Training, LeadActivity
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useCan } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import SortSelect from '@/components/SortSelect';
@@ -39,6 +39,9 @@ export default function LeadsPage() {
   const t = useT();
   const { locale } = useLanguage();
   const { user } = useAuth();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const noWriteHint = t('Peran Anda hanya bisa melihat data');
 
   // Data states
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -573,7 +576,7 @@ export default function LeadsPage() {
           title={t('Leads & Waiting List')}
           description={t('Kelola prospek dari WhatsApp dan form pendaftaran, follow-up harian, dan pantau waiting list.')}
           actions={
-            <Button variant="primary" icon="add" onClick={() => setIsAddModalOpen(true)}>
+            <Button variant="primary" icon="add" onClick={() => setIsAddModalOpen(true)} disabled={!canWrite} title={canWrite ? undefined : noWriteHint}>
               {t('Input Lead Baru')}</Button>
           }
         />
@@ -673,16 +676,18 @@ export default function LeadsPage() {
             <table className="cms-table w-full text-left border-collapse bg-card">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
-                  <th className="p-4 w-10">
-                    <input
-                      type="checkbox"
-                      aria-label={t('Pilih semua lead yang tampil')}
-                      checked={allVisibleSelected}
-                      onChange={toggleSelectAll}
-                      disabled={loading || filteredLeads.length === 0}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
-                    />
-                  </th>
+                  {canWrite && (
+                    <th className="p-4 w-10">
+                      <input
+                        type="checkbox"
+                        aria-label={t('Pilih semua lead yang tampil')}
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAll}
+                        disabled={loading || filteredLeads.length === 0}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="p-4">{t('Kontak / Perusahaan')}</th>
                   <th className="p-4">{t('Program & Kursi')}</th>
                   <th className="p-4">{t('Status & Alasan')}</th>
@@ -693,10 +698,10 @@ export default function LeadsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
-                  <TableSkeletonRows label={t('Memuat data leads...')} columns={LEAD_SKELETON_COLUMNS} />
+                  <TableSkeletonRows label={t('Memuat data leads...')} columns={canWrite ? LEAD_SKELETON_COLUMNS : LEAD_SKELETON_COLUMNS.slice(1)} />
                 ) : filteredLeads.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-slate-500">
+                    <td colSpan={canWrite ? 7 : 6} className="p-12 text-center text-slate-500">
                       <span className="material-symbols-outlined text-3xl mb-1 text-slate-300">inbox</span>
                       <p className="font-medium text-slate-600">{t('Tidak ada lead yang cocok dengan filter')}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">{t('Coba ubah filter pencarian atau input lead baru.')}</p>
@@ -710,15 +715,17 @@ export default function LeadsPage() {
                     return (
                       <tr key={lead.id} className={`transition-colors ${selectedIds.includes(lead.id) ? 'bg-blue-50/60' : 'hover:bg-slate-50'}`}>
                         {/* Selection */}
-                        <td className="p-4 w-10" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            aria-label={t('Pilih {name}', { name: lead.contact_name })}
-                            checked={selectedIds.includes(lead.id)}
-                            onChange={() => toggleSelectRow(lead.id)}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
-                          />
-                        </td>
+                        {canWrite && (
+                          <td className="p-4 w-10" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={t('Pilih {name}', { name: lead.contact_name })}
+                              checked={selectedIds.includes(lead.id)}
+                              onChange={() => toggleSelectRow(lead.id)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         {/* Contact & Company */}
                         <td className="p-4">
                           <div className="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -832,7 +839,7 @@ export default function LeadsPage() {
                               {t('WA')}</DropdownButton>
 
                             {/* 2. Primary Progression Button */}
-                            {lead.status === 'Baru' && (
+                            {canWrite && lead.status === 'Baru' && (
                               <Button
                                 size="sm"
                                 variant="secondary"
@@ -843,7 +850,7 @@ export default function LeadsPage() {
                                 {t('Kirim Link')}</Button>
                             )}
 
-                            {(lead.status === 'Link Terkirim' || lead.status === 'Waiting List' || lead.status === 'Jadwal Ditawarkan') && (
+                            {canWrite && (lead.status === 'Link Terkirim' || lead.status === 'Waiting List' || lead.status === 'Jadwal Ditawarkan') && (
                               <Button
                                 size="sm"
                                 variant="primary"
@@ -854,7 +861,7 @@ export default function LeadsPage() {
                                 {t('Konfirmasi')}</Button>
                             )}
 
-                            {lead.status === 'Terdaftar' && (
+                            {canWrite && lead.status === 'Terdaftar' && (
                               <Button
                                 size="sm"
                                 variant="success"
@@ -870,14 +877,14 @@ export default function LeadsPage() {
                               align="right"
                               menuWidth="w-52"
                               items={[
-                                ...(lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                ...(canWrite && lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
                                   {
                                     label: t('Jadwalkan Follow-up'),
                                     icon: 'calendar_clock',
                                     onClick: () => openFollowUpModal(lead),
                                   },
                                 ] : []),
-                                ...(lead.status !== 'Waiting List' && lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                ...(canWrite && lead.status !== 'Waiting List' && lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
                                   {
                                     label: t('Pindah ke Waiting List'),
                                     icon: 'hourglass_top',
@@ -889,8 +896,8 @@ export default function LeadsPage() {
                                   icon: 'visibility',
                                   onClick: () => openLeadDetail(lead),
                                 },
-                                'divider',
-                                ...(lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
+                                ...(canWrite ? ['divider' as const] : []),
+                                ...(canWrite && lead.status !== 'Selesai Training' && lead.status !== 'Batal' ? [
                                   {
                                     label: t('Tandai Batal'),
                                     icon: 'cancel',
@@ -898,12 +905,14 @@ export default function LeadsPage() {
                                     onClick: () => openCancelModal(lead),
                                   },
                                 ] : []),
-                                {
-                                  label: t('Hapus Lead'),
-                                  icon: 'delete',
-                                  variant: 'danger' as const,
-                                  onClick: () => handleDeleteLead(lead.id),
-                                },
+                                ...(can('delete.lead', { ownerId: lead.created_by }) ? [
+                                  {
+                                    label: t('Hapus Lead'),
+                                    icon: 'delete',
+                                    variant: 'danger' as const,
+                                    onClick: () => handleDeleteLead(lead.id),
+                                  },
+                                ] : []),
                               ]}
                             />
                           </div>
@@ -1307,6 +1316,7 @@ export default function LeadsPage() {
         {/* Slide-over Drawer: Detail Lead & Riwayat Aktivitas */}
         {isDetailDrawerOpen && selectedLead && (
           <Modal isOpen={true} onClose={() => setIsDetailDrawerOpen(false)} title={selectedLead.contact_name} description={t('Detail Lead: {company_name}', { company_name: selectedLead.company_name })} placement="right" footer={<div className="flex w-full items-center justify-between">
+{canWrite ? (
 <Button
                   variant="ghost"
                   size="sm"
@@ -1315,8 +1325,10 @@ export default function LeadsPage() {
                   className="!text-red-600 hover:!bg-red-50"
                 >
                   {t('Tandai Batal')}</Button>
+) : <span />}
 
                 <div className="flex items-center gap-2">
+                  {can('delete.lead', { ownerId: selectedLead.created_by }) && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1325,6 +1337,7 @@ export default function LeadsPage() {
                     className="!text-slate-500 hover:!text-red-600"
                     title={t('Hapus Data Lead')}
                   />
+                  )}
                   <Button
                     variant="primary"
                     size="sm"
@@ -1435,11 +1448,13 @@ export default function LeadsPage() {
                 <div>
                   <div className="flex justify-between items-center mb-2.5">
                     <p className="text-[11px] font-semibold text-slate-500">{t('Riwayat Aktivitas & Catatan')}</p>
+                    {canWrite && (
                     <button
                       onClick={() => openFollowUpModal(selectedLead)}
                       className="text-[11px] text-blue-600 hover:underline font-semibold flex items-center gap-1"
                     >
                       <span className="material-symbols-outlined text-sm">add</span> {t('Catat Aktivitas')}</button>
+                    )}
                   </div>
 
                   <div className="space-y-3 relative before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">

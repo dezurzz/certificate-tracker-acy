@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { NAV_GROUPS, SETTINGS_ITEM, NavItem, isNavActive } from '@/lib/navigation';
+import { navGroupsForRole, SETTINGS_ITEM, NavItem, isNavActive } from '@/lib/navigation';
 import { useT } from '@/i18n/LanguageContext';
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -85,7 +85,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
       {/* Groups */}
       <div className="table-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
-        {NAV_GROUPS.map(group => (
+        {navGroupsForRole(user?.roleKey ?? 'viewer').map(group => (
           <div key={group.label ?? 'root'}>
             {group.label && (
               <p className="mb-1.5 px-3 text-[11px] font-medium text-slate-500">{t(group.label)}</p>

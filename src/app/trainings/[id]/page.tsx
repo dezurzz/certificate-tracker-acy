@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import { useCan } from '@/context/AuthContext';
 import { DB, Training, Certificate, Participant, CertificateHistory } from '@/lib/db';
 import { sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -33,6 +34,9 @@ interface AuditEntry {
 
 export default function TrainingDetailPage({ params }: PageProps) {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const noWriteHint = canWrite ? undefined : t('Peran Anda hanya bisa melihat data');
   const slaThreshold = useSlaDays();
   const { locale } = useLanguage();
   
@@ -593,7 +597,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
         }
         actions={
           <>
-            <Button variant="secondary" icon="edit" onClick={() => setEditBatchModalOpen(true)}>{t('Ubah Detail')}</Button>
+            <Button variant="secondary" icon="edit" onClick={() => setEditBatchModalOpen(true)} disabled={!canWrite} title={noWriteHint}>{t('Ubah Detail')}</Button>
             <Button variant="primary" icon="download" onClick={handleExportRoster}>{t('Buat Laporan')}</Button>
           </>
         }
@@ -745,7 +749,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
               <div className="flex gap-3">
                 <Button variant="secondary" size="sm" icon="mail" onClick={openEmailModalBulk} className="!h-9">{t('Email Semua')}</Button>
-                <Button variant="primary" size="sm" icon="person_add" onClick={() => setAddParticipantModalOpen(true)} className="!h-9">{t('Tambah Peserta')}</Button>
+                <Button variant="primary" size="sm" icon="person_add" onClick={() => setAddParticipantModalOpen(true)} disabled={!canWrite} title={noWriteHint} className="!h-9">{t('Tambah Peserta')}</Button>
               </div>
             </div>
 
@@ -790,9 +794,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                                 <button onClick={() => openEmailModalSingle(p)} aria-label={t('Email {name}', { name: p.name })} title={t('Email')} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">mail</span>
                                 </button>
+                                {[qualCert, attCert].every(c => !c || can('delete.certificate', { ownerId: c.created_by })) && (
                                 <button onClick={() => handleRemoveParticipant(p.id)} aria-label={t('Keluarkan {name}', { name: p.name })} title={t('Keluarkan')} className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors">
                                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
                                 </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -820,7 +826,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                     </span>
                     <div className="flex items-center gap-1.5">
                       {/* Left arrow button */}
-                      {colStatus !== 'Pending' && (
+                      {canWrite && colStatus !== 'Pending' && (
                         <button 
                           onClick={() => setActiveBulkMenu(activeBulkMenu?.col === colStatus && activeBulkMenu?.dir === 'left' ? null : { col: colStatus, dir: 'left' })}
                           className="w-6 h-6 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
@@ -835,7 +841,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                       </span>
                       
                       {/* Right arrow button */}
-                      {colStatus !== 'Completed' && (
+                      {canWrite && colStatus !== 'Completed' && (
                         <button 
                           onClick={() => setActiveBulkMenu(activeBulkMenu?.col === colStatus && activeBulkMenu?.dir === 'right' ? null : { col: colStatus, dir: 'right' })}
                           className="w-6 h-6 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
@@ -875,7 +881,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                   </div>
                   <div
                     onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, colStatus)}
+                    onDrop={canWrite ? (e) => handleDrop(e, colStatus) : undefined}
                     className={`kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200 ${
                       isDragging ? 'bg-slate-200/50 border-2 border-dashed border-slate-300 p-2 min-h-[300px]' : ''
                     }`}
@@ -894,11 +900,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                         return (
                           <div
                             key={c.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, c.id)}
-                            onDragEnd={handleDragEnd}
+                            draggable={canWrite}
+                            onDragStart={canWrite ? (e) => handleDragStart(e, c.id) : undefined}
+                            onDragEnd={canWrite ? handleDragEnd : undefined}
                             onClick={() => handleOpenCertDetails(c)}
-                            className="kanban-card cursor-grab active:cursor-grabbing"
+                            className={`kanban-card ${canWrite ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                           >
                             <div className="text-[11px] font-mono text-slate-500 mb-1">{c.certificate_number || 'N/A'}</div>
                             <h4 className="font-medium text-slate-900 text-sm">{c.participants?.name || t('Tidak diketahui')}</h4>
@@ -1228,6 +1234,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
 
               {/* Update action dropdown */}
+              {canWrite && (
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
                 <label className="text-[11px] font-semibold text-slate-500" htmlFor="cert-status-select">
                   {t('Perbarui Status Tahap')}</label>
@@ -1247,6 +1254,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                     {t('Perbarui')}</button>
                 </div>
               </div>
+              )}
             </div>
 </Modal>
       )}

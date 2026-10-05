@@ -9,7 +9,7 @@ import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
 import LoadError from '@/components/LoadError';
 import Tabs from '@/components/Tabs';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useCan } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import { useT } from '@/i18n/LanguageContext';
 import SortSelect from '@/components/SortSelect';
@@ -21,6 +21,7 @@ import { getErrorMessage } from '@/lib/errors';
 export default function FollowUpsPage() {
   const t = useT();
   const { user } = useAuth();
+  const canWrite = useCan()('data.write');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -306,6 +307,7 @@ export default function FollowUpsPage() {
                       <span className="leading-none whitespace-nowrap">{t('WA Pengingat')}</span>
                     </button>
 
+                    {canWrite && (<>
                     {/* Quick Postpone to Tomorrow */}
                     <button
                       onClick={() => handlePostponeTomorrow(lead)}
@@ -324,6 +326,7 @@ export default function FollowUpsPage() {
                       <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">check</span>
                       <span className="leading-none whitespace-nowrap">{t('Selesai Follow-up')}</span>
                     </button>
+                    </>)}
                   </div>
                 </div>
               );

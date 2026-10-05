@@ -17,7 +17,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { name: t('Pengaturan Profil'), href: '/settings/profile', icon: 'person', active: pathname === '/settings/profile' },
     { name: t('Preferensi Notifikasi'), href: '/settings/notifications', icon: 'notifications_active', active: pathname === '/settings/notifications' },
     { name: t('Keamanan & Akses'), href: '/settings/security', icon: 'shield', active: pathname === '/settings/security' },
-    { name: t('Konfigurasi Sistem'), href: '/settings/system', icon: 'dns', active: pathname === '/settings/system' },
+    ...(can('settings.system')
+      ? [{ name: t('Konfigurasi Sistem'), href: '/settings/system', icon: 'dns', active: pathname === '/settings/system' }]
+      : []),
     ...(can('users.manage')
       ? [{ name: t('Pengguna & Peran'), href: '/settings/users', icon: 'manage_accounts', active: pathname === '/settings/users' }]
       : []),

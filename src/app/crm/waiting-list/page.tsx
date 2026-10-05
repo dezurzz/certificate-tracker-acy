@@ -9,7 +9,7 @@ import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
 import LoadError from '@/components/LoadError';
 import StatCard from '@/components/StatCard';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useCan } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import SortSelect from '@/components/SortSelect';
 import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
@@ -30,6 +30,7 @@ const WAITING_SKELETON_COLUMNS: SkeletonColumn[] = [
 export default function WaitingListPage() {
   const t = useT();
   const { user } = useAuth();
+  const canWrite = useCan()('data.write');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,6 +389,7 @@ export default function WaitingListPage() {
                               <span className="material-symbols-outlined text-base" aria-hidden="true">chat</span>
                             </button>
 
+                            {canWrite && (<>
                             {/* Mark Schedule Offered */}
                             <button
                               title={t('Tandai Jadwal Ditawarkan')}
@@ -403,6 +405,7 @@ export default function WaitingListPage() {
                               className="cms-btn-primary !h-8 !px-3 !text-xs"
                             >
                               {t('Pilih Batch')}</button>
+                            </>)}
                           </div>
                         </td>
                       </tr>

@@ -959,4 +959,11 @@ export const en: Record<string, string> = {
   "Acak": "Random",
   "Simpan Password": "Save Password",
   "Sampaikan password ini lewat jalur yang aman, lalu minta pengguna menggantinya di Keamanan & Akses.": "Share this password through a secure channel, then ask the user to change it under Security & Access.",
+  "Dashboard Eksekutif": "Executive Dashboard",
+  "Ringkasan performa untuk menganalisis data: konversi leads, SLA sertifikat, dan tren.": "Performance overview for analysing data: lead conversion, certificate SLA and trends.",
+  "Dashboard eksekutif sedang disiapkan": "The executive dashboard is being prepared",
+  "Sementara itu, Anda bisa melihat laporan yang sudah tersedia.": "In the meantime, you can view the reports that are already available.",
+  "Peran Anda hanya bisa melihat data": "Your role can only view data",
+  "Pilih semua batch yang bisa dihapus": "Select all deletable batches",
+  "Pilih semua sertifikat yang bisa dihapus": "Select all deletable certificates",
 };
