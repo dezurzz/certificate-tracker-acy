@@ -46,6 +46,7 @@ export const ICON_NAMES = [
   'event_repeat',
   'expand_more',
   'filter',
+  'filter_alt',
   'function',
   'group',
   'groups',
