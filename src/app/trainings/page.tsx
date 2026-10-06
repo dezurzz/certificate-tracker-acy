@@ -38,7 +38,6 @@ function TrainingsContent() {
   const t = useT();
   const can = useCan();
   const canWrite = can('data.write');
-  const canDeleteTraining = (tr: Training) => can('delete.training', { ownerId: tr.created_by });
   const { locale } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +45,11 @@ function TrainingsContent() {
   // Data State
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  // Deleting a batch also deletes its certificates, so it needs the right to delete every one of them
+  // (admins always; staff only when they created the batch and all of its certificates).
+  const canDeleteTraining = (tr: Training) =>
+    can('delete.training', { ownerId: tr.created_by }) &&
+    certificates.filter(c => c.training_id === tr.id).every(c => can('delete.certificate', { ownerId: c.created_by }));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [spinnerMsg, setSpinnerMsg] = useState('');

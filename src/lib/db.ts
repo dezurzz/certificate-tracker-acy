@@ -82,6 +82,15 @@ function cachedRead<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   return promise;
 }
 
+/**
+ * Under row level security a DELETE the caller may not perform does NOT fail: the row is simply
+ * invisible, so zero rows are deleted and no error is returned. Treat that as an error so the UI
+ * never reports a delete that did not happen.
+ */
+function assertDeleted(rows: unknown[] | null | undefined, message: string) {
+  if (!rows || rows.length === 0) throw new Error(message);
+}
+
 let dbNotifyPaused = false;
 const notifyDbUpdate = () => {
   clearReadCache();
@@ -706,9 +715,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      await supabase.from('certificates').delete().eq('training_id', trainingId);
-      const { error } = await supabase.from('trainings').delete().eq('id', trainingId);
-      if (error) throw error;
+      // certificates (and their history) go with the batch via ON DELETE CASCADE, in one atomic statement
+      const { data, error } = await supabase.from('trainings').delete().eq('id', trainingId).select('id');
+      throwIfError(error);
+      assertDeleted(data, 'Batch tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
       notifyDbUpdate();
       return { success: true };
     }
@@ -730,8 +740,9 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase.from('certificates').delete().eq('id', certId);
-      if (error) throw error;
+      const { data, error } = await supabase.from('certificates').delete().eq('id', certId).select('id');
+      throwIfError(error);
+      assertDeleted(data, 'Sertifikat tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
       notifyDbUpdate();
       return { success: true };
     }
@@ -749,13 +760,19 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase
+      const matching = await supabase.from('certificates').select('id').eq('participant_id', participantId).eq('training_id', trainingId);
+      throwIfError(matching.error);
+      const { data, error } = await supabase
         .from('certificates')
         .delete()
         .eq('participant_id', participantId)
-        .eq('training_id', trainingId);
-      if (error) throw error;
+        .eq('training_id', trainingId)
+        .select('id');
+      throwIfError(error);
       notifyDbUpdate();
+      if ((data?.length ?? 0) < (matching.data?.length ?? 0)) {
+        throw new Error('Hanya sebagian sertifikat peserta yang terhapus: sisanya bukan milik Anda.');
+      }
       return { success: true };
     }
     if (typeof window !== 'undefined') {
@@ -1726,10 +1743,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const acts = await supabase.from('lead_activities').delete().eq('lead_id', leadId);
-      throwIfError(acts.error);
-      const { error } = await supabase.from('leads').delete().eq('id', leadId);
+      // lead_activities go with the lead via ON DELETE CASCADE, in one atomic statement
+      const { data, error } = await supabase.from('leads').delete().eq('id', leadId).select('id');
       throwIfError(error);
+      assertDeleted(data, 'Lead tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
       notifyDbUpdate();
       return { success: true };
     }
