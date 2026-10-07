@@ -127,7 +127,7 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
         const lastRead = parseInt(localStorage.getItem('bki_notif_read_timestamp') || '0');
         setHasUnread(latest > lastRead);
       } catch (err) {
-        console.error('Error checking notifications:', err);
+        console.warn('Could not check notifications:', err);
       }
     }
 

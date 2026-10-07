@@ -69,12 +69,29 @@ const throwIfError = (error: { message: string } | null | undefined) => {
 // one in-flight request, and a fresh result is reused for a few seconds. Any
 // write clears the cache (notifyDbUpdate); failed reads are never cached.
 const READ_CACHE_TTL_MS = 3000;
+
+/**
+ * Right after a sign-in or token refresh PostgREST can reject the brand-new token for a second or so
+ * with "JWT issued at future" (small clock difference between Supabase's auth and API servers). It is
+ * transient: retry a couple of times instead of surfacing an error.
+ */
+async function withJwtRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (attempt >= 2 || !/jwt issued at future/i.test(message)) throw e;
+      await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)));
+    }
+  }
+}
 const readCache = new Map<string, { at: number; promise: Promise<unknown> }>();
 const clearReadCache = () => readCache.clear();
 function cachedRead<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const hit = readCache.get(key);
   if (hit && Date.now() - hit.at < READ_CACHE_TTL_MS) return hit.promise as Promise<T>;
-  const promise = fetcher();
+  const promise = withJwtRetry(fetcher);
   readCache.set(key, { at: Date.now(), promise });
   promise.catch(() => {
     if (readCache.get(key)?.promise === promise) readCache.delete(key);
