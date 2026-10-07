@@ -26,8 +26,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Set by /auth/callback when an email link (password reset) is invalid or expired
-    if (new URLSearchParams(window.location.search).get('error') === 'auth_callback') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'auth_callback') {
       notify.error(t('Tautan tidak valid atau sudah kedaluwarsa'), t('Minta tautan baru lewat "Lupa password?".'));
+    }
+    if (params.get('reset') === 'done') {
+      notify.success(t('Password berhasil diubah'), t('Silakan masuk dengan password baru.'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -45,7 +49,7 @@ export default function LoginPage() {
     }
     setIsResetting(true);
     try {
-      await DB.sendPasswordReset(email.trim(), `${window.location.origin}/auth/callback?next=/settings/security`);
+      await DB.sendPasswordReset(email.trim(), `${window.location.origin}/auth/callback?next=/reset-password`);
       // Same message whether or not the account exists
       notify.success(t('Cek email Anda'), t('Jika email terdaftar, tautan reset password sudah dikirim.'));
     } catch (err) {

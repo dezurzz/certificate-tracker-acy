@@ -16,6 +16,7 @@ import { ROLES, type Role } from '@/lib/permissions';
 import { ROLE_LABELS } from '@/lib/roleLabels';
 import type { ManagedUser } from '@/lib/auth/managedUser';
 import { adminErrorCode, createUser, listUsers, updateUser } from '@/lib/adminUsers';
+import { DB } from '@/lib/db';
 
 const SKELETON_COLUMNS: SkeletonColumn[] = [
   { w: 'w-40', kind: 'twoLine' },
@@ -112,6 +113,19 @@ export default function UsersPage() {
       setNewPassword('');
     } catch (err) {
       notify.error(t('Gagal mengatur password'), errorText(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const sendResetLink = async () => {
+    if (!passwordFor) return;
+    setSubmitting(true);
+    try {
+      await DB.sendPasswordReset(passwordFor.email, `${window.location.origin}/auth/callback?next=/reset-password`);
+      notify.success(t('Tautan reset dikirim'), t('Tautan dikirim ke {email}.', { email: passwordFor.email }));
+    } catch (err) {
+      notify.error(t('Gagal mengirim tautan reset'), err);
     } finally {
       setSubmitting(false);
     }
@@ -302,7 +316,7 @@ export default function UsersPage() {
           isOpen={true}
           onClose={() => !submitting && setPasswordFor(null)}
           title={t('Atur Password')}
-          description={passwordFor.email}
+          description={`${passwordFor.email} · ${t('tanpa password lama')}`}
           icon="key"
           onSubmit={submitPassword}
           submitLabel={t('Simpan Password')}
@@ -319,6 +333,12 @@ export default function UsersPage() {
               </div>
             </div>
             <p className="text-[11px] text-slate-500">{t('Sampaikan password ini lewat jalur yang aman, lalu minta pengguna menggantinya di Keamanan & Akses.')}</p>
+            <div className="border-t border-slate-100 pt-3">
+              <p className="mb-2 text-[11px] text-slate-500">{t('Atau biarkan pengguna membuat sendiri lewat email:')}</p>
+              <Button type="button" variant="secondary" size="sm" icon="mail" onClick={sendResetLink} disabled={submitting}>
+                {t('Kirim tautan reset ke email')}
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

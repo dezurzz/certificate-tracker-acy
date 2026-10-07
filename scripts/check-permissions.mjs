@@ -52,6 +52,8 @@ eq('exec /settings/profile', canAccessPath('executive','/settings/profile'), tru
 eq('exec /settings/system', canAccessPath('executive','/settings/system'), false);
 eq('exec /reportsX (prefix trap)', canAccessPath('executive','/reportsX'), false);
 eq('exec /crm/reports-old (prefix trap)', canAccessPath('executive','/crm/reports-old'), false);
+eq('exec /reset-password (email link)', canAccessPath('executive','/reset-password'), true);
+eq('viewer /reset-password', canAccessPath('viewer','/reset-password'), true);
 eq('home exec', homePath('executive'), '/executive');
 eq('home staff', homePath('staff'), '/dashboard');
 if (fail) { console.error(fail + ' permission checks FAILED'); process.exit(1); }

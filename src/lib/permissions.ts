@@ -74,6 +74,7 @@ const EXECUTIVE_PREFIXES = [
   '/settings/profile',
   '/settings/security',
   '/settings/notifications',
+  '/reset-password', // reached from the reset-password email link, whatever the role
   '/settings', // settings index redirects to /settings/profile
 ];
 
