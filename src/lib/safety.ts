@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Escapes characters that can lead to CSV Injection attacks
- * (e.g., =, +, -, @, tab, carriage return).
+ * Trims the text and neutralises a leading spreadsheet-formula character (CSV injection: =, +, -, @, tab, CR).
+ * It deliberately does NOT HTML-escape: the UI never renders stored text as HTML, so escaping only corrupted
+ * names such as "MEDCO E&P".
  */
 export function sanitizeString(val: string): string {
   if (!val) return '';
@@ -15,13 +16,8 @@ export function sanitizeString(val: string): string {
     return `'${clean}`;
   }
   
-  // Basic XSS escaping for text inputs
-  return clean
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
+  // No HTML escaping here: React escapes text on output, and escaping on input stored "&amp;" / "&#x27;" in the database
+  return clean;
 }
 
 /**

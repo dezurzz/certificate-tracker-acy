@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate } from '@/lib/db';
-import { normalizeAgendaCSV, CSVBatch } from '@/lib/csv';
+import { normalizeAgendaCSVWithReport, CSVBatch } from '@/lib/csv';
+import FileDropzone, { DropOverlay, useWindowFileDrop } from '@/components/FileDropzone';
 import { trainingSchema, sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
@@ -263,24 +264,34 @@ function TrainingsContent() {
   };
 
   // CSV Import actions
-  const handleCSVFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const batches = normalizeAgendaCSV(text);
-        if (batches && batches.length > 0) {
-          setParsedBatches(batches);
-          setImportModalOpen(false);
-          setPreviewModalOpen(true);
-        } else {
-          notify.warning(t('Tidak ada data training yang dapat dibaca. Pastikan header sesuai template CSV BKI.'));
+  const CSV_TYPES = useMemo(() => ['.csv'], []);
+  const processCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const { batches, repairedRows } = normalizeAgendaCSVWithReport(text);
+      if (batches && batches.length > 0) {
+        setParsedBatches(batches);
+        if (repairedRows > 0) {
+          notify.info(t('{n} baris peserta kehilangan kolom kosong di awal dan sudah disejajarkan otomatis. Periksa hasilnya sebelum disinkronkan.', { n: repairedRows }));
         }
-      };
-      reader.readAsText(file);
-    }
+        setImportModalOpen(false);
+        setPreviewModalOpen(true);
+      } else {
+        notify.warning(t('Tidak ada data training yang dapat dibaca. Pastikan header sesuai template CSV BKI.'));
+      }
+    };
+    reader.onerror = () => notify.error(t('File tidak bisa dibaca'), file.name);
+    reader.readAsText(file);
   };
+
+  // Drop a CSV anywhere on the page: it goes straight to the review step (not while a review is already open)
+  const dragging = useWindowFileDrop({
+    onFile: processCSVFile,
+    enabled: canWrite && !previewModalOpen,
+    onBlocked: () => notify.warning(canWrite ? t('Selesaikan tinjauan yang sedang terbuka lebih dulu') : t('Peran Anda hanya bisa melihat data')),
+    extensions: CSV_TYPES,
+  });
 
   const handleSyncCSVToDB = async () => {
     setSpinnerMsg("Syncing to database...");
@@ -353,9 +364,11 @@ function TrainingsContent() {
 
   const downloadCSVTemplate = () => {
     const headers = "No Urut Proyek,Jenis Layanan,Metode Belajar Menghajar,Tanggal Sesuai Jadwal,Pemohon,Obyek/Nama Pelatihan,No Registrasi Peserta,Nama,Perusahaan,No Sertifikat Kehadiran,Hasil Evaluasi,No Sertifikat Kualifikasi\n";
-    const row1 = "1,PUBLIC TRAINING,OFFLINE,02-04 FEBRUARI,PRIBADI,INTERNAL AUDITOR ISM CODE 113,0001,ASFUL FIQI FEBRIANTO,PRIBADI,0001-01-S1-ACY/001/A01-L12/PB/2026,Lulus,0001-01-S2-ACY/001/A01-L12/PB/2026\n";
-    const row2 = ",,,,,INTERNAL AUDITOR ISM CODE 113,0002,HARDI KADIRAN,PT. PRIMA BUANA GEMA BAHARI,0002-01-S1-ACY/001/A01-L12/PB/2026,Lulus,0002-01-S2-ACY/001/A01-L12/PB/2026\n";
-    const row3 = "2,PUBLIC TRAINING,OFFLINE,02-06 FEBRUARI,PRIBADI,MARINE SURVEYOR 92,0008,DAVID REXY PANIRUAN SIMATUPANG,PRIBADI,0008-01-S1-ACY/002/A13-L12/PB/2026,Lulus,0008-01-S2-ACY/002/A13-L12/PB/2026\n";
+    // Batch columns are filled on the first row only; the other rows keep their (empty) cells so every row has 12 columns.
+    // Names that contain a comma (titles) must be wrapped in double quotes.
+    const row1 = "1,IN HOUSE TRAINING,OFFLINE,21 - 25 SEPTEMBER,PT CONTOH PELAYARAN,MARINE SURVEYOR,0001,AHMAD SHAFWAN,PT CONTOH PELAYARAN,0001-02-S1-ACY/001/A13-L12/P8/2026,Lulus,0001-02-S2-ACY/001/A13-L12/P8/2026\n";
+    const row2 = ",,,,,MARINE SURVEYOR,0002,\"CAPT. BUDI, S.SI.T, M.M.TR\",PT CONTOH PELAYARAN,0002-02-S1-ACY/001/A13-L12/P8/2026,Lulus,0002-02-S2-ACY/001/A13-L12/P8/2026\n";
+    const row3 = "2,PUBLIC TRAINING,OFFLINE,02-06 FEBRUARI,PRIBADI,INTERNAL AUDITOR ISM CODE,0003,SITI RAHMA,PRIBADI,0003-01-S1-ACY/002/A01-L12/P8/2026,Lulus,0003-01-S2-ACY/002/A01-L12/P8/2026\n";
 
     const blob = new Blob([headers + row1 + row2 + row3], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -673,28 +686,21 @@ function TrainingsContent() {
 
       </div>
 
+      {dragging && !importModalOpen && <DropOverlay title={t('Lepaskan file CSV untuk mengimpor agenda')} hint={t('Anda akan meninjau hasilnya sebelum disimpan ke database.')} />}
+
       {/* CSV IMPORT MODAL */}
       {importModalOpen && (
         <Modal isOpen={true} onClose={() => setImportModalOpen(false)} title={t('Impor Agenda CSV')} dismissOnBackdrop footer={<>
 <button className="cms-btn-secondary" onClick={() => setImportModalOpen(false)}>{t('Batal')}</button>
 </>}>
 <div className="flex flex-col gap-4">
-              {/* Drag-n-drop simulated area */}
-              <div
-                onClick={() => document.getElementById('csv-file-input')?.click()}
-                className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-card"
-              >
-                <span className="material-symbols-outlined text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2">upload_file</span>
-                <p className="text-sm font-semibold text-slate-700">{t('Klik untuk mengunggah CSV Agenda')}</p>
-                <p className="text-xs text-slate-500 mt-1">{t('Menerima CSV berformat BKI (maks 5MB)')}</p>
-                <input
-                  type="file"
-                  id="csv-file-input"
-                  className="hidden"
-                  accept=".csv"
-                  onChange={handleCSVFileSelect}
-                />
-              </div>
+              <FileDropzone
+                onFile={processCSVFile}
+                extensions={CSV_TYPES}
+                title={t('Seret file CSV ke sini, atau klik untuk memilih')}
+                hint={t('Menerima CSV berformat BKI (maks 5MB)')}
+                inputId="csv-file-input"
+              />
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex gap-2.5 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-slate-400 text-sm">download</span>

@@ -21,29 +21,90 @@ export interface CSVBatch {
   participants: CSVParticipant[];
 }
 
-// Custom CSV forward-fill parser engine
-export function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.split('\n');
-  if (lines.length < 2) return [];
-  
-  // Extract headers
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+/**
+ * Splits CSV text into rows of cells (RFC 4180): quoted cells may contain commas, quotes ("") and line breaks,
+ * a UTF-8 BOM and CRLF line endings are handled, and the delimiter (comma, semicolon or tab, as written by
+ * spreadsheets in different locales) is detected from the header line.
+ */
+export function splitCSVRows(text: string): string[][] {
+  const src = text.replace(/^\uFEFF/, '');
+  const firstLine = (() => {
+    let quoted = false;
+    for (let i = 0; i < src.length; i++) {
+      if (src[i] === '"') quoted = !quoted;
+      else if (!quoted && (src[i] === '\n' || src[i] === '\r')) return src.slice(0, i);
+    }
+    return src;
+  })();
+  const count = (ch: string) => firstLine.split(ch).length - 1;
+  const delimiter = [',', ';', '\t'].reduce((best, ch) => (count(ch) > count(best) ? ch : best), ',');
+
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  const endCell = () => { row.push(cell); cell = ''; };
+  const endRow = () => { endCell(); rows.push(row); row = []; };
+
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (src[i + 1] === '"') { cell += '"'; i++; } else quoted = false;
+      } else cell += ch;
+    } else if (ch === '"' && cell === '') {
+      quoted = true;
+    } else if (ch === delimiter) {
+      endCell();
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && src[i + 1] === '\n') i++;
+      endRow();
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell !== '' || row.length > 0) endRow();
+  return rows;
+}
+
+export interface CSVParseReport {
+  rows: Record<string, string>[];
+  /** Rows that were shorter than the header and were realigned (see below). */
+  repairedRows: number;
+}
+
+/**
+ * Header-keyed rows. A continuation row (first cell empty) that is SHORTER than the header has lost some of its
+ * leading empty cells (typical when merged cells are exported from a spreadsheet): its data columns are still
+ * intact at the right-hand end, so it is padded on the LEFT. Any other short row is padded on the right.
+ */
+export function parseCSVWithReport(text: string): CSVParseReport {
+  const table = splitCSVRows(text).filter(r => r.some(c => c.trim() !== ''));
+  if (table.length < 2) return { rows: [], repairedRows: 0 };
+  const headers = table[0].map(h => h.trim());
   const rows: Record<string, string>[] = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    
-    // Simple comma split (assuming no escaped commas inside quotes for MVP, matching original logic)
-    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+  let repairedRows = 0;
+
+  for (const raw of table.slice(1)) {
+    let cells = raw.map(c => c.trim());
+    if (cells.length < headers.length) {
+      const missing = headers.length - cells.length;
+      if (cells[0] === '') {
+        cells = [...new Array<string>(missing).fill(''), ...cells];
+        repairedRows++;
+      } else {
+        cells = [...cells, ...new Array<string>(missing).fill('')];
+      }
+    }
     const row: Record<string, string> = {};
-    
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
+    headers.forEach((header, index) => { row[header] = cells[index] || ''; });
     rows.push(row);
   }
-  return rows;
+  return { rows, repairedRows };
+}
+
+export function parseCSV(text: string): Record<string, string>[] {
+  return parseCSVWithReport(text).rows;
 }
 
 export function resolveDatesFromText(text: string): { start: string; end: string } {
@@ -68,17 +129,31 @@ export function resolveDatesFromText(text: string): { start: string; end: string
   return { start: '2026-02-02', end: '2026-02-04' };
 }
 
+export interface NormalizeReport {
+  batches: CSVBatch[];
+  /** Rows realigned because they lacked leading empty cells. */
+  repairedRows: number;
+}
+
 export function normalizeAgendaCSV(text: string): CSVBatch[] {
-  const rawRows = parseCSV(text);
+  return normalizeAgendaCSVWithReport(text).batches;
+}
+
+export function normalizeAgendaCSVWithReport(text: string): NormalizeReport {
+  const { rows: rawRows, repairedRows } = parseCSVWithReport(text);
   const batches: CSVBatch[] = [];
+  // Forward fill: continuation rows leave the batch columns blank, so they inherit the previous batch's values
+  const last = { projectNo: '', program: '', schedule: '', service: '', method: '' };
 
   rawRows.forEach(row => {
-    const projectNo = row['No Urut Proyek'];
-    // Apply sanitization for display/processing
-    const programName = sanitizeString(row['Obyek/Nama Pelatihan'] || '');
-    const scheduleDate = row['Tanggal Sesuai Jadwal'];
-
+    const programName = sanitizeString(row['Obyek/Nama Pelatihan'] || '') || last.program;
     if (!programName) return;
+    const sameProgram = programName === last.program;
+    const projectNo = row['No Urut Proyek'] || (sameProgram ? last.projectNo : '');
+    const scheduleDate = row['Tanggal Sesuai Jadwal'] || (sameProgram ? last.schedule : '');
+    const service = row['Jenis Layanan'] || (sameProgram ? last.service : '');
+    const method = row['Metode Belajar Menghajar'] || (sameProgram ? last.method : '');
+    Object.assign(last, { projectNo, program: programName, schedule: scheduleDate, service, method });
 
     let matchedBatch: CSVBatch | undefined;
     if (projectNo) {
@@ -100,8 +175,8 @@ export function normalizeAgendaCSV(text: string): CSVBatch[] {
         projectNo: projectNo || '',
         program_name: programName,
         batch_code: 'Batch ' + (projectNo || Date.now().toString().slice(-3)),
-        service_type: sanitizeString(row['Jenis Layanan'] || 'PUBLIC TRAINING'),
-        learning_method: sanitizeString(row['Metode Belajar Menghajar'] || 'OFFLINE'),
+        service_type: sanitizeString(service || 'PUBLIC TRAINING'),
+        learning_method: sanitizeString(method || 'OFFLINE'),
         start_date: startDate,
         end_date: endDate,
         location: 'Jakarta Training Center',
@@ -112,12 +187,13 @@ export function normalizeAgendaCSV(text: string): CSVBatch[] {
 
     const participantName = sanitizeString(row['Nama'] || '');
     if (participantName) {
-      const dup = matchedBatch.participants.find(p => p.name === participantName);
+      const registration = sanitizeString(row['No Registrasi Peserta'] || '');
+      const dup = matchedBatch.participants.find(p => p.name === participantName && p.registration_number === registration);
       if (!dup) {
         matchedBatch.participants.push({
           name: participantName,
           company: sanitizeString(row['Perusahaan'] || 'PRIBADI'),
-          registration_number: sanitizeString(row['No Registrasi Peserta'] || ''),
+          registration_number: registration,
           cert_kehadiran: sanitizeString(row['No Sertifikat Kehadiran'] || ''),
           cert_kualifikasi: sanitizeString(row['No Sertifikat Kualifikasi'] || ''),
           evaluasi: sanitizeString(row['Hasil Evaluasi'] || 'Lulus')
@@ -126,5 +202,5 @@ export function normalizeAgendaCSV(text: string): CSVBatch[] {
     }
   });
 
-  return batches;
+  return { batches, repairedRows };
 }
