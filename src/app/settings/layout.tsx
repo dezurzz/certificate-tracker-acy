@@ -6,16 +6,23 @@ import { usePathname } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
 import { useT } from '@/i18n/LanguageContext';
+import { useCan } from '@/context/AuthContext';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const t = useT();
   const pathname = usePathname();
+  const can = useCan();
 
   const navItems = [
     { name: t('Pengaturan Profil'), href: '/settings/profile', icon: 'person', active: pathname === '/settings/profile' },
     { name: t('Preferensi Notifikasi'), href: '/settings/notifications', icon: 'notifications_active', active: pathname === '/settings/notifications' },
     { name: t('Keamanan & Akses'), href: '/settings/security', icon: 'shield', active: pathname === '/settings/security' },
-    { name: t('Konfigurasi Sistem'), href: '/settings/system', icon: 'dns', active: pathname === '/settings/system' },
+    ...(can('settings.system')
+      ? [{ name: t('Konfigurasi Sistem'), href: '/settings/system', icon: 'dns', active: pathname === '/settings/system' }]
+      : []),
+    ...(can('users.manage')
+      ? [{ name: t('Pengguna & Peran'), href: '/settings/users', icon: 'manage_accounts', active: pathname === '/settings/users' }]
+      : []),
   ];
 
   return (
@@ -44,7 +51,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </nav>
 
         {/* Content Area */}
-        <div className="flex-grow w-full">
+        <div className="min-w-0 flex-grow w-full">
           {children}
         </div>
       </div>

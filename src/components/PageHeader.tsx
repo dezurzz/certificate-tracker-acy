@@ -29,7 +29,7 @@ export default function PageHeader({ title, description, meta, actions, before }
           <p className="mt-1 max-w-[70ch] text-sm text-slate-500">{description}</p>
         )}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2 max-md:[&>*]:grow">{actions}</div>}
     </div>
   );
 }

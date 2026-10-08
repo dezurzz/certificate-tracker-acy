@@ -21,7 +21,7 @@ export default function DashboardLayout({ children, pageTitle }: DashboardLayout
         <Sidebar open={menuOpen} onClose={closeMenu} />
 
         {/* Main Content Wrapper */}
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-64">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-64 print:ml-0">
           {/* Header Component */}
           <Header pageTitle={pageTitle} onMenuClick={() => setMenuOpen(true)} menuOpen={menuOpen} />
 

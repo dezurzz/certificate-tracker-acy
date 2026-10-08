@@ -2,22 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import { useCan } from '@/context/AuthContext';
 import { DB, Training, Certificate, Participant, CertificateHistory } from '@/lib/db';
 import { sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import Tabs from '@/components/Tabs';
-import StatCard from '@/components/StatCard';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
 import { useSlaDays } from '@/lib/settings';
 import { Skeleton, TableSkeletonRows, KanbanCardsSkeleton, ListRowsSkeleton } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,9 +34,11 @@ interface AuditEntry {
 
 export default function TrainingDetailPage({ params }: PageProps) {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const noWriteHint = canWrite ? undefined : t('Peran Anda hanya bisa melihat data');
   const slaThreshold = useSlaDays();
   const { locale } = useLanguage();
-  const router = useRouter();
   
   // Unpack params
   const [trainingId, setTrainingId] = useState<string>('');
@@ -50,6 +53,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const [participantList, setParticipantList] = useState<Participant[]>([]);
   const [certificateHistories, setCertificateHistories] = useState<CertificateHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'certificates' | 'activity'>('overview');
@@ -59,7 +63,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
   const [editBatchModalOpen, setEditBatchModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [certDetailsModalOpen, setCertDetailsModalOpen] = useState(false);
   const [addParticipantModalOpen, setAddParticipantModalOpen] = useState(false);
   const [activeBulkMenu, setActiveBulkMenu] = useState<{ col: string; dir: 'left' | 'right' } | null>(null);
@@ -112,6 +115,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const loadBatchDetails = async () => {
     if (!trainingId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const trainList = await DB.getTrainings();
       const match = trainList.find(t => t.id === trainingId);
@@ -123,7 +127,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
         setEditStart(match.start_date);
         setEditEnd(match.end_date);
         setEditLoc(match.location || 'Jakarta Training Center');
-        setEditPic((match as any).pic || '');
+        setEditPic(match.pic || '');
       }
 
       const certList = await DB.getCertificates();
@@ -142,6 +146,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
       const histList = await DB.getCertificateHistoryForTraining(trainingId);
       setCertificateHistories(histList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -184,7 +189,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const qualPercent = qualCerts.length > 0 ? Math.round(qualProgressSum / qualCerts.length) : 0;
 
   const attCerts = certificates.filter(c => c.certificate_type === 'Attendance');
-  const presentCount = attCerts.filter(c => c.status === 'Completed').length;
   const attProgressSum = attCerts.reduce((sum, c) => sum + getProgressWeight(c.status), 0);
   const attPercent = attCerts.length > 0 ? Math.round((attProgressSum / attCerts.length) * 1.5) : 100; // matching mockup
   const displayAttPercent = attCerts.length > 0 ? Math.round(attProgressSum / attCerts.length) : 100;
@@ -201,14 +205,14 @@ export default function TrainingDetailPage({ params }: PageProps) {
         start_date: editStart,
         end_date: editEnd,
         location: sanitizeString(editLoc),
-        ...({ pic: sanitizeString(editPic) } as any)
+        pic: sanitizeString(editPic)
       });
       notify.success(t('Detail training diperbarui'));
       setEditBatchModalOpen(false);
       loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui'), err?.message);
+      notify.error(t('Gagal memperbarui'), getErrorMessage(err));
     }
   };
 
@@ -310,9 +314,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       // Local state update
       setCertificates(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
       loadBatchDetails(); // Refresh all summaries & timelines
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui status'), err?.message);
+      notify.error(t('Gagal memperbarui status'), getErrorMessage(err));
     }
   };
 
@@ -349,9 +353,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
           // Reload details
           await loadBatchDetails();
           setActiveBulkMenu(null);
-        } catch (e: any) {
+        } catch (e) {
           console.error(e);
-          notify.error(t('Kesalahan saat pembaruan massal'), e.message);
+          notify.error(t('Kesalahan saat pembaruan massal'), getErrorMessage(e));
         }
       }
     });
@@ -394,9 +398,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       notify.success(t('Status sertifikat diperbarui ke: {status}', { status: certStatusLabel(t, certStatusSelect) }));
       setCertDetailsModalOpen(false);
       loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal memperbarui status sertifikat'), err?.message);
+      notify.error(t('Gagal memperbarui status sertifikat'), getErrorMessage(err));
     }
   };
 
@@ -450,9 +454,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
       // Reload UI
       await loadBatchDetails();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Gagal menambahkan peserta'), err.message);
+      notify.error(t('Gagal menambahkan peserta'), getErrorMessage(err));
     }
   };
 
@@ -485,7 +489,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
         color: 'bg-blue-600',
         title: t('Batch training dibuat'),
         detail: t('Batch training "{program_name}" ({batch_code}) dimulai.', { program_name: currentTraining.program_name, batch_code: currentTraining.batch_code }),
-        by: (currentTraining as any).pic || 'System'
+        by: currentTraining.pic || 'System'
       });
     }
 
@@ -509,7 +513,6 @@ export default function TrainingDetailPage({ params }: PageProps) {
     certificateHistories.forEach(h => {
       const cert = certificates.find(c => c.id === h.certificate_id);
       const name = cert?.participants ? cert.participants.name : 'Unknown';
-      const certType = cert ? cert.certificate_type : 'Certificate';
       const certNum = cert ? (cert.certificate_number || cert.id) : h.certificate_id;
 
       let color = 'bg-blue-500';
@@ -587,18 +590,20 @@ export default function TrainingDetailPage({ params }: PageProps) {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px] text-slate-400" aria-hidden="true">manage_accounts</span>
-              {t('PIC:')} {(currentTraining as any)?.pic || t('Belum diatur')}
+              {t('PIC:')} {currentTraining?.pic || t('Belum diatur')}
             </span>
           </span>
           )
         }
         actions={
           <>
-            <Button variant="secondary" icon="edit" onClick={() => setEditBatchModalOpen(true)}>{t('Ubah Detail')}</Button>
+            <Button variant="secondary" icon="edit" onClick={() => setEditBatchModalOpen(true)} disabled={!canWrite} title={noWriteHint}>{t('Ubah Detail')}</Button>
             <Button variant="primary" icon="download" onClick={handleExportRoster}>{t('Buat Laporan')}</Button>
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadBatchDetails} />}
 
       <Tabs
         value={activeTab}
@@ -744,7 +749,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
               <div className="flex gap-3">
                 <Button variant="secondary" size="sm" icon="mail" onClick={openEmailModalBulk} className="!h-9">{t('Email Semua')}</Button>
-                <Button variant="primary" size="sm" icon="person_add" onClick={() => setAddParticipantModalOpen(true)} className="!h-9">{t('Tambah Peserta')}</Button>
+                <Button variant="primary" size="sm" icon="person_add" onClick={() => setAddParticipantModalOpen(true)} disabled={!canWrite} title={noWriteHint} className="!h-9">{t('Tambah Peserta')}</Button>
               </div>
             </div>
 
@@ -789,9 +794,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                                 <button onClick={() => openEmailModalSingle(p)} aria-label={t('Email {name}', { name: p.name })} title={t('Email')} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
                                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">mail</span>
                                 </button>
+                                {[qualCert, attCert].every(c => !c || can('delete.certificate', { ownerId: c.created_by })) && (
                                 <button onClick={() => handleRemoveParticipant(p.id)} aria-label={t('Keluarkan {name}', { name: p.name })} title={t('Keluarkan')} className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors">
                                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">delete</span>
                                 </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -819,7 +826,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                     </span>
                     <div className="flex items-center gap-1.5">
                       {/* Left arrow button */}
-                      {colStatus !== 'Pending' && (
+                      {canWrite && colStatus !== 'Pending' && (
                         <button 
                           onClick={() => setActiveBulkMenu(activeBulkMenu?.col === colStatus && activeBulkMenu?.dir === 'left' ? null : { col: colStatus, dir: 'left' })}
                           className="w-6 h-6 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
@@ -834,7 +841,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                       </span>
                       
                       {/* Right arrow button */}
-                      {colStatus !== 'Completed' && (
+                      {canWrite && colStatus !== 'Completed' && (
                         <button 
                           onClick={() => setActiveBulkMenu(activeBulkMenu?.col === colStatus && activeBulkMenu?.dir === 'right' ? null : { col: colStatus, dir: 'right' })}
                           className="w-6 h-6 rounded-md hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
@@ -874,7 +881,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                   </div>
                   <div
                     onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, colStatus)}
+                    onDrop={canWrite ? (e) => handleDrop(e, colStatus) : undefined}
                     className={`kanban-col-body flex-grow flex flex-col gap-2.5 rounded-lg transition-all duration-200 ${
                       isDragging ? 'bg-slate-200/50 border-2 border-dashed border-slate-300 p-2 min-h-[300px]' : ''
                     }`}
@@ -893,11 +900,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                         return (
                           <div
                             key={c.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, c.id)}
-                            onDragEnd={handleDragEnd}
+                            draggable={canWrite}
+                            onDragStart={canWrite ? (e) => handleDragStart(e, c.id) : undefined}
+                            onDragEnd={canWrite ? handleDragEnd : undefined}
                             onClick={() => handleOpenCertDetails(c)}
-                            className="kanban-card cursor-grab active:cursor-grabbing"
+                            className={`kanban-card ${canWrite ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                           >
                             <div className="text-[11px] font-mono text-slate-500 mb-1">{c.certificate_number || 'N/A'}</div>
                             <h4 className="font-medium text-slate-900 text-sm">{c.participants?.name || t('Tidak diketahui')}</h4>
@@ -992,7 +999,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-semibold text-slate-500">{t('Penanggung Jawab (PIC)')}</label>
-                <input className="cms-input" value={editPic} onChange={(e) => setEditPic(e.target.value)} placeholder={t('mis. Budi Santoso')} type="text" required />
+                <input className="cms-input" value={editPic} onChange={(e) => setEditPic(e.target.value)} placeholder={t('mis. Ahmad Shafwan')} type="text" required />
               </div>
 </div>
 </Modal>
@@ -1008,11 +1015,11 @@ export default function TrainingDetailPage({ params }: PageProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5 col-span-2">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Nama Lengkap')} <span className="text-red-500">*</span></label>
-                    <input className="cms-input" value={newPartName} onChange={(e) => setNewPartName(e.target.value)} placeholder={t('mis. Ahmad Rizky')} type="text" required />
+                    <input className="cms-input" value={newPartName} onChange={(e) => setNewPartName(e.target.value)} placeholder={t('mis. Ahmad Shafwan')} type="text" required />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Perusahaan / Organisasi')} <span className="text-red-500">*</span></label>
-                    <input className="cms-input" value={newPartCompany} onChange={(e) => setNewPartCompany(e.target.value)} placeholder={t('mis. Pertamina Shipping')} type="text" required />
+                    <input className="cms-input" value={newPartCompany} onChange={(e) => setNewPartCompany(e.target.value)} placeholder={t('mis. Biro Klasifikasi Indonesia')} type="text" required />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Nomor Registrasi / ID')} <span className="text-red-500">*</span></label>
@@ -1020,7 +1027,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                   </div>
                   <div className="flex flex-col gap-1.5 col-span-2">
                     <label className="text-[11px] font-semibold text-slate-500">{t('Alamat Email')}</label>
-                    <input className="cms-input" value={newPartEmail} onChange={(e) => setNewPartEmail(e.target.value)} placeholder={t('mis. arizky@pertamina.com')} type="email" />
+                    <input className="cms-input" value={newPartEmail} onChange={(e) => setNewPartEmail(e.target.value)} placeholder={t('mis. ahmad.shafwan@bki.co.id')} type="email" />
                   </div>
                 </div>
               </div>
@@ -1227,6 +1234,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
               </div>
 
               {/* Update action dropdown */}
+              {canWrite && (
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
                 <label className="text-[11px] font-semibold text-slate-500" htmlFor="cert-status-select">
                   {t('Perbarui Status Tahap')}</label>
@@ -1246,6 +1254,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
                     {t('Perbarui')}</button>
                 </div>
               </div>
+              )}
             </div>
 </Modal>
       )}

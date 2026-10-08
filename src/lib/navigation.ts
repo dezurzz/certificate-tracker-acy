@@ -1,4 +1,5 @@
 import { msg } from '@/i18n/msg';
+import { canAccessPath, type Role } from '@/lib/permissions';
 
 export interface NavItem {
   name: string;
@@ -16,7 +17,10 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: null,
-    items: [{ name: msg('Dashboard'), icon: 'space_dashboard', href: '/dashboard' }],
+    items: [
+      { name: msg('Dashboard'), icon: 'space_dashboard', href: '/dashboard' },
+      { name: msg('Dashboard Eksekutif'), icon: 'query_stats', href: '/executive' },
+    ],
   },
   {
     label: msg('Leads & Waiting List'),
@@ -44,6 +48,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/** The sidebar groups a role may see (items it cannot open are dropped, then empty groups). */
+export function navGroupsForRole(role: Role): NavGroup[] {
+  return NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(i => canAccessPath(role, i.href)) }))
+    .filter(g => g.items.length > 0);
+}
 
 export const SETTINGS_ITEM: NavItem = {
   name: msg('Pengaturan'),

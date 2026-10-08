@@ -1,6 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createBrowserClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
+import { getErrorMessage } from '@/lib/errors';
+import { certificateAgeDays, withComputedAge } from '@/lib/certAge';
 
 // Cache singleton client instance to avoid recreating GoTrueClient instances
 let cachedClient: SupabaseClient | null = null;
@@ -54,16 +56,70 @@ if (typeof window !== 'undefined') {
 }
 
 // Dispatches a global event on the window to sync database states in real-time
+/**
+ * When a Supabase client exists, a rejected query must surface as an error.
+ * Falling through to the localStorage demo store would save the row in one
+ * browser only while the UI reports success. localStorage is for demo mode
+ * (no Supabase configured) only.
+ */
+const throwIfError = (error: { message: string } | null | undefined) => {
+  if (error) throw new Error(error.message);
+};
+
+// Read de-duplication: concurrent callers (header, page, repeated events) share
+// one in-flight request, and a fresh result is reused for a few seconds. Any
+// write clears the cache (notifyDbUpdate); failed reads are never cached.
+const READ_CACHE_TTL_MS = 3000;
+
+/**
+ * Right after a sign-in or token refresh PostgREST can reject the brand-new token for a second or so
+ * with "JWT issued at future" (small clock difference between Supabase's auth and API servers). It is
+ * transient: retry a couple of times instead of surfacing an error.
+ */
+async function withJwtRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (attempt >= 2 || !/jwt issued at future/i.test(message)) throw e;
+      await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)));
+    }
+  }
+}
+const readCache = new Map<string, { at: number; promise: Promise<unknown> }>();
+const clearReadCache = () => readCache.clear();
+function cachedRead<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+  const hit = readCache.get(key);
+  if (hit && Date.now() - hit.at < READ_CACHE_TTL_MS) return hit.promise as Promise<T>;
+  const promise = withJwtRetry(fetcher);
+  readCache.set(key, { at: Date.now(), promise });
+  promise.catch(() => {
+    if (readCache.get(key)?.promise === promise) readCache.delete(key);
+  });
+  return promise;
+}
+
+/**
+ * Under row level security a DELETE the caller may not perform does NOT fail: the row is simply
+ * invisible, so zero rows are deleted and no error is returned. Treat that as an error so the UI
+ * never reports a delete that did not happen.
+ */
+function assertDeleted(rows: unknown[] | null | undefined, message: string) {
+  if (!rows || rows.length === 0) throw new Error(message);
+}
+
 let dbNotifyPaused = false;
 const notifyDbUpdate = () => {
+  clearReadCache();
   if (dbNotifyPaused) return;
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('bki-db-update'));
   }
 };
 
-const isValidUUID = (str?: string): boolean => {
-  if (!str) return false;
+const isValidUUID = (str?: unknown): boolean => {
+  if (typeof str !== 'string' || !str) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
 };
 
@@ -79,6 +135,8 @@ export interface Training {
   status: string;
   pic?: string;
   created_at?: string;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface Participant {
@@ -111,6 +169,8 @@ export interface Certificate {
   updated_by?: string;
   trainings?: Training;
   participants?: Participant;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface CertificateHistory {
@@ -210,6 +270,8 @@ export interface Lead {
   previous_batch_info?: string;
   created_at: string;
   updated_at?: string;
+  /** Auth user id of the creator (owner). Added in roles stage 4; null/undefined for older rows. */
+  created_by?: string | null;
 }
 
 export interface LeadActivity {
@@ -221,6 +283,25 @@ export interface LeadActivity {
   previous_status?: LeadStatus;
   new_status?: LeadStatus;
   created_at: string;
+}
+
+/** Digits-only phone in local form, so 0812…, +62812… and 62812… match. */
+export const normalizePhone = (raw?: string): string => {
+  let d = (raw || '').replace(/\D/g, '');
+  if (d.startsWith('62')) d = '0' + d.slice(2);
+  else if (d && !d.startsWith('0')) d = '0' + d;
+  return d;
+};
+
+/** Company names that are individuals, not organisations: never added to the company directory. */
+const isPersonalCompany = (name?: string) => !name || name.trim().toUpperCase() === 'PRIBADI';
+const cleanName = (name: string) => name.trim().replace(/\s+/g, ' ');
+
+/** Slim rows for the header bell: only what the notification text needs. */
+export interface NotificationSources {
+  overdue: { id: string; participant_name: string; program_name: string; sla_age_days: number; time: string }[];
+  history: { id: string; participant_name: string; program_name: string; new_status: string; changed_by: string; time: string }[];
+  trainings: { id: string; program_name: string; batch_code: string; time: string }[];
 }
 
 export interface LeadStatusOptions {
@@ -605,7 +686,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('trainings').select('*').order('created_at', { ascending: false });
-      if (!error && data) return data as Training[];
+      throwIfError(error);
+      return (data ?? []) as Training[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_trainings') || '[]');
@@ -614,21 +696,28 @@ export const DB = {
   },
 
   // Insert a training batch
-  async insertTraining(batch: Omit<Training, 'id'>): Promise<Training> {
+  // service_type / learning_method are optional on insert (the batch form does not set them)
+  async insertTraining(
+    batch: Omit<Training, 'id' | 'service_type' | 'learning_method'> & Partial<Pick<Training, 'service_type' | 'learning_method'>>
+  ): Promise<Training> {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('trainings').insert([batch]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Training;
       }
+      throw new Error('Batch training tidak tersimpan');
     }
     const newId = "t-" + Date.now();
-    const record: Training = { 
-      id: newId, 
+    const record: Training = {
+      id: newId,
       created_at: new Date().toISOString(),
-      ...batch 
+      service_type: '',
+      learning_method: '',
+      ...batch
     };
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_trainings') || '[]');
@@ -644,9 +733,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      await supabase.from('certificates').delete().eq('training_id', trainingId);
-      const { error } = await supabase.from('trainings').delete().eq('id', trainingId);
-      if (error) throw error;
+      // certificates (and their history) go with the batch via ON DELETE CASCADE, in one atomic statement
+      const { data, error } = await supabase.from('trainings').delete().eq('id', trainingId).select('id');
+      throwIfError(error);
+      assertDeleted(data, 'Batch tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
       notifyDbUpdate();
       return { success: true };
     }
@@ -668,8 +758,9 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase.from('certificates').delete().eq('id', certId);
-      if (error) throw error;
+      const { data, error } = await supabase.from('certificates').delete().eq('id', certId).select('id');
+      throwIfError(error);
+      assertDeleted(data, 'Sertifikat tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
       notifyDbUpdate();
       return { success: true };
     }
@@ -687,13 +778,19 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { error } = await supabase
+      const matching = await supabase.from('certificates').select('id').eq('participant_id', participantId).eq('training_id', trainingId);
+      throwIfError(matching.error);
+      const { data, error } = await supabase
         .from('certificates')
         .delete()
         .eq('participant_id', participantId)
-        .eq('training_id', trainingId);
-      if (error) throw error;
+        .eq('training_id', trainingId)
+        .select('id');
+      throwIfError(error);
       notifyDbUpdate();
+      if ((data?.length ?? 0) < (matching.data?.length ?? 0)) {
+        throw new Error('Hanya sebagian sertifikat peserta yang terhapus: sisanya bukan milik Anda.');
+      }
       return { success: true };
     }
     if (typeof window !== 'undefined') {
@@ -738,7 +835,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('participants').select('*');
-      if (!error && data) return data as Participant[];
+      throwIfError(error);
+      return (data ?? []) as Participant[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_participants') || '[]');
@@ -752,7 +850,7 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       // Filter out fields that do not exist in the Supabase schema to prevent PGRST204 errors
-      const dbPayload: any = {
+      const dbPayload: Record<string, unknown> = {
         name: participant.name,
         company: participant.company,
         registration_number: participant.registration_number,
@@ -765,16 +863,16 @@ export const DB = {
       }
 
       const { data, error } = await supabase.from('participants').upsert([dbPayload], { onConflict: 'name,company' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Participant;
-      } else if (error) {
-        console.error("Supabase upsertParticipant error:", error);
       }
+      throw new Error('Peserta tidak tersimpan');
     }
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_participants') || '[]');
-      let existing = list.find((p: Participant) => p.name === participant.name && p.company === participant.company);
+      const existing = list.find((p: Participant) => p.name === participant.name && p.company === participant.company);
       if (existing) {
         return existing;
       }
@@ -794,7 +892,9 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('certificates').select('*, trainings(*), participants(*)');
-      if (!error && data) return data as Certificate[];
+      throwIfError(error);
+      // sla_age_days is never maintained in the database (always 0): compute it from the dates
+      return withComputedAge((data ?? []) as Certificate[]);
     }
     
     if (typeof window !== 'undefined') {
@@ -802,11 +902,11 @@ export const DB = {
       const trains = JSON.parse(localStorage.getItem('bki_trainings') || '[]');
       const parts = JSON.parse(localStorage.getItem('bki_participants') || '[]');
 
-      return certs.map((c: Certificate) => ({
+      return withComputedAge(certs.map((c: Certificate) => ({
         ...c,
         trainings: trains.find((t: Training) => t.id === c.training_id),
         participants: parts.find((p: Participant) => p.id === c.participant_id)
-      }));
+      })));
     }
     return [];
   },
@@ -818,10 +918,12 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('certificates').insert([certWithSla]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Certificate;
       }
+      throw new Error('Sertifikat tidak tersimpan');
     }
     const newId = "c-" + Date.now() + Math.random().toString(36).substr(2, 4);
     const record: Certificate = { 
@@ -844,8 +946,10 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('certificates').select('*, participants(name)').eq('id', certId).single();
-      if (!error && data) return data as Certificate;
+      if (!isValidUUID(certId)) return null;
+      const { data, error } = await supabase.from('certificates').select('*, participants(name)').eq('id', certId).maybeSingle();
+      throwIfError(error);
+      return (data as Certificate | null) ?? null;
     }
     if (typeof window !== 'undefined') {
       const list = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
@@ -974,19 +1078,8 @@ export const DB = {
         .select('*, certificates!inner(training_id)')
         .eq('certificates.training_id', trainingId)
         .order('created_at', { ascending: false });
-      if (!error && data) return data as unknown as CertificateHistory[];
-
-      // Fallback: If Supabase connection is active but table is missing,
-      // return only localStorage logs that match the active Supabase certificate IDs
-      if (typeof window !== 'undefined') {
-        const { data: certs } = await supabase.from('certificates').select('id').eq('training_id', trainingId);
-        if (certs) {
-          const certIds = certs.map((c: any) => c.id);
-          const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
-          return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
-        }
-      }
-      return [];
+      throwIfError(error);
+      return (data ?? []) as unknown as CertificateHistory[];
     }
 
     if (typeof window !== 'undefined') {
@@ -1009,19 +1102,8 @@ export const DB = {
         .from('certificate_history')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) return data as CertificateHistory[];
-
-      // Fallback: If Supabase connection is active but table is missing,
-      // return only localStorage logs that match active Supabase certificate IDs
-      if (typeof window !== 'undefined') {
-        const { data: certs } = await supabase.from('certificates').select('id');
-        if (certs) {
-          const certIds = certs.map((c: any) => c.id);
-          const history = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
-          return history.filter((h: CertificateHistory) => certIds.includes(h.certificate_id));
-        }
-      }
-      return [];
+      throwIfError(error);
+      return (data ?? []) as CertificateHistory[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
@@ -1029,36 +1111,15 @@ export const DB = {
     return [];
   },
 
-  // Register user
-  async registerNewUser(email: string, pass: string): Promise<{ id?: string; email?: string }> {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      // Accounts are created on the server (service role); public sign-up stays off in Supabase.
-      const res = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw Object.assign(new Error(body.message || `Request failed (${res.status})`), { code: body.error as string | undefined });
-      }
-      notifyDbUpdate();
-      return body;
-    }
-    return { email, id: "u-mock-" + Date.now() };
-  },
 
   // Update password
-  async updateUserPassword(newPassword: string): Promise<any> {
+  async updateUserPassword(newPassword: string): Promise<void> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       notifyDbUpdate();
-      return data;
     }
-    return { success: true };
   },
 
   // Verify the current password by re-authenticating (no-op without Supabase)
@@ -1086,17 +1147,15 @@ export const DB = {
   },
 
   // Update profile
-  async updateUserProfile(fullName: string): Promise<any> {
+  async updateUserProfile(fullName: string): Promise<void> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         data: { full_name: fullName }
       });
       if (error) throw error;
       notifyDbUpdate();
-      return data;
     }
-    return { success: true };
   },
 
   // --- CRM & LEADS METHODS ---
@@ -1107,7 +1166,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('companies').select('*').order('name');
-      if (!error && data) return data as Company[];
+      throwIfError(error);
+      return (data ?? []) as Company[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_companies') || '[]');
@@ -1120,13 +1180,15 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...company };
+      const payload: Record<string, unknown> = { ...company };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('companies').upsert([payload], { onConflict: 'name' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Company;
       }
+      throw new Error('Perusahaan tidak tersimpan');
     }
     const newId = company.id || "comp-" + Date.now();
     const record: Company = { id: newId, created_at: new Date().toISOString(), ...company };
@@ -1150,7 +1212,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('contacts').select('*').order('name');
-      if (!error && data) return data as Contact[];
+      throwIfError(error);
+      return (data ?? []) as Contact[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_contacts') || '[]');
@@ -1163,14 +1226,16 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...contact };
+      const payload: Record<string, unknown> = { ...contact };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       if (payload.company_id && !isValidUUID(payload.company_id)) delete payload.company_id;
       const { data, error } = await supabase.from('contacts').upsert([payload]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Contact;
       }
+      throw new Error('Kontak tidak tersimpan');
     }
     const newId = contact.id || "cnt-" + Date.now();
     const record: Contact = { id: newId, created_at: new Date().toISOString(), ...contact };
@@ -1194,7 +1259,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('training_programs').select('*').order('name');
-      if (!error && data) return data as TrainingProgram[];
+      throwIfError(error);
+      return (data ?? []) as TrainingProgram[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_programs') || '[]');
@@ -1207,13 +1273,15 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...prog };
+      const payload: Record<string, unknown> = { ...prog };
       if (payload.id && !isValidUUID(payload.id)) delete payload.id;
       const { data, error } = await supabase.from('training_programs').upsert([payload], { onConflict: 'code' }).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as TrainingProgram;
       }
+      throw new Error('Program training tidak tersimpan');
     }
     const newId = prog.id || "prog-" + Date.now();
     const record: TrainingProgram = { id: newId, created_at: new Date().toISOString(), ...prog };
@@ -1237,7 +1305,8 @@ export const DB = {
     const supabase = getSupabaseClient();
     if (supabase) {
       const { data, error } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-      if (!error && data) return data as Lead[];
+      throwIfError(error);
+      return (data ?? []) as Lead[];
     }
     if (typeof window !== 'undefined') {
       return JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1245,13 +1314,224 @@ export const DB = {
     return [];
   },
 
+  // Find-or-create the company and contact behind a lead and return their ids.
+  // Supabase only (the localStorage demo path keeps its own upsert). Companies
+  // match by name ignoring case; contacts by normalized phone number. Existing
+  // rows are only filled in where empty, never overwritten.
+  async resolveDirectoryLinks(input: {
+    contact_name: string;
+    contact_phone: string;
+    contact_email?: string;
+    company_name?: string;
+  }): Promise<{ company_id?: string; contact_id?: string }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return {};
+    const result: { company_id?: string; contact_id?: string } = {};
+    clearReadCache(); // writes companies/contacts directly
+
+    // Company
+    if (!isPersonalCompany(input.company_name)) {
+      const name = cleanName(input.company_name!);
+      const escaped = name.replace(/[\\%_]/g, m => '\\' + m);
+      const found = await supabase.from('companies').select('id').ilike('name', escaped).limit(1);
+      if (found.error) throw new Error(found.error.message);
+      if (found.data && found.data.length > 0) {
+        result.company_id = found.data[0].id;
+      } else {
+        const created = await supabase.from('companies').insert([{ name }]).select('id');
+        if (created.error) {
+          // Lost a race with another insert of the same name: read it back
+          const again = await supabase.from('companies').select('id').ilike('name', escaped).limit(1);
+          if (again.error || !again.data?.length) throw new Error(created.error.message);
+          result.company_id = again.data[0].id;
+        } else {
+          result.company_id = created.data[0].id;
+        }
+      }
+    }
+
+    // Contact
+    const phone = normalizePhone(input.contact_phone);
+    if (phone) {
+      const all = await supabase.from('contacts').select('*');
+      if (all.error) throw new Error(all.error.message);
+      const existing = (all.data as Contact[] | null)?.find(c => normalizePhone(c.phone) === phone);
+      if (existing) {
+        result.contact_id = existing.id;
+        const fill: Partial<Contact> = {};
+        if (!existing.email && input.contact_email) fill.email = input.contact_email;
+        if (!existing.company_id && result.company_id) {
+          fill.company_id = result.company_id;
+          fill.company_name = cleanName(input.company_name!);
+        }
+        if (Object.keys(fill).length > 0) {
+          await supabase.from('contacts').update(fill).eq('id', existing.id);
+        }
+      } else {
+        const created = await supabase.from('contacts').insert([{
+          name: cleanName(input.contact_name),
+          phone: input.contact_phone.trim(),
+          email: input.contact_email || null,
+          company_id: result.company_id ?? null,
+          company_name: input.company_name ? cleanName(input.company_name) : null,
+        }]).select('id');
+        if (created.error) throw new Error(created.error.message);
+        result.contact_id = created.data[0].id;
+      }
+    }
+    return result;
+  },
+
+  // One-off backfill: link existing leads that have no contact/company yet and
+  // fill the directories from them. Safe to run repeatedly.
+  async syncLeadsToDirectory(): Promise<{ leadsLinked: number; newCompanies: number; newContacts: number; failed: number }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return { leadsLinked: 0, newCompanies: 0, newContacts: 0, failed: 0 };
+
+    const [leads, companiesBefore, contactsBefore] = await Promise.all([
+      this.getLeads(), this.getCompanies(), this.getContacts(),
+    ]);
+    const todo = leads.filter(l => isValidUUID(l.id) && (!l.contact_id || (!l.company_id && !isPersonalCompany(l.company_name))));
+
+    let leadsLinked = 0;
+    let failed = 0;
+    // Oldest first so the earliest lead of a contact defines the contact name
+    for (const lead of [...todo].reverse()) {
+      try {
+        const links = await this.resolveDirectoryLinks(lead);
+        const patch: { contact_id?: string; company_id?: string } = {};
+        if (!lead.contact_id && links.contact_id) patch.contact_id = links.contact_id;
+        if (!lead.company_id && links.company_id) patch.company_id = links.company_id;
+        if (Object.keys(patch).length > 0) {
+          const { error } = await supabase.from('leads').update(patch).eq('id', lead.id);
+          if (error) throw new Error(error.message);
+          leadsLinked++;
+        }
+      } catch (e) {
+        console.error('Directory sync failed for lead', lead.id, e);
+        failed++;
+      }
+    }
+
+    const [companiesAfter, contactsAfter] = await Promise.all([this.getCompanies(), this.getContacts()]);
+    notifyDbUpdate();
+    return {
+      leadsLinked,
+      newCompanies: Math.max(0, companiesAfter.length - companiesBefore.length),
+      newContacts: Math.max(0, contactsAfter.length - contactsBefore.length),
+      failed,
+    };
+  },
+
+  // Header bell: the newest `limit` items of each notification source, fetched
+  // with narrow queries (no full-table loads). limit=1 is enough to know whether
+  // anything is newer than the last-read timestamp.
+  async getNotificationSources(slaThreshold: number, limit: number): Promise<NotificationSources> {
+    this.initMock();
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      type Embedded = { participants?: { name: string } | null; trainings?: { program_name: string } | null };
+      const [overdueRes, historyRes, trainingRes] = await Promise.all([
+        supabase
+          .from('certificates')
+          .select('id, status, sla_age_days, updated_at, created_at, participants(name), trainings(program_name)')
+          .neq('status', 'Completed')
+          // the stored sla_age_days is stale: overdue = created more than `slaThreshold` days ago
+          .lt('created_at', new Date(Date.now() - slaThreshold * 86_400_000).toISOString())
+          .order('updated_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('certificate_history')
+          .select('id, new_status, changed_by, created_at, certificates(participants(name), trainings(program_name))')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        supabase
+          .from('trainings')
+          .select('id, program_name, batch_code, start_date, created_at')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+      ]);
+      throwIfError(overdueRes.error);
+      throwIfError(historyRes.error);
+      throwIfError(trainingRes.error);
+
+      const one = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.isArray(v) ? v[0] : v ?? undefined);
+      return {
+        overdue: (overdueRes.data ?? []).map(r => {
+          const row = r as unknown as Embedded & { id: string; status: string; sla_age_days: number; updated_at?: string; created_at?: string };
+          return {
+            id: row.id,
+            participant_name: one(row.participants)?.name ?? 'Unknown',
+            program_name: one(row.trainings)?.program_name ?? 'Training',
+            sla_age_days: certificateAgeDays(row),
+            time: row.updated_at || row.created_at || new Date(Date.now() - 86400000).toISOString(),
+          };
+        }),
+        history: (historyRes.data ?? []).map(r => {
+          const row = r as unknown as { id: string; new_status: string; changed_by: string; created_at: string; certificates?: Embedded | Embedded[] | null };
+          const cert = one(row.certificates);
+          return {
+            id: row.id,
+            participant_name: one(cert?.participants)?.name ?? 'Unknown',
+            program_name: one(cert?.trainings)?.program_name ?? 'Training',
+            new_status: row.new_status,
+            changed_by: row.changed_by,
+            time: row.created_at,
+          };
+        }),
+        trainings: (trainingRes.data ?? []).map(t => ({
+          id: t.id as string,
+          program_name: t.program_name as string,
+          batch_code: t.batch_code as string,
+          time: ((t.created_at as string | null) || (t.start_date as string)),
+        })),
+      };
+    }
+
+    // Demo mode (localStorage): small data, derive from the full local lists
+    const [trainings, certificates, histories] = await Promise.all([
+      this.getTrainings(), this.getCertificates(), this.getCertificateHistory(),
+    ]);
+    const byTimeDesc = <T extends { time: string }>(a: T, b: T) => Date.parse(b.time) - Date.parse(a.time);
+    return {
+      overdue: certificates
+        .filter(c => c.status !== 'Completed' && c.sla_age_days > slaThreshold)
+        .map(c => ({
+          id: c.id,
+          participant_name: c.participants?.name ?? 'Unknown',
+          program_name: c.trainings?.program_name ?? 'Training',
+          sla_age_days: c.sla_age_days,
+          time: c.updated_at || c.created_at || new Date(Date.now() - 86400000).toISOString(),
+        }))
+        .sort(byTimeDesc).slice(0, limit),
+      history: histories
+        .map(h => {
+          const cert = certificates.find(c => c.id === h.certificate_id);
+          return {
+            id: h.id,
+            participant_name: cert?.participants?.name ?? 'Unknown',
+            program_name: cert?.trainings?.program_name ?? 'Training',
+            new_status: h.new_status,
+            changed_by: h.changed_by,
+            time: h.created_at,
+          };
+        })
+        .sort(byTimeDesc).slice(0, limit),
+      trainings: trainings
+        .map(t => ({ id: t.id, program_name: t.program_name, batch_code: t.batch_code, time: t.created_at || t.start_date }))
+        .sort(byTimeDesc).slice(0, limit),
+    };
+  },
+
   // Get lead by ID
   async getLeadById(leadId: string): Promise<Lead | null> {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).single();
-      if (!error && data) return data as Lead;
+      if (!isValidUUID(leadId)) return null;
+      const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).maybeSingle();
+      throwIfError(error);
+      return (data as Lead | null) ?? null;
     }
     if (typeof window !== 'undefined') {
       const list: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1274,25 +1554,43 @@ export const DB = {
 
     const supabase = getSupabaseClient();
     if (supabase) {
-      const payload: any = { ...leadData };
+      const payload: Record<string, unknown> = { ...leadData };
       if (!isValidUUID(payload.contact_id)) delete payload.contact_id;
       if (!isValidUUID(payload.company_id)) delete payload.company_id;
       if (!isValidUUID(payload.program_id)) delete payload.program_id;
       if (!isValidUUID(payload.batch_id)) delete payload.batch_id;
 
+      // Keep the company/contact directories in sync. A failure here must not
+      // block saving the lead: the "Sinkronkan" backfill can link it later.
+      try {
+        const links = await this.resolveDirectoryLinks(leadData);
+        if (links.company_id && !payload.company_id) payload.company_id = links.company_id;
+        if (links.contact_id && !payload.contact_id) payload.contact_id = links.contact_id;
+      } catch (e) {
+        console.error('Could not sync company/contact directory:', e);
+      }
+
       const { data, error } = await supabase.from('leads').insert([payload]).select();
-      if (!error && data && data.length > 0) {
-        // Log activity
-        await this.insertLeadActivity({
-          lead_id: data[0].id,
-          action_type: 'created',
-          note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
-          actor: leadData.pic_staff_name || 'System',
-          new_status: leadData.status
-        });
+      // A configured database that rejects the insert must surface the error;
+      // silently saving to localStorage would lose the lead.
+      throwIfError(error);
+      if (data && data.length > 0) {
+        // The lead is saved; a failed audit-log row must not report the whole save as failed
+        try {
+          await this.insertLeadActivity({
+            lead_id: data[0].id,
+            action_type: 'created',
+            note: `Lead baru dibuat untuk program "${leadData.program_name}" (${leadData.estimated_seats} peserta).`,
+            actor: leadData.pic_staff_name || 'System',
+            new_status: leadData.status
+          });
+        } catch (e) {
+          console.error('Lead saved but its activity log failed:', e);
+        }
         notifyDbUpdate();
         return data[0] as Lead;
       }
+      throw new Error('Lead tidak tersimpan');
     }
 
     if (typeof window !== 'undefined') {
@@ -1331,7 +1629,7 @@ export const DB = {
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead | null> {
     this.initMock();
     const now = new Date().toISOString();
-    const payload: any = { ...updates, updated_at: now };
+    const payload: Record<string, unknown> = { ...updates, updated_at: now };
 
     const supabase = getSupabaseClient();
     if (supabase && isValidUUID(leadId)) {
@@ -1341,10 +1639,12 @@ export const DB = {
       if (payload.batch_id !== undefined && !isValidUUID(payload.batch_id)) delete payload.batch_id;
 
       const { data, error } = await supabase.from('leads').update(payload).eq('id', leadId).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as Lead;
       }
+      return null; // no such row in the database
     }
 
     if (typeof window !== 'undefined') {
@@ -1447,8 +1747,8 @@ export const DB = {
           const result = await DB.updateLeadStatus(id, newStatus, { ...options, ...perLead?.(id) });
           if (result) succeeded.push(id);
           else failed.push({ id, message: 'Lead tidak ditemukan' });
-        } catch (e: any) {
-          failed.push({ id, message: e?.message || 'Gagal memperbarui' });
+        } catch (e) {
+          failed.push({ id, message: getErrorMessage(e, 'Gagal memperbarui') });
         }
       }
     } finally {
@@ -1463,12 +1763,12 @@ export const DB = {
     this.initMock();
     const supabase = getSupabaseClient();
     if (supabase) {
-      await supabase.from('lead_activities').delete().eq('lead_id', leadId);
-      const { error } = await supabase.from('leads').delete().eq('id', leadId);
-      if (!error) {
-        notifyDbUpdate();
-        return { success: true };
-      }
+      // lead_activities go with the lead via ON DELETE CASCADE, in one atomic statement
+      const { data, error } = await supabase.from('leads').delete().eq('id', leadId).select('id');
+      throwIfError(error);
+      assertDeleted(data, 'Lead tidak dihapus: tidak ditemukan, atau Anda tidak punya izin menghapusnya.');
+      notifyDbUpdate();
+      return { success: true };
     }
     if (typeof window !== 'undefined') {
       const leads: Lead[] = JSON.parse(localStorage.getItem('bki_leads') || '[]');
@@ -1494,7 +1794,8 @@ export const DB = {
         query = query.eq('lead_id', leadId);
       }
       const { data, error } = await query;
-      if (!error && data) return data as LeadActivity[];
+      throwIfError(error);
+      return (data ?? []) as LeadActivity[];
     }
     if (typeof window !== 'undefined') {
       const list: LeadActivity[] = JSON.parse(localStorage.getItem('bki_lead_activities') || '[]');
@@ -1518,12 +1819,14 @@ export const DB = {
 
     const supabase = getSupabaseClient();
     if (supabase && isValidUUID(act.lead_id)) {
-      const payload: any = { ...act };
+      const payload: Record<string, unknown> = { ...act };
       const { data, error } = await supabase.from('lead_activities').insert([payload]).select();
-      if (!error && data && data.length > 0) {
+      throwIfError(error);
+      if (data && data.length > 0) {
         notifyDbUpdate();
         return data[0] as LeadActivity;
       }
+      throw new Error('Aktivitas lead tidak tersimpan');
     }
 
     if (typeof window !== 'undefined') {
@@ -1535,3 +1838,16 @@ export const DB = {
     return record;
   }
 };
+
+// Share concurrent/rapid identical reads (see cachedRead). Callers get their own
+// array copy so an in-place sort cannot leak into another page's data.
+const CACHED_READS = [
+  'getTrainings', 'getParticipants', 'getCertificates', 'getCertificateHistory',
+  'getCompanies', 'getContacts', 'getTrainingPrograms', 'getLeads', 'getLeadActivities',
+  'getNotificationSources',
+] as const;
+for (const name of CACHED_READS) {
+  const original = DB[name] as (...args: unknown[]) => Promise<unknown>;
+  (DB as unknown as Record<string, unknown>)[name] = (...args: unknown[]) =>
+    cachedRead(name + JSON.stringify(args), () => original.apply(DB, args)).then(r => (Array.isArray(r) ? [...r] : r));
+}

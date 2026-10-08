@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { NAV_GROUPS, SETTINGS_ITEM, NavItem, isNavActive } from '@/lib/navigation';
+import { navGroupsForRole, SETTINGS_ITEM, NavItem, isNavActive } from '@/lib/navigation';
 import { useT } from '@/i18n/LanguageContext';
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -59,14 +59,14 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
     <div
       aria-hidden="true"
       onClick={onClose}
-      className={`fixed inset-0 z-[45] bg-black/50 transition-opacity lg:hidden ${
+      className={`fixed inset-0 z-[45] bg-black/50 transition-opacity lg:hidden print:hidden ${
         open ? 'opacity-100' : 'pointer-events-none opacity-0'
       }`}
     />
     <nav
       id="app-sidebar"
       aria-label={t('Navigasi utama')}
-      className={`sidebar-fixed fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col justify-between border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-200 ease-out lg:translate-x-0 ${
+      className={`sidebar-fixed fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col print:hidden justify-between border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-200 ease-out lg:translate-x-0 ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}
     >
@@ -85,7 +85,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
 
       {/* Groups */}
       <div className="table-scroll flex-1 space-y-6 overflow-y-auto px-3 py-5">
-        {NAV_GROUPS.map(group => (
+        {navGroupsForRole(user?.roleKey ?? 'viewer').map(group => (
           <div key={group.label ?? 'root'}>
             {group.label && (
               <p className="mb-1.5 px-3 text-[11px] font-medium text-slate-500">{t(group.label)}</p>
@@ -110,7 +110,7 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium text-white">{user?.name || t('Admin')}</p>
-            <p className="truncate text-[11px] text-slate-500">{user?.role || t('Admin Sistem')}</p>
+            <p className="truncate text-[11px] text-slate-500">{user?.role || ''}</p>
           </div>
         </div>
       </div>

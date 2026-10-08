@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "i18n:check": "node scripts/check-i18n.mjs",
+    "icons:check": "node scripts/check-icons.mjs",
+    "permissions:check": "node scripts/check-permissions.mjs",
+    "analytics:check": "node scripts/check-analytics.mjs",
+    "csv:check": "node scripts/check-csv.mjs",
     "rls:check": "node --env-file=.env.local scripts/check-rls.mjs"
   },
   "dependencies": {

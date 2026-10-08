@@ -1,21 +1,28 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Training, Certificate } from '@/lib/db';
-import { normalizeAgendaCSV, CSVBatch } from '@/lib/csv';
+import { normalizeAgendaCSVWithReport, CSVBatch } from '@/lib/csv';
+import FileDropzone, { DropOverlay, useWindowFileDrop } from '@/components/FileDropzone';
 import { trainingSchema, sanitizeString } from '@/lib/safety';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import ActionMenu from '@/components/ActionMenu';
+import { useCan } from '@/context/AuthContext';
 import Button from '@/components/Button';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect, FilterDate } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc } from '@/lib/sort';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 const TRAINING_SKELETON_COLUMNS: SkeletonColumn[] = [
   { w: '', kind: 'check' },
@@ -30,6 +37,8 @@ const TRAINING_SKELETON_COLUMNS: SkeletonColumn[] = [
 
 function TrainingsContent() {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
   const { locale } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,7 +46,13 @@ function TrainingsContent() {
   // Data State
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  // Deleting a batch also deletes its certificates, so it needs the right to delete every one of them
+  // (admins always; staff only when they created the batch and all of its certificates).
+  const canDeleteTraining = (tr: Training) =>
+    can('delete.training', { ownerId: tr.created_by }) &&
+    certificates.filter(c => c.training_id === tr.id).every(c => can('delete.certificate', { ownerId: c.created_by }));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [spinnerMsg, setSpinnerMsg] = useState('');
 
   // Filtering States
@@ -46,6 +61,9 @@ function TrainingsContent() {
   const [dateFilter, setDateFilter] = useState('');
   const [picFilter, setPicFilter] = useState('');
   const [locFilter, setLocFilter] = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'created' | 'start_desc' | 'start_asc' | 'name_asc' | 'name_desc' | 'batch_asc' | 'end_asc'>('created');
 
   // Selection States (Bulk Actions)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -82,12 +100,14 @@ function TrainingsContent() {
   // Load Data
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const trainList = await DB.getTrainings();
       const certList = await DB.getCertificates();
       setTrainings(trainList);
       setCertificates(certList);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -98,10 +118,10 @@ function TrainingsContent() {
     loadData();
 
     // Check query params to open modal
-    if (searchParams.get('openModal') === 'true') {
+    if (searchParams.get('openModal') === 'true' && canWrite) {
       openAddModal();
     }
-  }, [searchParams]);
+  }, [searchParams, canWrite]);
 
   // Time ago helper
   const getTimeAgo = (dateStr?: string) => (dateStr ? formatRelativeTime(new Date(dateStr), t, locale, { short: true }) : '');
@@ -123,8 +143,7 @@ function TrainingsContent() {
     setFormBatch(t.batch_code);
     setFormStart(t.start_date);
     setFormEnd(t.end_date);
-    // Find PIC from field, handling potential older properties
-    const picVal = (t as any).pic || '';
+    const picVal = t.pic || '';
     setFormPic(picVal);
     setFormModalOpen(true);
   };
@@ -148,7 +167,7 @@ function TrainingsContent() {
     });
 
     if (!validation.success) {
-      notify.warning(t('Periksa kembali isian training'), validation.error.issues.map((err: any) => err.message).join(', '));
+      notify.warning(t('Periksa kembali isian training'), validation.error.issues.map((err) => err.message).join(', '));
       return;
     }
 
@@ -162,7 +181,7 @@ function TrainingsContent() {
           end_date: formEnd,
           location: editingTraining.location,
           status: editingTraining.status,
-          ...({ pic: cleanPic } as any) // support custom mock fields
+          pic: cleanPic
         });
         notify.success(t('Batch training diperbarui'));
       } else {
@@ -173,15 +192,15 @@ function TrainingsContent() {
           end_date: formEnd,
           location: 'Jakarta Training Center',
           status: 'Processing',
-          ...({ pic: cleanPic } as any) // support custom mock fields
+          pic: cleanPic
         });
         notify.success(t('Batch training baru dibuat'));
       }
       setFormModalOpen(false);
       loadData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Tindakan gagal'), err?.message);
+      notify.error(t('Tindakan gagal'), getErrorMessage(err));
     } finally {
       setSpinnerMsg('');
     }
@@ -201,9 +220,9 @@ function TrainingsContent() {
           await DB.deleteTraining(id);
           notify.success(t('Batch training dihapus.'));
           loadData();
-        } catch (err: any) {
+        } catch (err) {
           console.error(err);
-          notify.error(t('Gagal menghapus batch training'), err?.message);
+          notify.error(t('Gagal menghapus batch training'), getErrorMessage(err));
         } finally {
           setSpinnerMsg('');
         }
@@ -212,27 +231,31 @@ function TrainingsContent() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    
+    const deletableIds = selectedIds.filter(id => {
+      const tr = trainings.find(x => x.id === id);
+      return tr ? canDeleteTraining(tr) : false;
+    });
+    if (deletableIds.length === 0) return;
+
     setConfirmConfig({
       isOpen: true,
       title: t('Hapus Batch Sekaligus'),
-      message: t('Yakin ingin menghapus {length} batch training terpilih beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.', { length: selectedIds.length }),
+      message: t('Yakin ingin menghapus {length} batch training terpilih beserta semua sertifikat terkait? Tindakan ini permanen dan tidak dapat dibatalkan.', { length: deletableIds.length }),
       confirmLabel: t('Hapus Semua'),
       type: 'danger',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        setSpinnerMsg(t('Menghapus {length} batch...', { length: selectedIds.length }));
+        setSpinnerMsg(t('Menghapus {length} batch...', { length: deletableIds.length }));
         try {
-          for (const id of selectedIds) {
+          for (const id of deletableIds) {
             await DB.deleteTraining(id);
           }
           notify.success(t('Batch terpilih dihapus.'));
           setSelectedIds([]);
           loadData();
-        } catch (err: any) {
+        } catch (err) {
           console.error(err);
-          notify.error(t('Gagal menghapus batch terpilih'), err?.message);
+          notify.error(t('Gagal menghapus batch terpilih'), getErrorMessage(err));
         } finally {
           setSpinnerMsg('');
         }
@@ -241,24 +264,34 @@ function TrainingsContent() {
   };
 
   // CSV Import actions
-  const handleCSVFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        const batches = normalizeAgendaCSV(text);
-        if (batches && batches.length > 0) {
-          setParsedBatches(batches);
-          setImportModalOpen(false);
-          setPreviewModalOpen(true);
-        } else {
-          notify.warning(t('Tidak ada data training yang dapat dibaca. Pastikan header sesuai template CSV BKI.'));
+  const CSV_TYPES = useMemo(() => ['.csv'], []);
+  const processCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const { batches, repairedRows } = normalizeAgendaCSVWithReport(text);
+      if (batches && batches.length > 0) {
+        setParsedBatches(batches);
+        if (repairedRows > 0) {
+          notify.info(t('{n} baris peserta kehilangan kolom kosong di awal dan sudah disejajarkan otomatis. Periksa hasilnya sebelum disinkronkan.', { n: repairedRows }));
         }
-      };
-      reader.readAsText(file);
-    }
+        setImportModalOpen(false);
+        setPreviewModalOpen(true);
+      } else {
+        notify.warning(t('Tidak ada data training yang dapat dibaca. Pastikan header sesuai template CSV BKI.'));
+      }
+    };
+    reader.onerror = () => notify.error(t('File tidak bisa dibaca'), file.name);
+    reader.readAsText(file);
   };
+
+  // Drop a CSV anywhere on the page: it goes straight to the review step (not while a review is already open)
+  const dragging = useWindowFileDrop({
+    onFile: processCSVFile,
+    enabled: canWrite && !previewModalOpen,
+    onBlocked: () => notify.warning(canWrite ? t('Selesaikan tinjauan yang sedang terbuka lebih dulu') : t('Peran Anda hanya bisa melihat data')),
+    extensions: CSV_TYPES,
+  });
 
   const handleSyncCSVToDB = async () => {
     setSpinnerMsg("Syncing to database...");
@@ -321,9 +354,9 @@ function TrainingsContent() {
       notify.success(t('Semua batch dinormalisasi dan disinkronkan ke database'));
       setPreviewModalOpen(false);
       loadData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      notify.error(t('Sinkronisasi gagal'), err?.message);
+      notify.error(t('Sinkronisasi gagal'), getErrorMessage(err));
     } finally {
       setSpinnerMsg('');
     }
@@ -331,9 +364,11 @@ function TrainingsContent() {
 
   const downloadCSVTemplate = () => {
     const headers = "No Urut Proyek,Jenis Layanan,Metode Belajar Menghajar,Tanggal Sesuai Jadwal,Pemohon,Obyek/Nama Pelatihan,No Registrasi Peserta,Nama,Perusahaan,No Sertifikat Kehadiran,Hasil Evaluasi,No Sertifikat Kualifikasi\n";
-    const row1 = "1,PUBLIC TRAINING,OFFLINE,02-04 FEBRUARI,PRIBADI,INTERNAL AUDITOR ISM CODE 113,0001,ASFUL FIQI FEBRIANTO,PRIBADI,0001-01-S1-ACY/001/A01-L12/PB/2026,Lulus,0001-01-S2-ACY/001/A01-L12/PB/2026\n";
-    const row2 = ",,,,,INTERNAL AUDITOR ISM CODE 113,0002,HARDI KADIRAN,PT. PRIMA BUANA GEMA BAHARI,0002-01-S1-ACY/001/A01-L12/PB/2026,Lulus,0002-01-S2-ACY/001/A01-L12/PB/2026\n";
-    const row3 = "2,PUBLIC TRAINING,OFFLINE,02-06 FEBRUARI,PRIBADI,MARINE SURVEYOR 92,0008,DAVID REXY PANIRUAN SIMATUPANG,PRIBADI,0008-01-S1-ACY/002/A13-L12/PB/2026,Lulus,0008-01-S2-ACY/002/A13-L12/PB/2026\n";
+    // Batch columns are filled on the first row only; the other rows keep their (empty) cells so every row has 12 columns.
+    // Names that contain a comma (titles) must be wrapped in double quotes.
+    const row1 = "1,IN HOUSE TRAINING,OFFLINE,21 - 25 SEPTEMBER,PT CONTOH PELAYARAN,MARINE SURVEYOR,0001,AHMAD SHAFWAN,PT CONTOH PELAYARAN,0001-02-S1-ACY/001/A13-L12/P8/2026,Lulus,0001-02-S2-ACY/001/A13-L12/P8/2026\n";
+    const row2 = ",,,,,MARINE SURVEYOR,0002,\"CAPT. BUDI, S.SI.T, M.M.TR\",PT CONTOH PELAYARAN,0002-02-S1-ACY/001/A13-L12/P8/2026,Lulus,0002-02-S2-ACY/001/A13-L12/P8/2026\n";
+    const row3 = "2,PUBLIC TRAINING,OFFLINE,02-06 FEBRUARI,PRIBADI,INTERNAL AUDITOR ISM CODE,0003,SITI RAHMA,PRIBADI,0003-01-S1-ACY/002/A01-L12/P8/2026,Lulus,0003-01-S2-ACY/002/A01-L12/P8/2026\n";
 
     const blob = new Blob([headers + row1 + row2 + row3], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -349,7 +384,7 @@ function TrainingsContent() {
   // Handle selection checkboxes
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(t => t.id)])));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.filter(canDeleteTraining).map(t => t.id)])));
     } else {
       const pageIds = new Set(pageItems.map(t => t.id));
       setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
@@ -370,6 +405,8 @@ function TrainingsContent() {
   const picOptions = unique(trainings.map(t => t.pic));
   const locationOptions = unique(trainings.map(t => t.location));
   const statusOptions = unique(trainings.map(t => t.status));
+  const serviceOptions = unique(trainings.map(t => t.service_type));
+  const methodOptions = unique(trainings.map(t => t.learning_method));
 
   // Filter computation
   const filteredTrainings = trainings.filter(t => {
@@ -385,21 +422,36 @@ function TrainingsContent() {
     // Batch is "on" the chosen date when the date falls inside its start-end range
     const matchesDate = !dateFilter || (t.start_date <= dateFilter && dateFilter <= t.end_date);
 
-    return matchesSearch && matchesStatus && matchesPic && matchesLoc && matchesDate;
+    const matchesService = !serviceFilter || (t.service_type || '') === serviceFilter;
+    const matchesMethod = !methodFilter || (t.learning_method || '') === methodFilter;
+
+    return matchesSearch && matchesStatus && matchesPic && matchesLoc && matchesDate && matchesService && matchesMethod;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'start_desc': return cmpDateDesc(a.start_date, b.start_date);
+      case 'start_asc': return cmpDate(a.start_date, b.start_date);
+      case 'end_asc': return cmpDate(a.end_date, b.end_date);
+      case 'name_asc': return cmpText(a.program_name, b.program_name);
+      case 'name_desc': return cmpText(b.program_name, a.program_name);
+      case 'batch_asc': return cmpText(a.batch_code, b.batch_code);
+      default: return cmpDateDesc(a.created_at, b.created_at);
+    }
   });
 
   const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
     filteredTrainings,
-    [searchTerm, statusFilter, picFilter, locFilter, dateFilter].join('|')
+    [searchTerm, statusFilter, picFilter, locFilter, dateFilter, serviceFilter, methodFilter, sortKey].join('|')
   );
 
-  const hasActiveFilters = Boolean(searchTerm || statusFilter || picFilter || locFilter || dateFilter);
+  const hasActiveFilters = Boolean(searchTerm || statusFilter || picFilter || locFilter || dateFilter || serviceFilter || methodFilter);
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setPicFilter('');
     setLocFilter('');
     setDateFilter('');
+    setServiceFilter('');
+    setMethodFilter('');
   };
 
   return (
@@ -410,78 +462,58 @@ function TrainingsContent() {
         description={t('Kelola dan pantau semua program training.')}
         actions={
           <>
-            <Button variant="secondary" icon="upload_file" onClick={() => setImportModalOpen(true)}>{t('Impor Agenda CSV')}</Button>
-            <Button variant="primary" icon="add" onClick={openAddModal}>{t('Tambah Training')}</Button>
+            <Button variant="secondary" icon="upload_file" onClick={() => setImportModalOpen(true)} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Impor Agenda CSV')}</Button>
+            <Button variant="primary" icon="add" onClick={openAddModal} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Tambah Training')}</Button>
           </>
         }
       />
 
-      {/* Filters & Controls */}
-      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        <div className="flex flex-col md:flex-row gap-3 items-center justify-between w-full">
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Search */}
-            <div className="relative w-full md:w-64">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="cms-input h-9 !pl-10 !text-[13px]"
-                aria-label={t('Cari training')}
-                placeholder={t('Cari training...')}
-                type="text"
-              />
-            </div>
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
-            {/* Status */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="cms-select-filter min-w-[130px]"
-              aria-label={t('Filter berdasarkan status')}
-            >
-              <option value="">{t('Semua Status Training')}</option>
-              {statusOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* PIC */}
-            <select
-              value={picFilter}
-              onChange={(e) => setPicFilter(e.target.value)}
-              className="cms-select-filter min-w-[130px]"
-              aria-label={t('Filter berdasarkan PIC')}
-            >
-              <option value="">{t('Semua PIC')}</option>
-              {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* Location */}
-            <select
-              value={locFilter}
-              onChange={(e) => setLocFilter(e.target.value)}
-              className="cms-select-filter min-w-[150px] max-w-[220px]"
-              aria-label={t('Filter berdasarkan lokasi')}
-            >
-              <option value="">{t('Semua Lokasi')}</option>
-              {locationOptions.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            {/* Date: batches running on this day */}
-            <input
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="cms-input h-9 !w-auto !py-0 !text-[13px] text-slate-700"
-              aria-label={t('Tampilkan batch yang berjalan pada tanggal')}
-              title={t('Tampilkan batch yang berjalan pada tanggal ini')}
-              type="date"
-            />
-          </div>
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="text-[13px] font-medium text-blue-600 hover:text-blue-700 md:ml-auto">
-              {t('Hapus filter')}</button>
-          )}
-        </div>
-      </div>
+      {/* Filters, search and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} batch', { shown: filteredTrainings.length, total: trainings.length })}
+        hasActive={hasActiveFilters}
+        onReset={clearFilters}
+        sort={
+          <SortSelect
+            value={sortKey}
+            onChange={setSortKey}
+            options={[
+              { value: 'created', label: t('Terbaru ditambahkan') },
+              { value: 'start_desc', label: t('Tanggal mulai terbaru') },
+              { value: 'start_asc', label: t('Tanggal mulai terlama') },
+              { value: 'end_asc', label: t('Tanggal selesai terdekat') },
+              { value: 'name_asc', label: t('Nama training A–Z') },
+              { value: 'name_desc', label: t('Nama training Z–A') },
+              { value: 'batch_asc', label: t('Kode batch A–Z') },
+            ]}
+          />
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari training...')} label={t('Cari training')} />
+        <FilterSelect value={statusFilter} onChange={setStatusFilter} label={t('Filter berdasarkan status')}>
+          <option value="">{t('Semua Status Training')}</option>
+          {statusOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={locFilter} onChange={setLocFilter} label={t('Filter berdasarkan lokasi')}>
+          <option value="">{t('Semua Lokasi')}</option>
+          {locationOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={serviceFilter} onChange={setServiceFilter} label={t('Filter berdasarkan jenis layanan')}>
+          <option value="">{t('Semua Jenis Layanan')}</option>
+          {serviceOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={methodFilter} onChange={setMethodFilter} label={t('Filter berdasarkan metode belajar')}>
+          <option value="">{t('Semua Metode')}</option>
+          {methodOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterDate value={dateFilter} onChange={setDateFilter} label={t('Berjalan pada')} />
+      </FilterBar>
 
       {/* Data Table */}
       <div className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden flex flex-col">
@@ -490,12 +522,15 @@ function TrainingsContent() {
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="px-4 py-3 w-12 text-center">
+                    {pageItems.some(canDeleteTraining) && (
                     <input
                       type="checkbox"
-                      checked={pageItems.length > 0 && pageItems.every(t => selectedIds.includes(t.id))}
+                      aria-label={t('Pilih semua batch yang bisa dihapus')}
+                      checked={pageItems.filter(canDeleteTraining).every(t => selectedIds.includes(t.id))}
                       onChange={handleSelectAll}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                     />
+                    )}
                   </th>
                   <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Nama Training')}</th>
                   <th className="text-[11px] font-semibold text-slate-500 px-4 py-3 whitespace-nowrap">{t('Batch')}</th>
@@ -518,7 +553,7 @@ function TrainingsContent() {
                   </tr>
                 ) : (
                   pageItems.map(training => {
-                    const initials = ((training as any).pic || 'AD').substring(0, 2).toUpperCase();
+                    const initials = (training.pic || 'AD').substring(0, 2).toUpperCase();
                     const start = new Date(training.start_date);
                     const end = new Date(training.end_date);
                     const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
@@ -563,18 +598,20 @@ function TrainingsContent() {
                         onClick={() => router.push(`/trainings/${training.id}`)}
                       >
                         <td className="px-4 py-3 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                          {canDeleteTraining(training) && (
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(training.id)}
                             onChange={(e) => handleSelectRow(training.id, e.target.checked)}
                             className="training-select-checkbox rounded border-slate-200 text-blue-600 focus:ring-blue-500/15 cursor-pointer"
                           />
+                          )}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-[13px] font-medium text-slate-900">{training.program_name}</div>
+                        <td className="px-4 py-3 min-w-[200px] max-w-[300px]">
+                          <div className="text-[13px] font-medium text-slate-900 break-words">{training.program_name}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-xs font-mono text-slate-500">{training.batch_code}</div>
+                        <td className="px-4 py-3 max-w-[120px]">
+                          <div className="text-xs font-mono text-slate-500 truncate" title={training.batch_code}>{training.batch_code}</div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-xs text-slate-500">{dateText}</div>
@@ -609,9 +646,9 @@ function TrainingsContent() {
                               {initials}
                             </div>
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs text-slate-700 font-medium truncate">{(training as any).pic || '-'}</span>
+                              <span className="text-xs text-slate-700 font-medium truncate">{training.pic || '-'}</span>
                               {lastModifier && lastModTime && (
-                                <span className="text-[11px] text-slate-500 leading-tight whitespace-nowrap">
+                                <span className="text-[11px] text-slate-500 leading-tight">
                                   {t('oleh')} {lastModifier} {t('·')} {getTimeAgo(lastModTime)}
                                 </span>
                               )}
@@ -621,9 +658,11 @@ function TrainingsContent() {
                         <td className="px-4 py-3 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                           <ActionMenu align="right" menuWidth="w-44" items={[
                             { label: t('Lihat Detail'), icon: 'visibility', onClick: () => router.push(`/trainings/${training.id}`) },
-                            { label: t('Ubah Batch'), icon: 'edit', onClick: () => openEditModal(training) },
-                            'divider',
-                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDelete(training.id) },
+                            ...(canWrite ? [{ label: t('Ubah Batch'), icon: 'edit', onClick: () => openEditModal(training) }] : []),
+                            ...(canDeleteTraining(training) ? [
+                              'divider' as const,
+                              { label: t('Hapus'), icon: 'delete', variant: 'danger' as const, onClick: () => handleDelete(training.id) },
+                            ] : []),
                           ]} />
                         </td>
                       </tr>
@@ -647,28 +686,21 @@ function TrainingsContent() {
 
       </div>
 
+      {dragging && !importModalOpen && <DropOverlay title={t('Lepaskan file CSV untuk mengimpor agenda')} hint={t('Anda akan meninjau hasilnya sebelum disimpan ke database.')} />}
+
       {/* CSV IMPORT MODAL */}
       {importModalOpen && (
         <Modal isOpen={true} onClose={() => setImportModalOpen(false)} title={t('Impor Agenda CSV')} dismissOnBackdrop footer={<>
 <button className="cms-btn-secondary" onClick={() => setImportModalOpen(false)}>{t('Batal')}</button>
 </>}>
 <div className="flex flex-col gap-4">
-              {/* Drag-n-drop simulated area */}
-              <div
-                onClick={() => document.getElementById('csv-file-input')?.click()}
-                className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors group bg-card"
-              >
-                <span className="material-symbols-outlined text-4xl text-slate-400 group-hover:text-blue-500 transition-colors mb-2">upload_file</span>
-                <p className="text-sm font-semibold text-slate-700">{t('Klik untuk mengunggah CSV Agenda')}</p>
-                <p className="text-xs text-slate-500 mt-1">{t('Menerima CSV berformat BKI (maks 5MB)')}</p>
-                <input
-                  type="file"
-                  id="csv-file-input"
-                  className="hidden"
-                  accept=".csv"
-                  onChange={handleCSVFileSelect}
-                />
-              </div>
+              <FileDropzone
+                onFile={processCSVFile}
+                extensions={CSV_TYPES}
+                title={t('Seret file CSV ke sini, atau klik untuk memilih')}
+                hint={t('Menerima CSV berformat BKI (maks 5MB)')}
+                inputId="csv-file-input"
+              />
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex gap-2.5 items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-slate-400 text-sm">download</span>
@@ -839,7 +871,7 @@ function TrainingsContent() {
                     id="picSelect"
                     value={formPic}
                     onChange={(e) => setFormPic(e.target.value)}
-                    placeholder={t('mis. Budi Santoso')}
+                    placeholder={t('mis. Ahmad Shafwan')}
                     type="text"
                     required
                   />

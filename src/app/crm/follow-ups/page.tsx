@@ -2,26 +2,37 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Lead, LeadActivity } from '@/lib/db';
+import { DB, Lead } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import Tabs from '@/components/Tabs';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useCan } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import { useT } from '@/i18n/LanguageContext';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
 import { CardListSkeleton } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 export default function FollowUpsPage() {
   const t = useT();
   const { user } = useAuth();
+  const canWrite = useCan()('data.write');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filter tab
   const [activeTab, setActiveTab] = useState<'overdue' | 'today' | 'link_sent' | 'all'>('overdue');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [programFilter, setProgramFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'due_asc' | 'due_desc' | 'name_asc' | 'name_desc' | 'company_asc' | 'seats_desc' | 'newest'>('due_asc');
 
   // Modal note follow-up
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -45,12 +56,14 @@ export default function FollowUpsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const all = await DB.getLeads();
       // Exclude finished / cancelled
       const activeLeads = all.filter(l => l.status !== 'Selesai Training' && l.status !== 'Batal');
       setLeads(activeLeads);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -79,8 +92,26 @@ export default function FollowUpsPage() {
   // Search filter
   const filtered = currentList.filter(l => {
     const text = `${l.contact_name} ${l.company_name} ${l.program_name} ${l.contact_phone} ${l.pic_staff_name}`.toLowerCase();
-    return !searchTerm || text.includes(searchTerm.toLowerCase());
+    if (searchTerm && !text.includes(searchTerm.toLowerCase())) return false;
+    if (statusFilter && l.status !== statusFilter) return false;
+    if (picFilter && l.pic_staff_name !== picFilter) return false;
+    if (programFilter && l.program_name !== programFilter) return false;
+    return true;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'due_desc': return cmpDateDesc(a.next_follow_up_date, b.next_follow_up_date);
+      case 'name_asc': return cmpText(a.contact_name, b.contact_name);
+      case 'name_desc': return cmpText(b.contact_name, a.contact_name);
+      case 'company_asc': return cmpText(a.company_name, b.company_name);
+      case 'seats_desc': return cmpNumberDesc(a.estimated_seats, b.estimated_seats);
+      case 'newest': return cmpDateDesc(a.created_at, b.created_at);
+      default: return cmpDate(a.next_follow_up_date, b.next_follow_up_date);
+    }
   });
+
+  const uniquePics = Array.from(new Set(leads.map(l => l.pic_staff_name).filter(Boolean))).sort(cmpText);
+  const uniquePrograms = Array.from(new Set(leads.map(l => l.program_name).filter(Boolean))).sort(cmpText);
+  const hasFilters = Boolean(searchTerm || statusFilter || picFilter || programFilter);
 
   // Action: Postpone to tomorrow (1-click)
   const handlePostponeTomorrow = async (lead: Lead) => {
@@ -96,8 +127,8 @@ export default function FollowUpsPage() {
         new_status: lead.status
       });
       loadData();
-    } catch (e: any) {
-      notify.error(t('Terjadi kesalahan'), e.message);
+    } catch (e) {
+      notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
     }
   };
 
@@ -131,8 +162,8 @@ export default function FollowUpsPage() {
       notify.success(t('Follow-up berhasil dicatat'));
       setIsFollowUpModalOpen(false);
       loadData();
-    } catch (e: any) {
-      notify.error(t('Terjadi kesalahan'), e.message);
+    } catch (e) {
+      notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
     }
   };
 
@@ -161,28 +192,57 @@ export default function FollowUpsPage() {
           }
         />
 
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
+
         <Tabs
           value={activeTab}
           onChange={setActiveTab}
           items={[
             { id: 'overdue', label: t('Terlambat'), icon: 'warning', count: overdueList.length, countTone: 'danger' },
-            { id: 'today', label: t('Jatuh tempo hari ini'), icon: 'calendar_today', count: todayList.length, countTone: 'warning' },
-            { id: 'link_sent', label: t('Link terkirim, belum terdaftar'), icon: 'link', count: linkSentList.length },
-            { id: 'all', label: t('Semua tugas terbuka'), icon: 'list', count: leads.length },
+            { id: 'today', label: t('Hari ini'), icon: 'calendar_today', count: todayList.length, countTone: 'warning' },
+            { id: 'link_sent', label: t('Link Terkirim'), icon: 'link', count: linkSentList.length },
+            { id: 'all', label: t('Semua Tugas'), icon: 'list', count: leads.length },
           ]}
         />
 
-        <div className="relative max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]" aria-hidden="true">search</span>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder={t('Cari kontak atau perusahaan pada antrean ini...')}
-            aria-label={t('Cari antrean follow-up')}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-          />
-        </div>
+        <FilterBar
+          summary={t('Menampilkan {shown} dari {total} tugas', { shown: filtered.length, total: currentList.length })}
+          hasActive={hasFilters}
+          onReset={() => { setSearchTerm(''); setStatusFilter(''); setPicFilter(''); setProgramFilter(''); }}
+          sort={
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'due_asc', label: t('Paling terlambat dulu') },
+                { value: 'due_desc', label: t('Jatuh tempo terjauh') },
+                { value: 'newest', label: t('Terbaru masuk') },
+                { value: 'seats_desc', label: t('Estimasi kursi terbanyak') },
+                { value: 'name_asc', label: t('Nama kontak A–Z') },
+                { value: 'name_desc', label: t('Nama kontak Z–A') },
+                { value: 'company_asc', label: t('Perusahaan A–Z') },
+              ]}
+            />
+          }
+        >
+          <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari kontak atau perusahaan pada antrean ini...')} label={t('Cari antrean follow-up')} />
+          <FilterSelect value={statusFilter} onChange={setStatusFilter} label={t('Filter berdasarkan status')}>
+            <option value="">{t('Semua Status')}</option>
+            <option value="Baru">{t('Baru')}</option>
+            <option value="Waiting List">{t('Waiting List')}</option>
+            <option value="Jadwal Ditawarkan">{t('Ditawarkan')}</option>
+            <option value="Link Terkirim">{t('Link Terkirim')}</option>
+            <option value="Terdaftar">{t('Terdaftar')}</option>
+          </FilterSelect>
+          <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+            <option value="">{t('Semua PIC')}</option>
+            {uniquePics.map(pic => <option key={pic} value={pic}>{pic}</option>)}
+          </FilterSelect>
+          <FilterSelect value={programFilter} onChange={setProgramFilter} label={t('Filter berdasarkan program')}>
+            <option value="">{t('Semua Program Training')}</option>
+            {uniquePrograms.map(p => <option key={p} value={p}>{p}</option>)}
+          </FilterSelect>
+        </FilterBar>
 
         {/* Task Cards / Table */}
         <div className="space-y-3">
@@ -223,7 +283,7 @@ export default function FollowUpsPage() {
 
                     {lead.notes && (
                       <p className="text-xs text-slate-500 italic mt-1">
-                        "{lead.notes}"
+                        &ldquo;{lead.notes}&rdquo;
                       </p>
                     )}
                   </div>
@@ -247,6 +307,7 @@ export default function FollowUpsPage() {
                       <span className="leading-none whitespace-nowrap">{t('WA Pengingat')}</span>
                     </button>
 
+                    {canWrite && (<>
                     {/* Quick Postpone to Tomorrow */}
                     <button
                       onClick={() => handlePostponeTomorrow(lead)}
@@ -265,6 +326,7 @@ export default function FollowUpsPage() {
                       <span className="material-symbols-outlined text-[15px] shrink-0 leading-none">check</span>
                       <span className="leading-none whitespace-nowrap">{t('Selesai Follow-up')}</span>
                     </button>
+                    </>)}
                   </div>
                 </div>
               );

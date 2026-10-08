@@ -502,3 +502,14 @@ select.cms-input option {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Print (board-ready PDF) ----------
+   Navigation, filters and buttons are hidden with Tailwind `print:hidden` in the markup.
+   Here: white page, keep the status colours, and avoid cutting cards across pages. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  main { max-width: none !important; padding: 0 !important; }
+  .cms-card, article, section { break-inside: avoid; }
+}

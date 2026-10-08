@@ -6,12 +6,18 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Certificate } from '@/lib/db';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import ActionMenu from '@/components/ActionMenu';
+import { useCan } from '@/context/AuthContext';
 import Pagination, { usePagination } from '@/components/Pagination';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import { CertStatusBadge, CertTypeBadge } from '@/components/StatusBadge';
 import { notify } from '@/lib/notify';
 import { useT } from '@/i18n/LanguageContext';
+import { getErrorMessage } from '@/lib/errors';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
 import { useSlaDays } from '@/lib/settings';
 import { TableSkeletonRows, AppShellSkeleton, type SkeletonColumn } from '@/components/Skeleton';
 
@@ -28,6 +34,9 @@ const CERT_SKELETON_COLUMNS: SkeletonColumn[] = [
 
 function CertificatesContent() {
   const t = useT();
+  const can = useCan();
+  const canWrite = can('data.write');
+  const canDeleteCert = (c: Certificate) => can('delete.certificate', { ownerId: c.created_by });
   const slaThreshold = useSlaDays();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,12 +44,16 @@ function CertificatesContent() {
   // Data states
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [trainFilter, setTrainFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'updated' | 'updated_old' | 'sla_desc' | 'sla_asc' | 'name_asc' | 'name_desc' | 'training_asc' | 'number_asc'>('updated');
   
   // Selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -60,10 +73,12 @@ function CertificatesContent() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const list = await DB.getCertificates();
       setCertificates(list);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -88,7 +103,7 @@ function CertificatesContent() {
   // Bulk Actions
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.map(c => c.id)])));
+      setSelectedIds(prev => Array.from(new Set([...prev, ...pageItems.filter(canDeleteCert).map(c => c.id)])));
     } else {
       const pageIds = new Set(pageItems.map(c => c.id));
       setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
@@ -129,6 +144,8 @@ function CertificatesContent() {
     setTrainFilter('');
     setTypeFilter('');
     setStateFilter('');
+    setCompanyFilter('');
+    setPicFilter('');
   };
 
   // Export report
@@ -169,15 +186,32 @@ function CertificatesContent() {
       matchesState = c.status === stateFilter;
     }
 
-    return matchesSearch && matchesTrain && matchesType && matchesState;
+    const matchesCompany = !companyFilter || (c.participants?.company || '') === companyFilter;
+    const matchesPic = !picFilter || (c.trainings?.pic || '') === picFilter;
+
+    return matchesSearch && matchesTrain && matchesType && matchesState && matchesCompany && matchesPic;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'updated_old': return cmpDate(a.updated_at || a.created_at, b.updated_at || b.created_at);
+      case 'sla_desc': return cmpNumberDesc(a.sla_age_days, b.sla_age_days);
+      case 'sla_asc': return cmpNumberDesc(b.sla_age_days, a.sla_age_days);
+      case 'name_asc': return cmpText(a.participants?.name, b.participants?.name);
+      case 'name_desc': return cmpText(b.participants?.name, a.participants?.name);
+      case 'training_asc': return cmpText(a.trainings?.program_name, b.trainings?.program_name);
+      case 'number_asc': return cmpText(a.certificate_number, b.certificate_number);
+      default: return cmpDateDesc(a.updated_at || a.created_at, b.updated_at || b.created_at);
+    }
   });
+
+  const uniqueCompanies = Array.from(new Set(certificates.map(c => (c.participants?.company || '').trim()).filter(Boolean))).sort(cmpText);
+  const uniquePics = Array.from(new Set(certificates.map(c => (c.trainings?.pic || '').trim()).filter(Boolean))).sort(cmpText);
 
   // Full program names for the training filter
   const uniqueTrainings = Array.from(new Set(certificates.map(c => c.trainings?.program_name || '').filter(Boolean))).sort();
 
   const { page, setPage, pageSize, setPageSize, pageItems } = usePagination(
     filteredCerts,
-    [searchTerm, trainFilter, typeFilter, stateFilter].join('|')
+    [searchTerm, trainFilter, typeFilter, stateFilter, companyFilter, picFilter, sortKey].join('|')
   );
 
   return (
@@ -189,61 +223,62 @@ function CertificatesContent() {
         actions={
           <>
             <Button variant="secondary" icon="download" onClick={handleExport}>{t('Ekspor')}</Button>
-            <Button variant="primary" icon="add" onClick={() => router.push('/trainings?openModal=true')}>{t('Batch Baru')}</Button>
+            <Button variant="primary" icon="add" onClick={() => router.push('/trainings?openModal=true')} disabled={!canWrite} title={canWrite ? undefined : t('Peran Anda hanya bisa melihat data')}>{t('Batch Baru')}</Button>
           </>
         }
       />
 
-      {/* Filters */}
-      <div className="bg-card border border-slate-200 rounded-xl p-3 flex gap-3 items-center flex-wrap shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        {/* Search bar inside table filter section */}
-        <div className="relative w-full md:w-60">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-            aria-label={t('Cari sertifikat')}
-            placeholder={t('Cari sertifikat...')}
-            type="text"
-          />
-        </div>
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
-        <select
-          value={trainFilter}
-          onChange={(e) => setTrainFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+      {/* Filters, search and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} sertifikat', { shown: filteredCerts.length, total: certificates.length })}
+        hasActive={Boolean(searchTerm || trainFilter || typeFilter || stateFilter || companyFilter || picFilter)}
+        onReset={handleClearFilters}
+        sort={
+          <SortSelect
+            value={sortKey}
+            onChange={setSortKey}
+            options={[
+              { value: 'updated', label: t('Terakhir diperbarui') },
+              { value: 'updated_old', label: t('Terlama diperbarui') },
+              { value: 'sla_desc', label: t('Umur SLA terlama') },
+              { value: 'sla_asc', label: t('Umur SLA terbaru') },
+              { value: 'name_asc', label: t('Nama peserta A–Z') },
+              { value: 'name_desc', label: t('Nama peserta Z–A') },
+              { value: 'training_asc', label: t('Nama training A–Z') },
+              { value: 'number_asc', label: t('Nomor sertifikat') },
+            ]}
+          />
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari sertifikat...')} label={t('Cari sertifikat')} />
+        <FilterSelect value={trainFilter} onChange={setTrainFilter} label={t('Filter berdasarkan training')}>
           <option value="">{t('Semua Training')}</option>
-          {uniqueTrainings.map(t => t && <option key={t} value={t}>{t}</option>)}
-        </select>
-        
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+          {uniqueTrainings.map(name => name && <option key={name} value={name}>{name}</option>)}
+        </FilterSelect>
+        <FilterSelect value={typeFilter} onChange={setTypeFilter} label={t('Filter berdasarkan tipe')}>
           <option value="">{t('Semua Tipe')}</option>
           <option value="Qualification">{t('Kualifikasi')}</option>
           <option value="Attendance">{t('Kehadiran')}</option>
-        </select>
-
-        <select
-          value={stateFilter}
-          onChange={(e) => setStateFilter(e.target.value)}
-          className="cms-select-filter min-w-[140px]"
-        >
+        </FilterSelect>
+        <FilterSelect value={stateFilter} onChange={setStateFilter} label={t('Filter berdasarkan status')}>
           <option value="">{t('Semua Status')}</option>
           <option value="Pending">{t('Menunggu')}</option>
           <option value="Processing">{t('Diproses')}</option>
           <option value="Printing">{t('Dicetak')}</option>
           <option value="Completed">{t('Selesai')}</option>
           <option value="Overdue">{t('Terlambat')}</option>
-        </select>
-
-        <button onClick={handleClearFilters} className="ml-auto text-[13px] font-medium text-blue-600 hover:text-blue-700">
-          {t('Hapus Filter')}</button>
-      </div>
+        </FilterSelect>
+        <FilterSelect value={companyFilter} onChange={setCompanyFilter} label={t('Filter berdasarkan perusahaan')}>
+          <option value="">{t('Semua Perusahaan')}</option>
+          {uniqueCompanies.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {uniquePics.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+      </FilterBar>
 
       {/* Data Table */}
       <div className="bg-card border border-slate-200 rounded-xl overflow-hidden shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
@@ -252,12 +287,15 @@ function CertificatesContent() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500">
                   <th className="p-4 w-12 text-center">
+                    {pageItems.some(canDeleteCert) && (
                     <input
-                      checked={pageItems.length > 0 && pageItems.every(c => selectedIds.includes(c.id))}
+                      aria-label={t('Pilih semua sertifikat yang bisa dihapus')}
+                      checked={pageItems.filter(canDeleteCert).every(c => selectedIds.includes(c.id))}
                       onChange={handleSelectAll}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                       type="checkbox"
                     />
+                    )}
                   </th>
                   <th className="p-4">{t('Nama Peserta')}</th>
                   <th className="p-4">{t('Training')}</th>
@@ -286,12 +324,14 @@ function CertificatesContent() {
                     return (
                       <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
                         <td className="p-4 text-center">
+                          {canDeleteCert(c) && (
                           <input
                             checked={selectedIds.includes(c.id)}
                             onChange={(e) => handleSelectRow(c.id, e.target.checked)}
                             className="row-checkbox rounded border-slate-300 text-blue-600 focus:ring-blue-500 border-slate-200 cursor-pointer"
                             type="checkbox"
                           />
+                          )}
                         </td>
                         <td className="p-4 font-medium text-slate-900">{c.participants?.name}</td>
                         <td className="p-4 text-slate-600">{c.trainings?.program_name} {c.trainings?.batch_code}</td>
@@ -322,8 +362,10 @@ function CertificatesContent() {
                         <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <ActionMenu align="right" menuWidth="w-44" items={[
                             { label: t('Lihat Batch'), icon: 'visibility', onClick: () => router.push(`/trainings/${c.training_id}`) },
-                            'divider',
-                            { label: t('Hapus'), icon: 'delete', variant: 'danger', onClick: () => handleDeleteCert(c.id) },
+                            ...(canDeleteCert(c) ? [
+                              'divider' as const,
+                              { label: t('Hapus'), icon: 'delete', variant: 'danger' as const, onClick: () => handleDeleteCert(c.id) },
+                            ] : []),
                           ]} />
                         </td>
                       </tr>

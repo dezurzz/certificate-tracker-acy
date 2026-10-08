@@ -1,5 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
+import { useT } from '@/i18n/LanguageContext';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -22,12 +23,13 @@ export default function ConfirmationModal({
   isOpen,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   type = 'info',
   onConfirm,
   onCancel,
 }: ConfirmationModalProps) {
+  const t = useT();
   const style = TYPE[type];
 
   return (
@@ -38,8 +40,8 @@ export default function ConfirmationModal({
       size="sm"
       elevated
       dismissOnBackdrop
-      submitLabel={confirmLabel}
-      cancelLabel={cancelLabel}
+      submitLabel={confirmLabel ?? t('Konfirmasi')}
+      cancelLabel={cancelLabel ?? t('Batal')}
       submitVariant={style.submitVariant}
       onConfirm={onConfirm}
     >

@@ -2,12 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Training, Certificate } from '@/lib/db';
+import { DB } from '@/lib/db';
 import Button from '@/components/Button';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect, FilterDateRange } from '@/components/FilterBar';
+import { cmpText } from '@/lib/sort';
 import { TimelineSkeleton } from '@/components/Skeleton';
 
 interface ActivityLogItem {
@@ -22,16 +27,27 @@ interface ActivityLogItem {
   badgeClass: string;
 }
 
+// Rendering ~1000 timeline rows at once is slow; show a page at a time
+const LOG_PAGE_SIZE = 50;
+
 export default function HistoryLogsPage() {
   const t = useT();
   const { locale } = useLanguage();
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortKey, setSortKey] = useState<'newest' | 'oldest' | 'pic_asc' | 'training_asc'>('newest');
+  const [visible, setVisible] = useState<{ limit: number; key: string }>({ limit: LOG_PAGE_SIZE, key: '' });
   const [groupBy, setGroupBy] = useState<'time' | 'pic' | 'training'>('time');
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const trainings = await DB.getTrainings();
       const certificates = await DB.getCertificates();
@@ -47,7 +63,7 @@ export default function HistoryLogsPage() {
           title: t('Batch Training Dibuat'),
           desc: t('Batch program "{program_name}" ({batch_code}) dimulai.', { program_name: training.program_name, batch_code: training.batch_code }),
           time: training.created_at ? new Date(training.created_at) : (training.start_date ? new Date(training.start_date) : new Date()),
-          pic: (t as any).pic || 'System',
+          pic: training.pic || 'System',
           trainingName: `${training.program_name} (${training.batch_code})`,
           dotColor: 'bg-blue-500',
           badgeClass: 'cms-badge-neutral'
@@ -105,6 +121,7 @@ export default function HistoryLogsPage() {
 
       setActivities(acts);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -166,27 +183,57 @@ export default function HistoryLogsPage() {
   // 1. Filter activities
   const filtered = activities.filter(act => {
     const term = searchTerm.toLowerCase();
-    return act.title.toLowerCase().includes(term) ||
+    const matchesText = act.title.toLowerCase().includes(term) ||
            act.desc.toLowerCase().includes(term) ||
            act.pic.toLowerCase().includes(term) ||
            act.trainingName.toLowerCase().includes(term);
+    if (!matchesText) return false;
+    if (typeFilter && act.type !== typeFilter) return false;
+    if (picFilter && act.pic !== picFilter) return false;
+    const day = act.time.toISOString().slice(0, 10);
+    if (dateFrom && day < dateFrom) return false;
+    if (dateTo && day > dateTo) return false;
+    return true;
   });
 
-  // Sort descending by time
-  filtered.sort((a, b) => b.time.getTime() - a.time.getTime());
+  // Event types and PICs present in the data (for the filters)
+  const typeOptions = Array.from(new Map(activities.map(a => [a.type, a.title] as const)).entries())
+    .sort((x, y) => cmpText(x[1], y[1]));
+  const picOptions = Array.from(new Set(activities.map(a => a.pic).filter(Boolean))).sort(cmpText);
+  const hasFilters = Boolean(searchTerm || typeFilter || picFilter || dateFrom || dateTo);
 
-  // 2. Group activities
-  const groups: Record<string, ActivityLogItem[]> = {};
-  filtered.forEach(act => {
-    let key = '';
-    if (groupBy === 'time') {
-      key = getGroupTimeLabel(act.time);
-    } else if (groupBy === 'pic') {
-      key = act.pic || 'System / Batch';
-    } else if (groupBy === 'training') {
-      key = act.trainingName || 'Unassociated';
+  // Order within each group
+  filtered.sort((a, b) => {
+    switch (sortKey) {
+      case 'oldest': return a.time.getTime() - b.time.getTime();
+      case 'pic_asc': return cmpText(a.pic, b.pic) || b.time.getTime() - a.time.getTime();
+      case 'training_asc': return cmpText(a.trainingName, b.trainingName) || b.time.getTime() - a.time.getTime();
+      default: return b.time.getTime() - a.time.getTime();
     }
+  });
 
+  // Only the first `limit` rows are rendered; the limit resets whenever the view (filters/sort/grouping) changes
+  const viewKey = [searchTerm, typeFilter, picFilter, dateFrom, dateTo, sortKey, groupBy].join('|');
+  const limit = visible.key === viewKey ? visible.limit : LOG_PAGE_SIZE;
+  const shownLogs = filtered.slice(0, limit);
+
+  const timeGroupLabel = (key: string) =>
+    ({ Today: t('Hari ini'), Yesterday: t('Kemarin'), 'This Week': t('Minggu ini'), 'Older Logs': t('Log lama') }[key] ?? key);
+
+  // 2. Group activities (group totals count every matching row, not just the rendered ones)
+  const groupTotals: Record<string, number> = {};
+  const groups: Record<string, ActivityLogItem[]> = {};
+  const groupKeyOf = (act: ActivityLogItem) => {
+    if (groupBy === 'time') return getGroupTimeLabel(act.time);
+    if (groupBy === 'pic') return act.pic || 'System / Batch';
+    return act.trainingName || 'Unassociated';
+  };
+  filtered.forEach(act => {
+    const k = groupKeyOf(act);
+    groupTotals[k] = (groupTotals[k] || 0) + 1;
+  });
+  shownLogs.forEach(act => {
+    const key = groupKeyOf(act);
     if (!groups[key]) groups[key] = [];
     groups[key].push(act);
   });
@@ -209,34 +256,60 @@ export default function HistoryLogsPage() {
         actions={<Button variant="secondary" icon="download" onClick={handleExportCSV}>{t('Ekspor Jejak Audit')}</Button>}
       />
 
-      {/* Controls & Grouping Filter */}
-      <div className="bg-card rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center justify-between shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-        <div className="relative w-full md:w-80">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="cms-input h-9 !pl-10 !text-[13px]"
-            aria-label={t('Cari log')}
-            placeholder={t('Cari log...')}
-            type="text"
-          />
-        </div>
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <label htmlFor="group-by" className="text-[13px] text-slate-500 whitespace-nowrap">{t('Kelompokkan menurut')}</label>
-          <select
-            value={groupBy}
-            id="group-by"
-            onChange={(e) => setGroupBy(e.target.value as any)}
-            className="cms-select-filter min-w-[180px]"
-          >
-            <option value="time">{t('Waktu')}</option>
-            <option value="pic">{t('PIC (operator)')}</option>
-            <option value="training">{t('Batch training')}</option>
-          </select>
-        </div>
-      </div>
+      {/* Filters, search, grouping and sorting */}
+      <FilterBar
+        summary={t('Menampilkan {shown} dari {total} log', { shown: shownLogs.length, total: filtered.length })}
+        hasActive={hasFilters}
+        onReset={() => { setSearchTerm(''); setTypeFilter(''); setPicFilter(''); setDateFrom(''); setDateTo(''); }}
+        sort={
+          <>
+            <label className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-500">
+              <span className="material-symbols-outlined text-[18px] text-slate-400" aria-hidden="true">workspaces</span>
+              <span className="whitespace-nowrap">{t('Kelompokkan menurut')}</span>
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as 'time' | 'pic' | 'training')}
+                className="cms-select-filter min-w-[150px]"
+              >
+                <option value="time">{t('Waktu')}</option>
+                <option value="pic">{t('PIC (operator)')}</option>
+                <option value="training">{t('Batch training')}</option>
+              </select>
+            </label>
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'newest', label: t('Terbaru dulu') },
+                { value: 'oldest', label: t('Terlama dulu') },
+                { value: 'pic_asc', label: t('PIC A–Z') },
+                { value: 'training_asc', label: t('Batch training A–Z') },
+              ]}
+            />
+          </>
+        }
+      >
+        <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari log...')} label={t('Cari log')} />
+        <FilterSelect value={typeFilter} onChange={setTypeFilter} label={t('Filter berdasarkan jenis event')}>
+          <option value="">{t('Semua Jenis Event')}</option>
+          {typeOptions.map(([type, title]) => <option key={type} value={type}>{title}</option>)}
+        </FilterSelect>
+        <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+          <option value="">{t('Semua PIC')}</option>
+          {picOptions.map(v => <option key={v} value={v}>{v}</option>)}
+        </FilterSelect>
+        <FilterDateRange
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+          label={t('Tanggal')}
+          fromLabel={t('Dari tanggal')}
+          toLabel={t('Sampai tanggal')}
+        />
+      </FilterBar>
 
       {/* History List Output */}
       <div className="flex flex-col gap-6">
@@ -257,8 +330,8 @@ export default function HistoryLogsPage() {
             return (
               <div key={groupKey} className="bg-card rounded-xl border border-slate-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)] overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-                  <h2 className="text-sm font-semibold text-slate-900">{groupKey}</h2>
-                  <span className="text-xs text-slate-500 tabular-nums">{items.length === 1 ? t('1 event') : t('{count} event', { count: items.length })}</span>
+                  <h2 className="text-sm font-semibold text-slate-900">{groupBy === 'time' ? timeGroupLabel(groupKey) : groupKey}</h2>
+                  <span className="text-xs text-slate-500 tabular-nums">{groupTotals[groupKey] === 1 ? t('1 event') : t('{count} event', { count: groupTotals[groupKey] })}</span>
                 </div>
                 <div className="p-5">
                   <div className="relative before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-slate-100 flex flex-col gap-6">
@@ -295,6 +368,14 @@ export default function HistoryLogsPage() {
               </div>
             );
           })
+        )}
+
+        {!loading && filtered.length > limit && (
+          <div className="flex justify-center">
+            <Button variant="secondary" icon="expand_more" onClick={() => setVisible({ limit: limit + LOG_PAGE_SIZE, key: viewKey })}>
+              {t('Muat {count} lagi ({remaining} tersisa)', { count: Math.min(LOG_PAGE_SIZE, filtered.length - limit), remaining: filtered.length - limit })}
+            </Button>
+          </div>
         )}
       </div>
       </div>

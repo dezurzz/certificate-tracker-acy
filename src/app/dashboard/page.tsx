@@ -3,10 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Training, Certificate, CertificateHistory, Lead, LeadActivity } from '@/lib/db';
+import { DB, Training, Certificate, Lead } from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
 import Button from '@/components/Button';
+import { useCan } from '@/context/AuthContext';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import StatCard from '@/components/StatCard';
 import Tabs from '@/components/Tabs';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
@@ -26,10 +29,10 @@ interface ActivityItem {
 
 export default function DashboardPage() {
   const t = useT();
+  const canWrite = useCan()('data.write');
   const slaThreshold = useSlaDays();
   const { locale } = useLanguage();
   const { user } = useAuth();
-  const [trainings, setTrainings] = useState<Training[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeModuleTab, setActiveModuleTab] = useState<'all' | 'leads' | 'certs'>('all');
@@ -37,6 +40,7 @@ export default function DashboardPage() {
   const [todayDate, setTodayDate] = useState('');
   // true only until the first load finishes (later refreshes update in place, no flicker)
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   // KPI Stats
   const [completedTrainings, setCompletedTrainings] = useState(0);
@@ -59,6 +63,7 @@ export default function DashboardPage() {
   const [overdueList, setOverdueList] = useState<Certificate[]>([]);
 
   async function loadData() {
+    setLoadError(null);
     try {
       const [trainList, certList, leadList, leadActList] = await Promise.all([
         DB.getTrainings(),
@@ -67,7 +72,6 @@ export default function DashboardPage() {
         DB.getLeadActivities()
       ]);
       
-      setTrainings(trainList);
       setCertificates(certList);
       setLeads(leadList);
 
@@ -250,6 +254,7 @@ export default function DashboardPage() {
       setActivities(acts.slice(0, 5));
 
     } catch (err) {
+      setLoadError(getErrorMessage(err));
       console.error('Failed to load dashboard statistics:', err);
     } finally {
       setLoading(false);
@@ -340,15 +345,21 @@ export default function DashboardPage() {
         actions={
           <>
             <Button variant="secondary" icon="download" onClick={downloadDashboardReport}>{t('Ekspor Laporan')}</Button>
-            <Link href="/crm/leads" className="cms-btn-secondary !h-10">
-              <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">person_add</span>
-              {t('Input Lead Baru')}</Link>
-            <Link href="/trainings?openModal=true" className="cms-btn-primary !h-10">
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
-              {t('Batch Baru')}</Link>
+            {canWrite && (
+              <>
+                <Link href="/crm/leads" className="cms-btn-secondary !h-10">
+                  <span className="material-symbols-outlined text-[18px] text-slate-500" aria-hidden="true">person_add</span>
+                  {t('Input Lead Baru')}</Link>
+                <Link href="/trainings?openModal=true" className="cms-btn-primary !h-10">
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+                  {t('Batch Baru')}</Link>
+              </>
+            )}
           </>
         }
       />
+
+      {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
       <Tabs
         value={activeModuleTab}
@@ -422,7 +433,7 @@ export default function DashboardPage() {
 
           <div className="flex flex-col gap-6 flex-grow justify-between">
             {/* Grid display of pipeline stages */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Pending */}
               <div className="p-4 rounded-lg border border-slate-200 flex flex-col justify-between gap-4 min-h-[96px]">
                 <div className="flex justify-end items-start">
@@ -430,7 +441,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipePending}</p>}
-                  <p className="text-xs text-slate-500">{t('Menunggu')}</p>
+                  <p className="truncate text-xs text-slate-500">{t('Menunggu')}</p>
                 </div>
               </div>
 
@@ -441,7 +452,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeProcessing}</p>}
-                  <p className="text-xs text-slate-500">{t('Diproses')}</p>
+                  <p className="truncate text-xs text-slate-500">{t('Diproses')}</p>
                 </div>
               </div>
 
@@ -452,7 +463,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipePrinting}</p>}
-                  <p className="text-xs text-slate-500">{t('Dicetak')}</p>
+                  <p className="truncate text-xs text-slate-500">{t('Dicetak')}</p>
                 </div>
               </div>
 
@@ -463,7 +474,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeShipping}</p>}
-                  <p className="text-xs text-slate-500">{t('Pengiriman')}</p>
+                  <p className="truncate text-xs text-slate-500">{t('Pengiriman')}</p>
                 </div>
               </div>
 
@@ -474,7 +485,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   {loading ? <Skeleton className="mb-1.5 h-7 w-10" /> : <p className="text-2xl font-semibold text-slate-900 mb-0.5 tabular-nums">{pipeCompleted}</p>}
-                  <p className="text-xs text-slate-500">{t('Selesai')}</p>
+                  <p className="truncate text-xs text-slate-500">{t('Selesai')}</p>
                 </div>
               </div>
             </div>
@@ -500,12 +511,12 @@ export default function DashboardPage() {
 
         {/* Right Column: Monthly Output Trend Bar Chart */}
         <div className="cms-card flex flex-col gap-4 min-h-[220px]">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <div className="min-w-0">
               <h2 className="font-semibold text-slate-900 text-sm">{t('Tren Output Bulanan')}</h2>
               <p className="text-xs text-slate-500 mt-0.5">{t('Sertifikat selesai per bulan.')}</p>
             </div>
-            <span className="text-xs text-slate-500">{t('4 bulan terakhir')}</span>
+            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">{t('4 bulan terakhir')}</span>
           </div>
           
           <div className="flex-grow flex items-end justify-between px-6 pt-6 pb-2 h-full relative">
@@ -775,9 +786,9 @@ export default function DashboardPage() {
 
         {/* Row 2 Right Column: Recent Activity */}
         <div className="cms-card flex flex-col h-[360px] !p-0 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+          <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center gap-3">
             <h2 className="font-semibold text-slate-900 text-sm">{t('Aktivitas Terbaru')}</h2>
-            <Link className="text-[13px] font-medium text-blue-600 hover:text-blue-700" href="/history-logs">{t('Lihat semua')}</Link>
+            <Link className="shrink-0 whitespace-nowrap text-[13px] font-medium text-blue-600 hover:text-blue-700" href="/history-logs">{t('Lihat semua')}</Link>
           </div>
 
           <div className="overflow-y-auto p-5 flex-grow table-scroll">

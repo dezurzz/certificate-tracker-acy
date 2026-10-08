@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { usePathname } from 'next/navigation';
-import { DB } from '@/lib/db';
+import { DB, type NotificationSources } from '@/lib/db';
 import { resolveBreadcrumb } from '@/lib/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import Modal from '@/components/Modal';
@@ -42,108 +42,107 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
   const [helpOpen, setHelpOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifError, setNotifError] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // Bell data is loaded lazily: a few tiny queries tell us whether there is
+  // anything new (red dot); the list itself is fetched only when the bell opens.
+  const buildItems = useCallback((src: NotificationSources): NotificationItem[] => {
+    const bold = (text: string) => <span className="font-semibold text-slate-900">{text}</span>;
+    const items: NotificationItem[] = [];
+
+    src.overdue.forEach(o => {
+      items.push({
+        type: 'overdue',
+        icon: 'warning',
+        iconColor: 'text-red-600',
+        message: rich(t, 'SLA Terlambat: {name} ({program}) terlambat {days} hari.', { name: bold(o.participant_name), program: o.program_name, days: o.sla_age_days }),
+        time: new Date(o.time),
+      });
+    });
+
+    src.history.forEach(h => {
+      let icon = 'info';
+      let iconColor = 'text-slate-400';
+      if (h.new_status === 'Completed') {
+        icon = 'check_circle';
+        iconColor = 'text-emerald-600';
+      } else if (h.new_status === 'Printing') {
+        icon = 'print';
+        iconColor = 'text-amber-600';
+      } else if (h.new_status === 'Pending') {
+        icon = 'hourglass_empty';
+      }
+      items.push({
+        type: 'status_update',
+        icon,
+        iconColor,
+        message: rich(t, 'Pembaruan Sertifikat: {name} ({program}) dipindahkan ke {status} oleh {by}.', { name: bold(h.participant_name), program: h.program_name, status: certStatusLabel(t, h.new_status), by: h.changed_by }),
+        time: new Date(h.time),
+      });
+    });
+
+    src.trainings.forEach(tr => {
+      items.push({
+        type: 'new_batch',
+        icon: 'add_circle',
+        iconColor: 'text-blue-600',
+        message: rich(t, 'Batch baru dibuat: {name} ({code}).', { name: bold(tr.program_name), code: tr.batch_code }),
+        time: new Date(tr.time),
+      });
+    });
+
+    return items.sort((x, y) => y.time.getTime() - x.time.getTime()).slice(0, 5);
+  }, [t]);
+
+  const loadFeed = useCallback(async () => {
+    setNotifLoading(true);
+    setNotifError(false);
+    try {
+      setNotifications(buildItems(await DB.getNotificationSources(slaThreshold, 5)));
+    } catch (err) {
+      console.error('Error loading notifications:', err);
+      setNotifError(true);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, [slaThreshold, buildItems]);
+
+  const notifOpenRef = useRef(false);
   useEffect(() => {
-    async function loadNotifications() {
+    notifOpenRef.current = notifOpen;
+  }, [notifOpen]);
+
+  useEffect(() => {
+    async function refreshUnread() {
       try {
-        const [trainings, certificates, histories] = await Promise.all([
-          DB.getTrainings(),
-          DB.getCertificates(),
-          DB.getCertificateHistory()
-        ]);
-
-        const notifs: NotificationItem[] = [];
-
-        // 1. SLA Overdue Alerts
-        certificates.forEach(c => {
-          if (c.status !== 'Completed' && c.sla_age_days > slaThreshold) {
-            const name = c.participants ? c.participants.name : 'Unknown';
-            const progName = c.trainings ? c.trainings.program_name : 'Training';
-            const time = c.updated_at ? new Date(c.updated_at) : new Date(c.created_at || (Date.now() - 86400000));
-            notifs.push({
-              type: 'overdue',
-              icon: 'warning',
-              iconColor: 'text-red-600',
-              message: rich(t, 'SLA Terlambat: {name} ({program}) terlambat {days} hari.', { name: <span className="font-semibold text-slate-900">{name}</span>, program: progName, days: c.sla_age_days }),
-              time: time
-            });
-          }
-        });
-
-        // 2. Dynamic Status Update Notifications from CertificateHistory
-        histories.forEach(h => {
-          const cert = certificates.find(c => c.id === h.certificate_id);
-          const name = cert?.participants ? cert.participants.name : 'Unknown';
-          const progName = cert?.trainings ? cert.trainings.program_name : 'Training';
-          const certType = cert ? cert.certificate_type : 'Certificate';
-
-          let icon = 'info';
-          let iconColor = 'text-slate-400';
-          if (h.new_status === 'Completed') {
-            icon = 'check_circle';
-            iconColor = 'text-emerald-600';
-          } else if (h.new_status === 'Printing') {
-            icon = 'print';
-            iconColor = 'text-amber-600';
-          } else if (h.new_status === 'Pending') {
-            icon = 'hourglass_empty';
-            iconColor = 'text-slate-400';
-          }
-
-          notifs.push({
-            type: 'status_update',
-            icon: icon,
-            iconColor: iconColor,
-            message: rich(t, 'Pembaruan Sertifikat: {name} ({program}) dipindahkan ke {status} oleh {by}.', { name: <span className="font-semibold text-slate-900">{name}</span>, program: progName, status: certStatusLabel(t, h.new_status), by: h.changed_by }),
-            time: new Date(h.created_at)
-          });
-        });
-
-        // 3. New Training Batch
-        trainings.forEach(training => {
-          const time = training.created_at ? new Date(training.created_at) : new Date(training.start_date);
-          notifs.push({
-            type: 'new_batch',
-            icon: 'add_circle',
-            iconColor: 'text-blue-600',
-            message: rich(t, 'Batch baru dibuat: {name} ({code}).', { name: <span className="font-semibold text-slate-900">{training.program_name}</span>, code: training.batch_code }),
-            time: time
-          });
-        });
-
-        // Sort by time descending
-        notifs.sort((a, b) => b.time.getTime() - a.time.getTime());
-
-        // Limit to 5
-        const displayNotifs = notifs.slice(0, 5);
-        setNotifications(displayNotifs);
-
-        if (displayNotifs.length > 0) {
-          const latestNotifTime = displayNotifs[0].time.getTime();
-          const lastReadTime = parseInt(localStorage.getItem('bki_notif_read_timestamp') || '0');
-          setHasUnread(latestNotifTime > lastReadTime);
-        } else {
-          setHasUnread(false);
-        }
+        const src = await DB.getNotificationSources(slaThreshold, 1);
+        const latest = Math.max(
+          0,
+          ...[...src.overdue, ...src.history, ...src.trainings].map(i => Date.parse(i.time) || 0)
+        );
+        const lastRead = parseInt(localStorage.getItem('bki_notif_read_timestamp') || '0');
+        setHasUnread(latest > lastRead);
       } catch (err) {
-        console.error('Error loading notifications:', err);
+        console.warn('Could not check notifications:', err);
       }
     }
 
-    loadNotifications();
+    refreshUnread();
     const handleDbUpdate = () => {
-      loadNotifications();
+      refreshUnread();
+      if (notifOpenRef.current) loadFeed();
     };
     window.addEventListener('bki-db-update', handleDbUpdate);
-    const interval = setInterval(loadNotifications, 30000); // Check every 30s
+    const interval = setInterval(refreshUnread, 60000);
     return () => {
       window.removeEventListener('bki-db-update', handleDbUpdate);
       clearInterval(interval);
     };
-  }, [t, slaThreshold]);
+  }, [slaThreshold, loadFeed]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -168,7 +167,7 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-card/90 px-3 backdrop-blur sm:px-6 supports-[backdrop-filter]:bg-card/80">
+      <header className="sticky top-0 z-40 print:hidden flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-card/90 px-3 backdrop-blur sm:px-6 supports-[backdrop-filter]:bg-card/80">
         {/* Left Side: Breadcrumb (page H1 lives in the content area) */}
         <div className="flex min-w-0 items-center gap-1">
           <button
@@ -225,8 +224,10 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => {
-                setNotifOpen(!notifOpen);
+                const opening = !notifOpen;
+                setNotifOpen(opening);
                 setProfileOpen(false);
+                if (opening) loadFeed();
               }}
               aria-label={t('Notifikasi')}
               aria-expanded={notifOpen}
@@ -248,7 +249,11 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
                     {t('Tandai semua dibaca')}</button>
                 </div>
                 <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto table-scroll">
-                  {notifications.length === 0 ? (
+                  {notifLoading && notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-xs text-slate-500" role="status">{t('Memuat notifikasi...')}</div>
+                  ) : notifError ? (
+                    <div className="px-4 py-8 text-center text-xs text-slate-500" role="alert">{t('Gagal memuat notifikasi')}</div>
+                  ) : notifications.length === 0 ? (
                     <div className="px-4 py-8 text-center text-xs text-slate-500">
                       <span className="material-symbols-outlined mb-1 block text-xl text-slate-400" aria-hidden="true">notifications_off</span>
                       {t('Belum ada notifikasi')}</div>

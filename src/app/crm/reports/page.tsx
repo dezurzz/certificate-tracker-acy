@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { DB, Lead, TrainingProgram } from '@/lib/db';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
+import { getErrorMessage } from '@/lib/errors';
 import StatCard from '@/components/StatCard';
 import { useT } from '@/i18n/LanguageContext';
 import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
@@ -35,9 +37,11 @@ export default function CrmReportsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [allLeads, allPrograms] = await Promise.all([
         DB.getLeads(),
@@ -46,6 +50,7 @@ export default function CrmReportsPage() {
       setLeads(allLeads);
       setPrograms(allPrograms);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -141,12 +146,16 @@ export default function CrmReportsPage() {
           description={t('Permintaan kursi pelatihan, antrean waiting list, dan distribusi sumber prospek BKI Academy.')}
         />
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
+
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatCard label={t('Total peluang tercatat')} value={totalLeads} />
           <StatCard label={t('Peluang aktif')} value={activeLeads} />
           <StatCard label={t('Total permintaan kursi')} value={totalEstSeats} hint={t('pax')} />
           <StatCard label={t('Antrean waiting list')} value={totalWaitingSeats} hint={t('pax')} />
-          <StatCard label={t('Terkonfirmasi terdaftar')} value={totalRegisteredSeats} hint={t('pax')} tone={totalRegisteredSeats > 0 ? 'success' : 'default'} />
+          <div className="col-span-2 xl:col-span-1">
+            <StatCard label={t('Terkonfirmasi terdaftar')} value={totalRegisteredSeats} hint={t('pax')} tone={totalRegisteredSeats > 0 ? 'success' : 'default'} />
+          </div>
         </div>
 
         {/* Table: Demand & Interest Breakdown per Training Program */}
@@ -162,14 +171,14 @@ export default function CrmReportsPage() {
             <table className="cms-table w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                  <th className="py-3 px-4">{t('Program Pelatihan')}</th>
-                  <th className="py-3 px-4 text-center">{t('Kode')}</th>
-                  <th className="py-3 px-4 text-center">{t('Total Lead')}</th>
-                  <th className="py-3 px-4 text-center">{t('Peluang Aktif')}</th>
-                  <th className="py-3 px-4 text-center">{t('Total Estimasi Kursi')}</th>
-                  <th className="py-3 px-4 text-center">{t('Waiting List (Backlog)')}</th>
-                  <th className="py-3 px-4 text-center">{t('Pasti Terdaftar')}</th>
-                  <th className="py-3 px-4 text-center">{t('Tingkat Minat')}</th>
+                  <th className="py-3 px-3 whitespace-normal leading-tight align-bottom">{t('Program Pelatihan')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Kode')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Total Lead')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Peluang Aktif')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Total Estimasi Kursi')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Waiting List (Backlog)')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Pasti Terdaftar')}</th>
+                  <th className="py-3 px-3 text-center whitespace-normal leading-tight align-bottom">{t('Tingkat Minat')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

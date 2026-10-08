@@ -2,16 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { DB, Lead, Training, TrainingProgram, BKI_TRAINING_PROGRAMS } from '@/lib/db';
+import { DB, Lead, Training, BKI_TRAINING_PROGRAMS } from '@/lib/db';
 import { WATemplates, createWhatsAppUrl } from '@/lib/whatsapp';
 import ConfirmationModal from '@/components/ConfirmationModal';
 import Modal from '@/components/Modal';
 import PageHeader from '@/components/PageHeader';
+import LoadError from '@/components/LoadError';
 import StatCard from '@/components/StatCard';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useCan } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
+import SortSelect from '@/components/SortSelect';
+import FilterBar, { FilterSearch, FilterSelect } from '@/components/FilterBar';
+import { cmpText, cmpDate, cmpDateDesc, cmpNumberDesc } from '@/lib/sort';
 import { useT } from '@/i18n/LanguageContext';
 import { TableSkeletonRows, type SkeletonColumn } from '@/components/Skeleton';
+import { getErrorMessage } from '@/lib/errors';
 
 const WAITING_SKELETON_COLUMNS: SkeletonColumn[] = [
   { w: 'w-36', kind: 'twoLine' },
@@ -25,15 +30,18 @@ const WAITING_SKELETON_COLUMNS: SkeletonColumn[] = [
 export default function WaitingListPage() {
   const t = useT();
   const { user } = useAuth();
+  const canWrite = useCan()('data.write');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [trainings, setTrainings] = useState<Training[]>([]);
-  const [programs, setPrograms] = useState<TrainingProgram[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [reasonFilter, setReasonFilter] = useState('');
   const [programFilter, setProgramFilter] = useState('');
+  const [picFilter, setPicFilter] = useState('');
+  const [sortKey, setSortKey] = useState<'waiting_longest' | 'waiting_newest' | 'name_asc' | 'name_desc' | 'company_asc' | 'seats_desc' | 'followup_asc'>('waiting_longest');
 
   // Modals
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -56,17 +64,17 @@ export default function WaitingListPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const [allLeads, allTrainings, allPrograms] = await Promise.all([
+      const [allLeads, allTrainings] = await Promise.all([
         DB.getLeads(),
-        DB.getTrainings(),
-        DB.getTrainingPrograms()
+        DB.getTrainings()
       ]);
       // Filter only waiting list
       setLeads(allLeads.filter(l => l.status === 'Waiting List'));
       setTrainings(allTrainings);
-      setPrograms(allPrograms);
     } catch (e) {
+      setLoadError(getErrorMessage(e));
       console.error(e);
     } finally {
       setLoading(false);
@@ -86,8 +94,21 @@ export default function WaitingListPage() {
     if (searchTerm && !text.includes(searchTerm.toLowerCase())) return false;
     if (reasonFilter && l.waiting_reason !== reasonFilter) return false;
     if (programFilter && l.program_name !== programFilter) return false;
+    if (picFilter && l.pic_staff_name !== picFilter) return false;
     return true;
+  }).sort((a, b) => {
+    switch (sortKey) {
+      case 'waiting_newest': return cmpDateDesc(a.updated_at, b.updated_at);
+      case 'name_asc': return cmpText(a.contact_name, b.contact_name);
+      case 'name_desc': return cmpText(b.contact_name, a.contact_name);
+      case 'company_asc': return cmpText(a.company_name, b.company_name);
+      case 'seats_desc': return cmpNumberDesc(a.estimated_seats, b.estimated_seats);
+      case 'followup_asc': return cmpDate(a.next_follow_up_date, b.next_follow_up_date);
+      default: return cmpDate(a.updated_at, b.updated_at);
+    }
   });
+
+  const uniquePics = Array.from(new Set(leads.map(l => l.pic_staff_name).filter(Boolean))).sort(cmpText);
 
   // Calculate stats
   const totalWaitingLeads = leads.length;
@@ -157,8 +178,8 @@ export default function WaitingListPage() {
       notify.success(t('Peluang Waiting List berhasil dialokasikan ke Batch Pelatihan'));
       setIsAssignBatchModalOpen(false);
       loadData();
-    } catch (e: any) {
-      notify.error(t('Terjadi kesalahan'), e.message);
+    } catch (e) {
+      notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
     }
   };
 
@@ -177,8 +198,8 @@ export default function WaitingListPage() {
             actor: user?.name || 'System Admin'
           });
           loadData();
-        } catch (e: any) {
-          notify.error(t('Terjadi kesalahan'), e.message);
+        } catch (e) {
+          notify.error(t('Terjadi kesalahan'), getErrorMessage(e));
         }
       }
     });
@@ -191,6 +212,8 @@ export default function WaitingListPage() {
           title={t('Waiting List')}
           description={t('Pantau calon peserta yang menunggu jadwal dibuka atau melakukan reschedule, lalu pasangkan langsung dengan batch aktif.')}
         />
+
+        {loadError && <LoadError message={loadError} onRetry={loadData} />}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard label={t('Total waiting list')} value={totalWaitingLeads} hint={t('peluang')} />
@@ -238,58 +261,45 @@ export default function WaitingListPage() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-card border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-3 items-center">
-          <div className="flex-1 relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder={t('Cari kontak, perusahaan, atau catatan...')}
-              className="cms-input h-9 !pl-10 !text-[13px]"
+        {/* Filters, search and sorting */}
+        <FilterBar
+          summary={t('Menampilkan {shown} dari {total} lead', { shown: filtered.length, total: leads.length })}
+          hasActive={Boolean(searchTerm || reasonFilter || programFilter || picFilter)}
+          onReset={() => { setSearchTerm(''); setReasonFilter(''); setProgramFilter(''); setPicFilter(''); }}
+          sort={
+            <SortSelect
+              value={sortKey}
+              onChange={setSortKey}
+              options={[
+                { value: 'waiting_longest', label: t('Paling lama menunggu') },
+                { value: 'waiting_newest', label: t('Terbaru masuk waiting list') },
+                { value: 'followup_asc', label: t('Follow-up terdekat') },
+                { value: 'seats_desc', label: t('Estimasi kursi terbanyak') },
+                { value: 'name_asc', label: t('Nama kontak A–Z') },
+                { value: 'name_desc', label: t('Nama kontak Z–A') },
+                { value: 'company_asc', label: t('Perusahaan A–Z') },
+              ]}
             />
-          </div>
-
-          <div className="w-full md:w-56">
-            <select
-              value={reasonFilter}
-              onChange={e => setReasonFilter(e.target.value)}
-              className="cms-select-filter w-full"
-            >
-              <option value="">{t('Semua Alasan Waiting List')}</option>
-              <option value="Reschedule">{t('Reschedule')}</option>
-              <option value="Belum Ada Jadwal">{t('Belum Ada Jadwal')}</option>
-              <option value="Menunggu Konfirmasi Internal">{t('Menunggu Konfirmasi Internal')}</option>
-            </select>
-          </div>
-
-          <div className="w-full md:w-56">
-            <select
-              value={programFilter}
-              onChange={e => setProgramFilter(e.target.value)}
-              className="cms-select-filter w-full"
-            >
-              <option value="">{t('Semua Program Training')}</option>
-              {BKI_TRAINING_PROGRAMS.map(progName => (
-                <option key={progName} value={progName}>{progName}</option>
-              ))}
-            </select>
-          </div>
-
-          {(searchTerm || reasonFilter || programFilter) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setReasonFilter('');
-                setProgramFilter('');
-              }}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap cursor-pointer shrink-0"
-            >
-              {t('Reset Filter')}</button>
-          )}
-        </div>
+          }
+        >
+          <FilterSearch value={searchTerm} onChange={setSearchTerm} placeholder={t('Cari kontak, perusahaan, atau catatan...')} />
+          <FilterSelect value={reasonFilter} onChange={setReasonFilter} label={t('Filter berdasarkan alasan')}>
+            <option value="">{t('Semua Alasan Waiting List')}</option>
+            <option value="Reschedule">{t('Reschedule')}</option>
+            <option value="Belum Ada Jadwal">{t('Belum Ada Jadwal')}</option>
+            <option value="Menunggu Konfirmasi Internal">{t('Menunggu Konfirmasi Internal')}</option>
+            <option value="Budgeting">{t('Budgeting')}</option>
+            <option value="Lainnya">{t('Lainnya')}</option>
+          </FilterSelect>
+          <FilterSelect value={picFilter} onChange={setPicFilter} label={t('Filter berdasarkan PIC')}>
+            <option value="">{t('Semua PIC')}</option>
+            {uniquePics.map(pic => <option key={pic} value={pic}>{pic}</option>)}
+          </FilterSelect>
+          <FilterSelect value={programFilter} onChange={setProgramFilter} label={t('Filter berdasarkan program')}>
+            <option value="">{t('Semua Program Training')}</option>
+            {BKI_TRAINING_PROGRAMS.map(progName => <option key={progName} value={progName}>{progName}</option>)}
+          </FilterSelect>
+        </FilterBar>
 
         {/* Waiting List Table */}
         <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -344,7 +354,7 @@ export default function WaitingListPage() {
                           )}
                           {lead.notes && (
                             <p className="text-[11px] text-slate-600 mt-1 italic line-clamp-2 max-w-[220px]">
-                              "{lead.notes}"
+                              &ldquo;{lead.notes}&rdquo;
                             </p>
                           )}
                         </td>
@@ -379,6 +389,7 @@ export default function WaitingListPage() {
                               <span className="material-symbols-outlined text-base" aria-hidden="true">chat</span>
                             </button>
 
+                            {canWrite && (<>
                             {/* Mark Schedule Offered */}
                             <button
                               title={t('Tandai Jadwal Ditawarkan')}
@@ -394,6 +405,7 @@ export default function WaitingListPage() {
                               className="cms-btn-primary !h-8 !px-3 !text-xs"
                             >
                               {t('Pilih Batch')}</button>
+                            </>)}
                           </div>
                         </td>
                       </tr>
