@@ -16,6 +16,7 @@ export interface LeadLike {
   cancel_reason?: string | null;
   source?: string;
   program_name?: string;
+  next_follow_up_date?: string | null;
 }
 export interface ActivityLike {
   lead_id: string;
@@ -28,12 +29,14 @@ export interface CertLike {
   sla_age_days: number;
   created_at?: string;
   updated_at?: string;
-  trainings?: { pic?: string | null } | null;
   training_id?: string;
+  participant_id?: string;
+  printed_at?: string | null;
 }
 export interface HistoryLike {
   certificate_id: string;
   new_status: string;
+  previous_status?: string | null;
   created_at: string;
 }
 
@@ -226,16 +229,6 @@ export function computeFunnel(leads: LeadLike[], activities: ActivityLike[], ran
 // Certificates / SLA
 // ---------------------------------------------------------------------------
 
-export interface PicPerformance {
-  name: string;
-  total: number;
-  completed: number;
-  overdue: number;
-  avgAge: number;
-  /** Share of certificates whose age is within the SLA threshold. */
-  compliance: number;
-}
-
 export interface SlaResult {
   total: number;
   completed: number;
@@ -245,10 +238,11 @@ export interface SlaResult {
   overdueRate: number;
   /** Share of all certificates within the SLA threshold. */
   compliance: number;
+  /** Number of certificates within the SLA threshold (what `compliance` is a share of). */
+  compliant: number;
   avgOpenAge: number;
   statusCounts: { Pending: number; Processing: number; Printing: number; Completed: number };
   overdueByStage: { Pending: number; Processing: number; Printing: number };
-  byPic: PicPerformance[];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -268,22 +262,6 @@ export function computeSla(certs: CertLike[], slaDays: number): SlaResult {
   const overdue = certs.filter(isOverdue).length;
   const compliant = certs.filter(c => c.sla_age_days <= slaDays).length;
 
-  const pics = new Map<string, CertLike[]>();
-  certs.forEach(c => {
-    const name = (c.trainings?.pic || '').trim() || '-';
-    pics.set(name, [...(pics.get(name) ?? []), c]);
-  });
-  const byPic: PicPerformance[] = [...pics.entries()]
-    .map(([name, list]) => ({
-      name,
-      total: list.length,
-      completed: list.filter(c => c.status === 'Completed').length,
-      overdue: list.filter(isOverdue).length,
-      avgAge: round1(list.reduce((a, c) => a + (c.sla_age_days || 0), 0) / list.length),
-      compliance: pctOf(list.filter(c => c.sla_age_days <= slaDays).length, list.length),
-    }))
-    .sort((a, b) => b.overdue - a.overdue || b.total - a.total || a.name.localeCompare(b.name));
-
   return {
     total: certs.length,
     completed: statusCounts.Completed,
@@ -291,10 +269,10 @@ export function computeSla(certs: CertLike[], slaDays: number): SlaResult {
     overdue,
     overdueRate: pctOf(overdue, open.length),
     compliance: pctOf(compliant, certs.length),
+    compliant,
     avgOpenAge: open.length ? round1(open.reduce((a, c) => a + (c.sla_age_days || 0), 0) / open.length) : 0,
     statusCounts,
     overdueByStage,
-    byPic,
   };
 }
 
@@ -388,5 +366,321 @@ export function summarizePeriod(
     cancelRate: funnel.cancelRate,
     confirmedSeats: funnel.confirmedSeats,
     certsCompleted,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Leads: where demand comes from, how fast it converts, what is at risk
+// ---------------------------------------------------------------------------
+
+export interface SourceStat {
+  source: string;
+  leads: number;
+  registered: number;
+  /** Registered share of that source's leads (percent). */
+  rate: number;
+}
+
+/** Cohort (leads created in `range`) split by lead source, biggest first. */
+export function computeSourceBreakdown(leads: LeadLike[], activities: ActivityLike[], range: DateRange): SourceStat[] {
+  const cohort = leads.filter(l => inRange(l.created_at, range));
+  const maxStage = maxStageByLead(cohort, activities);
+  const by = new Map<string, { leads: number; registered: number }>();
+  cohort.forEach(l => {
+    const key = (l.source || '').trim() || '-';
+    const cur = by.get(key) ?? { leads: 0, registered: 0 };
+    cur.leads++;
+    if ((maxStage.get(l.id) ?? 0) >= REGISTERED) cur.registered++;
+    by.set(key, cur);
+  });
+  return [...by.entries()]
+    .map(([source, v]) => ({ source, leads: v.leads, registered: v.registered, rate: pctOf(v.registered, v.leads) }))
+    .sort((a, b) => b.leads - a.leads || a.source.localeCompare(b.source));
+}
+
+export interface ProgramStat {
+  program: string;
+  leads: number;
+  /** Seats requested (sum of estimated seats). */
+  seats: number;
+  registered: number;
+  rate: number;
+}
+
+/** Cohort split by training program, biggest demand (seats) first. */
+export function computeProgramBreakdown(leads: LeadLike[], activities: ActivityLike[], range: DateRange): ProgramStat[] {
+  const cohort = leads.filter(l => inRange(l.created_at, range));
+  const maxStage = maxStageByLead(cohort, activities);
+  const by = new Map<string, { leads: number; seats: number; registered: number }>();
+  cohort.forEach(l => {
+    const key = (l.program_name || '').trim() || '-';
+    const cur = by.get(key) ?? { leads: 0, seats: 0, registered: 0 };
+    cur.leads++;
+    cur.seats += l.estimated_seats || 0;
+    if ((maxStage.get(l.id) ?? 0) >= REGISTERED) cur.registered++;
+    by.set(key, cur);
+  });
+  return [...by.entries()]
+    .map(([program, v]) => ({ program, leads: v.leads, seats: v.seats, registered: v.registered, rate: pctOf(v.registered, v.leads) }))
+    .sort((a, b) => b.seats - a.seats || a.program.localeCompare(b.program));
+}
+
+/** Median days from a lead's creation to its first "Terdaftar" event (cohort leads that registered). */
+export function medianDaysToRegister(leads: LeadLike[], activities: ActivityLike[], range: DateRange): { median: number | null; n: number } {
+  const cohort = leads.filter(l => inRange(l.created_at, range));
+  const registered = registrationDates(activities, new Set(cohort.map(l => l.id)));
+  const days: number[] = [];
+  cohort.forEach(l => {
+    const when = registered.get(l.id);
+    if (!when) return;
+    const d = (new Date(when).getTime() - new Date(l.created_at).getTime()) / DAY_MS;
+    if (d >= 0) days.push(d);
+  });
+  if (days.length === 0) return { median: null, n: 0 };
+  days.sort((a, b) => a - b);
+  const mid = Math.floor(days.length / 2);
+  const median = days.length % 2 ? days[mid] : (days[mid - 1] + days[mid]) / 2;
+  return { median: round1(median), n: days.length };
+}
+
+const OPEN_LEAD_STATUSES = ['Baru', 'Jadwal Ditawarkan', 'Link Terkirim', 'Waiting List'];
+
+export interface StaleResult {
+  /** Leads still being worked (not registered, finished or cancelled). */
+  open: number;
+  /** Open leads with no activity for more than `staleDays`. */
+  stale: number;
+  /** Open leads whose next follow-up date has already passed. */
+  overdueFollowUps: number;
+  /** Days since the most neglected stale lead was last touched (0 when none is stale). */
+  oldestDays: number;
+}
+
+/** Current-state view (not period filtered). `today` is 'YYYY-MM-DD'. */
+export function computeStaleLeads(leads: LeadLike[], activities: ActivityLike[], today: string, staleDays: number): StaleResult {
+  const lastTouch = new Map<string, string>();
+  leads.forEach(l => lastTouch.set(l.id, dayKey(l.created_at)));
+  activities.forEach(a => {
+    const cur = lastTouch.get(a.lead_id);
+    const day = dayKey(a.created_at);
+    if (cur !== undefined && day > cur) lastTouch.set(a.lead_id, day);
+  });
+  const open = leads.filter(l => OPEN_LEAD_STATUSES.includes(l.status));
+  const ageDays = (day: string) => Math.round((toDate(today).getTime() - toDate(day).getTime()) / DAY_MS);
+  const staleAges = open.map(l => ageDays(lastTouch.get(l.id) ?? dayKey(l.created_at))).filter(d => d > staleDays);
+  return {
+    open: open.length,
+    stale: staleAges.length,
+    overdueFollowUps: open.filter(l => !!l.next_follow_up_date && l.next_follow_up_date < today).length,
+    oldestDays: staleAges.length ? Math.max(...staleAges) : 0,
+  };
+}
+
+export interface WaitingOpportunity {
+  leads: number;
+  seats: number;
+  /** Seats / average batch size: how many extra batches the waiting demand could fill. Null when batch size is unknown. */
+  batches: number | null;
+  /** Program with the most waiting seats (null when nothing waits or no program is named). */
+  topProgram: string | null;
+  topProgramSeats: number;
+}
+
+/** Average participants per batch, from the certificates (unique participants per training). Null when unknown. */
+export function averageBatchSize(certs: CertLike[]): number | null {
+  const by = new Map<string, Set<string>>();
+  certs.forEach(c => {
+    if (!c.training_id || !c.participant_id) return;
+    by.set(c.training_id, (by.get(c.training_id) ?? new Set()).add(c.participant_id));
+  });
+  if (by.size === 0) return null;
+  const total = [...by.values()].reduce((a, set) => a + set.size, 0);
+  return round1(total / by.size);
+}
+
+export function computeWaitingOpportunity(leads: LeadLike[], avgBatchSize: number | null): WaitingOpportunity {
+  const waiting = leads.filter(l => l.status === 'Waiting List');
+  const seats = waiting.reduce((a, l) => a + (l.estimated_seats || 0), 0);
+  const byProgram = new Map<string, number>();
+  waiting.forEach(l => {
+    const name = (l.program_name || '').trim();
+    if (name) byProgram.set(name, (byProgram.get(name) ?? 0) + (l.estimated_seats || 0));
+  });
+  const top = [...byProgram.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return {
+    leads: waiting.length,
+    seats,
+    batches: avgBatchSize && avgBatchSize > 0 ? round1(seats / avgBatchSize) : null,
+    topProgram: top ? top[0] : null,
+    topProgramSeats: top ? top[1] : 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Certificates: flow, backlog, aging and where time is spent
+// ---------------------------------------------------------------------------
+
+export interface FlowPoint {
+  month: string;
+  /** Certificates created (entered the pipeline). */
+  inflow: number;
+  /** Certificates completed. */
+  outflow: number;
+}
+
+export interface CertFlowResult {
+  monthly: FlowPoint[];
+  inflowInRange: number;
+  outflowInRange: number;
+  /** Certificates still in progress right now. */
+  backlog: number;
+  /** Average completions per week over the last 28 days. */
+  weeklyRate: number;
+  /** Days to clear the backlog at the current pace; null when nothing was completed recently. */
+  daysToClear: number | null;
+  /** true when more entered than were completed in the range; null when there was no movement. */
+  backlogGrowing: boolean | null;
+}
+
+/** `today` is 'YYYY-MM-DD'. */
+export function computeCertFlow(certs: CertLike[], histories: HistoryLike[], range: DateRange, today: string): CertFlowResult {
+  const months = monthsInRange(range);
+  const points = new Map<string, FlowPoint>(months.map(m => [m, { month: m, inflow: 0, outflow: 0 }]));
+  let inflowInRange = 0;
+  let outflowInRange = 0;
+
+  certs.forEach(c => {
+    if (!inRange(c.created_at, range)) return;
+    inflowInRange++;
+    const p = points.get(dayKey(c.created_at).slice(0, 7));
+    if (p) p.inflow++;
+  });
+
+  const done = completionDates(certs, histories);
+  const last28From = toKey(new Date(toDate(today).getTime() - 27 * DAY_MS));
+  let last28 = 0;
+  done.forEach(iso => {
+    if (inRange(iso, range)) {
+      outflowInRange++;
+      const p = points.get(dayKey(iso).slice(0, 7));
+      if (p) p.outflow++;
+    }
+    if (inRange(iso, { from: last28From, to: today })) last28++;
+  });
+
+  const backlog = certs.filter(c => c.status !== 'Completed').length;
+  const rate = last28 / 4; // unrounded: rounding the rate first would skew the days-to-clear estimate
+  return {
+    monthly: months.map(m => points.get(m)!),
+    inflowInRange,
+    outflowInRange,
+    backlog,
+    weeklyRate: round1(rate),
+    daysToClear: rate > 0 ? Math.round(backlog / (rate / 7)) : null,
+    backlogGrowing: inflowInRange === 0 && outflowInRange === 0 ? null : inflowInRange > outflowInRange,
+  };
+}
+
+export interface AgingBuckets {
+  open: number;
+  /** Age <= SLA. */
+  withinSla: number;
+  /** SLA < age <= 2 x SLA. */
+  upTo2x: number;
+  /** Age > 2 x SLA. */
+  over2x: number;
+  /** Age in days of the oldest certificate still in progress. */
+  oldestDays: number;
+}
+
+export function computeAgingBuckets(certs: CertLike[], slaDays: number): AgingBuckets {
+  const open = certs.filter(c => c.status !== 'Completed');
+  return {
+    open: open.length,
+    withinSla: open.filter(c => c.sla_age_days <= slaDays).length,
+    upTo2x: open.filter(c => c.sla_age_days > slaDays && c.sla_age_days <= 2 * slaDays).length,
+    over2x: open.filter(c => c.sla_age_days > 2 * slaDays).length,
+    oldestDays: open.reduce((m, c) => Math.max(m, c.sla_age_days || 0), 0),
+  };
+}
+
+export interface StageDuration {
+  stage: 'Pending' | 'Processing' | 'Printing';
+  /** Average days a certificate spent in this stage before moving on. */
+  avgDays: number;
+  /** Number of observed transitions. */
+  n: number;
+}
+
+/**
+ * Time spent in each stage, measured from the status history: a certificate is in the stage of
+ * one event until its next event. Only fully observed stays count (the first event has no known start).
+ */
+export function computeStageDurations(histories: HistoryLike[]): StageDuration[] {
+  const byCert = new Map<string, HistoryLike[]>();
+  histories.forEach(h => byCert.set(h.certificate_id, [...(byCert.get(h.certificate_id) ?? []), h]));
+  const totals: Record<string, { sum: number; n: number }> = { Pending: { sum: 0, n: 0 }, Processing: { sum: 0, n: 0 }, Printing: { sum: 0, n: 0 } };
+  byCert.forEach(events => {
+    events.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    for (let i = 0; i < events.length - 1; i++) {
+      const stage = events[i].new_status;
+      if (!(stage in totals)) continue;
+      const days = (new Date(events[i + 1].created_at).getTime() - new Date(events[i].created_at).getTime()) / DAY_MS;
+      if (days < 0) continue;
+      totals[stage].sum += days;
+      totals[stage].n++;
+    }
+  });
+  return (['Pending', 'Processing', 'Printing'] as const).map(stage => ({
+    stage,
+    avgDays: totals[stage].n ? round1(totals[stage].sum / totals[stage].n) : 0,
+    n: totals[stage].n,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Certificates: where each one is in the physical workflow
+// ---------------------------------------------------------------------------
+
+export interface CertPipeline {
+  total: number;
+  /** Not printed yet: Pending + Processing (QC). */
+  notPrinted: number;
+  pending: number;
+  processing: number;
+  /** Printed and waiting to be sent to the client (status Printing). */
+  printed: number;
+  /** Sent / completed. */
+  completed: number;
+  /** Everything still in progress (notPrinted + printed). */
+  open: number;
+  /** Share of the open certificates that are already printed and only wait to be sent (percent). */
+  printedShareOfOpen: number;
+  /** Days the longest-waiting printed certificate has been waiting since it was printed (0 when none or unknown). */
+  oldestPrintedDays: number;
+}
+
+/** `today` is 'YYYY-MM-DD'. */
+export function computeCertPipeline(certs: CertLike[], today: string): CertPipeline {
+  const count = (status: string) => certs.filter(c => c.status === status).length;
+  const pending = count('Pending');
+  const processing = count('Processing');
+  const printedCerts = certs.filter(c => c.status === 'Printing');
+  const completed = count('Completed');
+  const notPrinted = pending + processing;
+  const open = notPrinted + printedCerts.length;
+  const waits = printedCerts
+    .map(c => (c.printed_at ? Math.round((toDate(today).getTime() - toDate(dayKey(c.printed_at)).getTime()) / DAY_MS) : 0))
+    .filter(d => d > 0);
+  return {
+    total: certs.length,
+    notPrinted,
+    pending,
+    processing,
+    printed: printedCerts.length,
+    completed,
+    open,
+    printedShareOfOpen: pctOf(printedCerts.length, open),
+    oldestPrintedDays: waits.length ? Math.max(...waits) : 0,
   };
 }

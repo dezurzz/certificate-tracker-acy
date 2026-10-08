@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import ExecutiveTargetsCard from '@/components/ExecutiveTargetsCard';
 import { notify } from '@/lib/notify';
 import { useT, useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
@@ -214,6 +215,7 @@ export default function SystemSettingsPage() {
         </form>
       </section>
 
+      <ExecutiveTargetsCard />
       <ConfirmationModal
         isOpen={confirmConfig.isOpen}
         title={confirmConfig.title}

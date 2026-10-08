@@ -59,14 +59,14 @@ export default function Sidebar({ open = false, onClose }: SidebarProps) {
     <div
       aria-hidden="true"
       onClick={onClose}
-      className={`fixed inset-0 z-[45] bg-black/50 transition-opacity lg:hidden ${
+      className={`fixed inset-0 z-[45] bg-black/50 transition-opacity lg:hidden print:hidden ${
         open ? 'opacity-100' : 'pointer-events-none opacity-0'
       }`}
     />
     <nav
       id="app-sidebar"
       aria-label={t('Navigasi utama')}
-      className={`sidebar-fixed fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col justify-between border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-200 ease-out lg:translate-x-0 ${
+      className={`sidebar-fixed fixed left-0 top-0 z-50 flex h-dvh w-64 flex-col print:hidden justify-between border-r border-slate-800 bg-slate-900 text-slate-300 transition-transform duration-200 ease-out lg:translate-x-0 ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}
     >

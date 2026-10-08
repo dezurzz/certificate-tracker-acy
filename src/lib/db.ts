@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createBrowserClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
 import { getErrorMessage } from '@/lib/errors';
+import { certificateAgeDays, withComputedAge } from '@/lib/certAge';
 
 // Cache singleton client instance to avoid recreating GoTrueClient instances
 let cachedClient: SupabaseClient | null = null;
@@ -892,7 +893,8 @@ export const DB = {
     if (supabase) {
       const { data, error } = await supabase.from('certificates').select('*, trainings(*), participants(*)');
       throwIfError(error);
-      return (data ?? []) as Certificate[];
+      // sla_age_days is never maintained in the database (always 0): compute it from the dates
+      return withComputedAge((data ?? []) as Certificate[]);
     }
     
     if (typeof window !== 'undefined') {
@@ -900,11 +902,11 @@ export const DB = {
       const trains = JSON.parse(localStorage.getItem('bki_trainings') || '[]');
       const parts = JSON.parse(localStorage.getItem('bki_participants') || '[]');
 
-      return certs.map((c: Certificate) => ({
+      return withComputedAge(certs.map((c: Certificate) => ({
         ...c,
         trainings: trains.find((t: Training) => t.id === c.training_id),
         participants: parts.find((p: Participant) => p.id === c.participant_id)
-      }));
+      })));
     }
     return [];
   },
@@ -1432,9 +1434,10 @@ export const DB = {
       const [overdueRes, historyRes, trainingRes] = await Promise.all([
         supabase
           .from('certificates')
-          .select('id, sla_age_days, updated_at, created_at, participants(name), trainings(program_name)')
+          .select('id, status, sla_age_days, updated_at, created_at, participants(name), trainings(program_name)')
           .neq('status', 'Completed')
-          .gt('sla_age_days', slaThreshold)
+          // the stored sla_age_days is stale: overdue = created more than `slaThreshold` days ago
+          .lt('created_at', new Date(Date.now() - slaThreshold * 86_400_000).toISOString())
           .order('updated_at', { ascending: false })
           .limit(limit),
         supabase
@@ -1455,12 +1458,12 @@ export const DB = {
       const one = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.isArray(v) ? v[0] : v ?? undefined);
       return {
         overdue: (overdueRes.data ?? []).map(r => {
-          const row = r as unknown as Embedded & { id: string; sla_age_days: number; updated_at?: string; created_at?: string };
+          const row = r as unknown as Embedded & { id: string; status: string; sla_age_days: number; updated_at?: string; created_at?: string };
           return {
             id: row.id,
             participant_name: one(row.participants)?.name ?? 'Unknown',
             program_name: one(row.trainings)?.program_name ?? 'Training',
-            sla_age_days: row.sla_age_days,
+            sla_age_days: certificateAgeDays(row),
             time: row.updated_at || row.created_at || new Date(Date.now() - 86400000).toISOString(),
           };
         }),

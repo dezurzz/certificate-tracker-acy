@@ -167,7 +167,7 @@ export default function Header({ pageTitle, onMenuClick, menuOpen = false }: Hea
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-card/90 px-3 backdrop-blur sm:px-6 supports-[backdrop-filter]:bg-card/80">
+      <header className="sticky top-0 z-40 print:hidden flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-card/90 px-3 backdrop-blur sm:px-6 supports-[backdrop-filter]:bg-card/80">
         {/* Left Side: Breadcrumb (page H1 lives in the content area) */}
         <div className="flex min-w-0 items-center gap-1">
           <button
