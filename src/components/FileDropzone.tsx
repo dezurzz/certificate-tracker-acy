@@ -90,7 +90,7 @@ export default function FileDropzone({
         setOver(false);
         take(e.dataTransfer.files);
       }}
-      className={`group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-600/25 ${
+      className={`group flex min-h-[10.5rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-600/25 ${
         over ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-card hover:border-blue-500'
       }`}
     >
@@ -98,7 +98,8 @@ export default function FileDropzone({
         {over ? 'download' : icon}
       </span>
       <p className="text-sm font-semibold text-slate-700">{over ? t('Lepaskan file di sini') : title}</p>
-      {hint && !over && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      {/* kept in the layout (just hidden) so the card does not change size while a file hovers over it */}
+      {hint && <p className={`mt-1 text-xs text-slate-500 ${over ? 'invisible' : ''}`}>{hint}</p>}
       <input
         ref={inputRef}
         id={inputId}
@@ -141,37 +142,55 @@ export function useWindowFileDrop({
   });
 
   useEffect(() => {
-    let depth = 0; // dragenter/dragleave fire for every child element
+    // While a file is dragged, `dragover` fires continuously (about every 50-350 ms). If it stops for a while the drag
+    // is over (dropped elsewhere, cancelled with Esc, left the window) even when no drop/leave event reached us,
+    // so a watchdog hides the overlay instead of trusting the event order.
+    let lastSeen = 0;
+    let watchdog: ReturnType<typeof setInterval> | null = null;
+    const stop = () => {
+      if (watchdog) clearInterval(watchdog);
+      watchdog = null;
+      setDragging(false);
+    };
+    const touch = () => {
+      lastSeen = Date.now();
+      setDragging(true);
+      if (!watchdog) watchdog = setInterval(() => { if (Date.now() - lastSeen > 1200) stop(); }, 300);
+    };
     const enter = (e: DragEvent) => {
-      if (!hasFiles(e)) return;
-      depth++;
-      if (latest.current.enabled) setDragging(true);
+      if (hasFiles(e) && latest.current.enabled) touch();
     };
     const over = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = latest.current.enabled ? 'copy' : 'none';
+      if (latest.current.enabled) touch();
     };
     const leave = (e: DragEvent) => {
-      if (!hasFiles(e)) return;
-      depth = Math.max(0, depth - 1);
-      if (depth === 0) setDragging(false);
+      // the pointer left the browser window (dragleave also fires between elements, so only the window edge counts;
+      // relatedTarget is not reliable across browsers)
+      if (hasFiles(e) && (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) stop();
     };
     const drop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       e.preventDefault();
-      depth = 0;
-      setDragging(false);
+      stop();
       const { enabled: on, onFile: handle, onBlocked: blocked, validate: check } = latest.current;
       if (!on) { blocked?.(); return; }
       const file = check(e.dataTransfer?.files);
       if (file) handle(file);
     };
+    // Capture phase runs before any element's handler (a drop target may stopPropagation), so a drop always clears it
+    window.addEventListener('drop', stop, true);
+    window.addEventListener('dragend', stop, true);
     window.addEventListener('dragenter', enter);
     window.addEventListener('dragover', over);
     window.addEventListener('dragleave', leave);
     window.addEventListener('drop', drop);
     return () => {
+      if (watchdog) clearInterval(watchdog);
+      window.removeEventListener('drop', stop, true);
+      window.removeEventListener('dragend', stop, true);
       window.removeEventListener('dragenter', enter);
       window.removeEventListener('dragover', over);
       window.removeEventListener('dragleave', leave);
@@ -179,7 +198,8 @@ export function useWindowFileDrop({
     };
   }, []);
 
-  return dragging;
+  // never show it while the page does not accept drops (e.g. a review dialog is open)
+  return dragging && enabled;
 }
 
 /** Full-page hint shown while a file is dragged over the window. */
