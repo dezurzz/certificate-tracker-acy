@@ -3,6 +3,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseEnvConfigured } from '@/lib/supabase/config';
 import { getErrorMessage } from '@/lib/errors';
 import { certificateAgeDays, withComputedAge } from '@/lib/certAge';
+import { printFieldsFor } from '@/lib/certStatus';
 
 // Cache singleton client instance to avoid recreating GoTrueClient instances
 let cachedClient: SupabaseClient | null = null;
@@ -966,104 +967,91 @@ export const DB = {
 
   // Update certificate status
   async updateCertificateStatus(certId: string, status: string): Promise<void> {
+    await this.updateCertificatesStatus([certId], status);
+  },
+
+  /**
+   * Moves certificates to `status` in as few round trips as possible: one lookup of the previous statuses, ONE update
+   * for all of them, ONE batch insert of the audit rows and ONE change notification (a loop of single updates used to
+   * fire a reload per certificate). Certificates already in `status` are skipped. A rejected update (row level security
+   * hides the rows and returns zero, with no error) throws so the caller can roll back.
+   */
+  async updateCertificatesStatus(certIds: string[], status: string): Promise<void> {
     this.initMock();
+    const ids = [...new Set(certIds)];
+    if (ids.length === 0) return;
+
     let profileName = 'Admin';
     if (typeof window !== 'undefined') {
       profileName = localStorage.getItem('profileName') || 'Admin';
     }
-
     const supabase = getSupabaseClient();
+    const nowIso = new Date().toISOString();
+
     if (supabase) {
       const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
       if (user && user.user_metadata && user.user_metadata.full_name) {
         profileName = user.user_metadata.full_name;
       }
-    }
 
-    // 1. Fetch current status of the certificate for auditing
-    let previousStatus = 'Pending';
-    if (supabase) {
-      const { data } = await supabase.from('certificates').select('status').eq('id', certId).single();
-      if (data) previousStatus = data.status;
-    } else if (typeof window !== 'undefined') {
-      const list = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
-      const item = list.find((c: Certificate) => c.id === certId);
-      if (item) previousStatus = item.status;
-    }
+      // 1. previous statuses, for the audit trail and to skip no-op moves
+      const { data: current, error: readError } = await supabase.from('certificates').select('id, status').in('id', ids);
+      throwIfError(readError);
+      const previous = new Map((current ?? []).map(r => [r.id as string, r.status as string]));
+      const toMove = ids.filter(id => previous.has(id) && previous.get(id) !== status);
+      if (toMove.length === 0) return;
 
-    const updates: Partial<Certificate> = { 
-      status,
-      updated_at: new Date().toISOString(),
-      updated_by: profileName
-    };
-
-    if (status === 'Pending' || status === 'Processing') {
-      updates.printed_at = undefined;
-      updates.printed_by = undefined;
-      updates.sent_at = undefined;
-      updates.sent_by = undefined;
-    } else if (status === 'Printing') {
-      updates.printed_at = new Date().toISOString();
-      updates.printed_by = profileName;
-      updates.sent_at = undefined;
-      updates.sent_by = undefined;
-    } else if (status === 'Completed') {
-      updates.printed_at = new Date().toISOString();
-      updates.printed_by = profileName;
-      updates.sent_at = new Date().toISOString();
-      updates.sent_by = profileName;
-    }
-
-    if (supabase) {
-      const { error: updateError } = await supabase.from('certificates').update(updates).eq('id', certId);
-      if (updateError) {
-        console.error('Failed to update certificate status in Supabase:', updateError);
+      // 2. one update for all of them
+      const updates = { status, updated_at: nowIso, updated_by: profileName, ...printFieldsFor(status, profileName, nowIso) };
+      const { data: updated, error: updateError } = await supabase.from('certificates').update(updates).in('id', toMove).select('id');
+      throwIfError(updateError);
+      const done = new Set((updated ?? []).map(r => r.id as string));
+      const moved = toMove.filter(id => done.has(id));
+      if (moved.length > 0) {
+        // 3. audit rows for what really changed, in one insert
+        const { error: historyError } = await supabase.from('certificate_history').insert(
+          moved.map(id => ({
+            certificate_id: id,
+            previous_status: previous.get(id),
+            new_status: status,
+            changed_by: profileName,
+            note: `Status shifted from ${previous.get(id)} to ${status}`,
+          }))
+        );
+        if (historyError) console.warn('Failed to insert Supabase audit log:', historyError.message);
       }
-      
-      const { error: historyError } = await supabase.from('certificate_history').insert([{
-        certificate_id: certId,
-        previous_status: previousStatus,
-        new_status: status,
-        changed_by: profileName,
-        note: `Status shifted from ${previousStatus} to ${status}`
-      }]);
-      if (historyError) {
-        console.warn('Failed to insert Supabase audit log. Fallback to localStorage will be used. Error:', historyError.message);
-      } else {
-        notifyDbUpdate();
+      notifyDbUpdate();
+      if (moved.length < toMove.length) {
+        throw new Error(
+          moved.length === 0
+            ? 'Perubahan status ditolak: Anda tidak memiliki izin untuk mengubah sertifikat ini.'
+            : `Hanya ${moved.length} dari ${toMove.length} sertifikat yang berhasil dipindahkan.`
+        );
       }
+      return;
     }
-    
+
+    // Demo mode (localStorage)
     if (typeof window !== 'undefined') {
-      // Always write the transition history to local storage as local audit fallback
-      const historyList = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
-      const newHistoryRecord: CertificateHistory = {
-        id: "h-" + Date.now() + Math.random().toString(36).substr(2, 4),
-        certificate_id: certId,
-        previous_status: previousStatus,
-        new_status: status,
-        changed_by: profileName,
-        note: `Status shifted from ${previousStatus} to ${status}`,
-        created_at: new Date().toISOString()
-      };
-      historyList.push(newHistoryRecord);
+      const list: Certificate[] = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
+      const historyList: CertificateHistory[] = JSON.parse(localStorage.getItem('bki_certificate_history') || '[]');
+      ids.forEach(id => {
+        const item = list.find(c => c.id === id);
+        if (!item || item.status === status) return;
+        const previousStatus = item.status;
+        Object.assign(item, { status, updated_at: nowIso, updated_by: profileName }, printFieldsFor(status, profileName, nowIso));
+        historyList.push({
+          id: 'h-' + Date.now() + Math.random().toString(36).substr(2, 4),
+          certificate_id: id,
+          previous_status: previousStatus,
+          new_status: status,
+          changed_by: profileName,
+          note: `Status shifted from ${previousStatus} to ${status}`,
+          created_at: nowIso,
+        });
+      });
+      localStorage.setItem('bki_certificates', JSON.stringify(list));
       localStorage.setItem('bki_certificate_history', JSON.stringify(historyList));
-
-      // Also update local certificates array if it exists locally
-      const list = JSON.parse(localStorage.getItem('bki_certificates') || '[]');
-      const item = list.find((c: Certificate) => c.id === certId);
-      if (item) {
-        item.status = status;
-        item.updated_at = updates.updated_at;
-        item.updated_by = updates.updated_by;
-        
-        item.printed_at = updates.printed_at;
-        item.printed_by = updates.printed_by;
-        item.sent_at = updates.sent_at;
-        item.sent_by = updates.sent_by;
-        
-        localStorage.setItem('bki_certificates', JSON.stringify(list));
-      }
       notifyDbUpdate();
     }
   },

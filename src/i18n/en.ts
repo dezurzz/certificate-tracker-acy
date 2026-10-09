@@ -256,7 +256,6 @@ export const en: Record<string, string> = {
   "Gagal memperbarui password": "Failed to update password",
   "Gagal memperbarui profil": "Failed to update profile",
   "Gagal memperbarui status": "Failed to update status",
-  "Gagal memperbarui status sertifikat": "Failed to update certificate status",
   "Gagal menambahkan lead": "Failed to add lead",
   "Gagal menambahkan peserta": "Failed to add participant",
   "Gagal mengeluarkan perangkat lain": "Failed to sign out other devices",
@@ -340,7 +339,6 @@ export const en: Record<string, string> = {
   "Kemarin": "Yesterday",
   "Kembalikan ke Default": "Reset Defaults",
   "Kepatuhan target": "Target compliance",
-  "Kesalahan saat pembaruan massal": "Error during bulk update",
   "Keterlambatan per tahap": "Overdue by stage",
   "Kiri": "Left",
   "Kirim Jadwal": "Send Schedule",
@@ -1322,4 +1320,5 @@ export const en: Record<string, string> = {
   "File kosong: {name}": "Empty file: {name}",
   "File terlalu besar (maksimal {mb} MB): {name}": "File too large (maximum {mb} MB): {name}",
   "Lepaskan file di sini": "Drop the file here",
+  "{count} {what} dipindahkan ke {to}": "{count} {what} moved to {to}",
 };
