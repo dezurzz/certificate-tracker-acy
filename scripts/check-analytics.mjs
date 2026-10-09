@@ -13,6 +13,9 @@ const I = await import('data:text/javascript;base64,' + Buffer.from(insightsJs).
 const ageSource = readFileSync(fileURLToPath(new URL('../src/lib/certAge.ts', import.meta.url)), 'utf8');
 const ageJs = ts.transpileModule(ageSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
 const AGE = await import('data:text/javascript;base64,' + Buffer.from(ageJs).toString('base64'));
+const statusSource = readFileSync(fileURLToPath(new URL('../src/lib/certStatus.ts', import.meta.url)), 'utf8');
+const statusJs = ts.transpileModule(statusSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
+const ST = await import('data:text/javascript;base64,' + Buffer.from(statusJs).toString('base64'));
 const copySource = readFileSync(fileURLToPath(new URL('../src/lib/executive/insightCopy.ts', import.meta.url)), 'utf8');
 const copyJs = ts.transpileModule(copySource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
 const C_ = await import('data:text/javascript;base64,' + Buffer.from(copyJs).toString('base64'));
@@ -311,6 +314,13 @@ eq('age: completed certificate stops at completion', AGE.certificateAgeDays({ st
 eq('age: missing creation date is 0', AGE.certificateAgeDays({ status: 'Pending' }, now), 0);
 eq('age: never negative', AGE.certificateAgeDays({ status: 'Completed', created_at: '2026-09-02T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }, now), 0);
 eq('age: replaces the stale stored value', AGE.withComputedAge([{ status: 'Pending', created_at: '2026-10-05T00:00:00Z', sla_age_days: 0 }], now)[0].sla_age_days, 2);
+
+// ---- what moving a certificate does to its print/send fields (null clears; undefined would keep the old value)
+const T0 = '2026-10-09T08:00:00Z';
+eq('status: Pending clears everything', ST.printFieldsFor('Pending', 'Dewi', T0), { printed_at: null, printed_by: null, sent_at: null, sent_by: null });
+eq('status: Processing clears everything (moving back un-prints)', ST.printFieldsFor('Processing', 'Dewi', T0), { printed_at: null, printed_by: null, sent_at: null, sent_by: null });
+eq('status: Printing is printed, not sent', ST.printFieldsFor('Printing', 'Dewi', T0), { printed_at: T0, printed_by: 'Dewi', sent_at: null, sent_by: null });
+eq('status: Completed is printed and sent', ST.printFieldsFor('Completed', 'Dewi', T0), { printed_at: T0, printed_by: 'Dewi', sent_at: T0, sent_by: 'Dewi' });
 
 // ---- print pipeline
 const pc = (id, status, printed) => ({ id, status, sla_age_days: 0, printed_at: printed ?? null });

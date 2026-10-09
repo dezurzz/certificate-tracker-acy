@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useCan } from '@/context/AuthContext';
@@ -19,6 +19,9 @@ import { certStatusLabel, certTypeLabel } from '@/i18n/labels';
 import { useSlaDays } from '@/lib/settings';
 import { Skeleton, TableSkeletonRows, KanbanCardsSkeleton, ListRowsSkeleton } from '@/components/Skeleton';
 import { getErrorMessage } from '@/lib/errors';
+import { useFlip } from '@/lib/useFlip';
+import { cmpText } from '@/lib/sort';
+import { printFieldsFor } from '@/lib/certStatus';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -54,6 +57,12 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const [certificateHistories, setCertificateHistories] = useState<CertificateHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Certificates being moved right now (id -> target status). The card is already drawn in its new column; a reload that
+  // lands before the server has saved the move must not pull it back, so loaded rows are overridden with these.
+  const pendingMoves = useRef(new Map<string, string>());
+  const [syncing, setSyncing] = useState<Set<string>>(() => new Set());
+  const hasLoaded = useRef(false);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'overview' | 'participants' | 'certificates' | 'activity'>('overview');
@@ -112,9 +121,10 @@ export default function TrainingDetailPage({ params }: PageProps) {
   const [certStatusSelect, setCertStatusSelect] = useState('Pending');
 
   // Load batch details
+  // Only the very first load shows skeletons; every later refresh swaps the data in place so the board never flashes.
   const loadBatchDetails = async () => {
     if (!trainingId) return;
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     setLoadError(null);
     try {
       const trainList = await DB.getTrainings();
@@ -131,7 +141,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       }
 
       const certList = await DB.getCertificates();
-      const batchCerts = certList.filter(c => c.training_id === trainingId);
+      const batchCerts = certList
+        .filter(c => c.training_id === trainingId)
+        .map(c => (pendingMoves.current.has(c.id) ? { ...c, status: pendingMoves.current.get(c.id) as string } : c));
       setCertificates(batchCerts);
 
       // Unique participants map
@@ -145,6 +157,7 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
       const histList = await DB.getCertificateHistoryForTraining(trainingId);
       setCertificateHistories(histList);
+      hasLoaded.current = true;
     } catch (e) {
       setLoadError(getErrorMessage(e));
       console.error(e);
@@ -158,11 +171,15 @@ export default function TrainingDetailPage({ params }: PageProps) {
       loadBatchDetails();
     }
 
+    // Several writes in a row (a bulk move, an import) raise several events: reload once, shortly after the last one
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const handleDbUpdate = () => {
-      loadBatchDetails();
+      clearTimeout(timer);
+      timer = setTimeout(() => loadBatchDetails(), 250);
     };
     window.addEventListener('bki-db-update', handleDbUpdate);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('bki-db-update', handleDbUpdate);
     };
   }, [trainingId]);
@@ -299,28 +316,61 @@ export default function TrainingDetailPage({ params }: PageProps) {
     e.preventDefault();
   };
 
-  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
+  /**
+   * Moves certificates to another column. The cards move at once (optimistic) and animate there, a small spinner shows
+   * until the server confirmed, and if it refuses the cards go back and an error is shown. Returns whether it saved.
+   */
+  const moveCertificates = async (ids: string[], target: string): Promise<boolean> => {
+    const movable = certificates.filter(c => ids.includes(c.id) && c.status !== target && !pendingMoves.current.has(c.id));
+    if (movable.length === 0) return true;
+    const before = new Map(movable.map(c => [c.id, c]));
+    const moveIds = [...before.keys()];
+
+    moveIds.forEach(id => pendingMoves.current.set(id, target));
+    setSyncing(prev => new Set([...prev, ...moveIds]));
+    const nowIso = new Date().toISOString();
+    setCertificates(prev => prev.map(c => (before.has(c.id) ? { ...c, status: target, updated_at: nowIso, ...printFieldsFor(target, '', nowIso) } as Certificate : c)));
+
+    let saved = false;
+    try {
+      await DB.updateCertificatesStatus(moveIds, target);
+      saved = true;
+    } catch (err) {
+      console.error(err);
+      setCertificates(prev => prev.map(c => before.get(c.id) ?? c));
+      notify.error(t('Gagal memperbarui status'), getErrorMessage(err));
+      void loadBatchDetails(); // show what the server really has
+    } finally {
+      moveIds.forEach(id => pendingMoves.current.delete(id));
+      setSyncing(prev => {
+        const next = new Set(prev);
+        moveIds.forEach(id => next.delete(id));
+        return next;
+      });
+      // on success the database layer raised a change event, which refreshes the counters and the activity log once
+    }
+    return saved;
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     const id = draggedCertId || e.dataTransfer.getData("text/plain");
     setIsDragging(false);
     setDraggedCertId(null);
     if (!id) return;
-
-    const certToMove = certificates.find(c => c.id === id);
-    if (!certToMove) return;
-
-    try {
-      await DB.updateCertificateStatus(id, newStatus);
-      // Local state update
-      setCertificates(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
-      loadBatchDetails(); // Refresh all summaries & timelines
-    } catch (err) {
-      console.error(err);
-      notify.error(t('Gagal memperbarui status'), getErrorMessage(err));
-    }
+    void moveCertificates([id], newStatus);
   };
 
   const columns = ['Pending', 'Processing', 'Printing', 'Completed'];
+  // Cards in a fixed order (participant, then type): a card that moves lands in a predictable slot, and the order does not
+  // jump when the server returns rows in a different physical order after an update.
+  const sortedCerts = useMemo(
+    () => [...certificates].sort((a, b) => cmpText(a.participants?.name, b.participants?.name) || cmpText(a.certificate_type, b.certificate_type)),
+    [certificates]
+  );
+  // changes whenever a card changes column or the order of a column changes: the board animates on exactly that
+  const flipKey = useMemo(() => sortedCerts.map(c => `${c.id}:${c.status}`).join('|'), [sortedCerts]);
+  useFlip(boardRef, loading ? 'loading' : flipKey);
 
   const handleBulkShift = async (col: string, dir: 'left' | 'right', type: 'All' | 'Attendance' | 'Qualification') => {
     const idx = columns.indexOf(col);
@@ -348,15 +398,9 @@ export default function TrainingDetailPage({ params }: PageProps) {
       type: 'warning',
       onConfirm: async () => {
         setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-        try {
-          await Promise.all(targetCards.map(c => DB.updateCertificateStatus(c.id, targetCol)));
-          // Reload details
-          await loadBatchDetails();
-          setActiveBulkMenu(null);
-        } catch (e) {
-          console.error(e);
-          notify.error(t('Kesalahan saat pembaruan massal'), getErrorMessage(e));
-        }
+        setActiveBulkMenu(null);
+        const saved = await moveCertificates(targetCards.map(c => c.id), targetCol);
+        if (saved) notify.success(t('{count} {what} dipindahkan ke {to}', { count: targetCards.length, what: whatLabel, to: certStatusLabel(t, targetCol) }));
       }
     });
   };
@@ -393,15 +437,10 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
   const handleUpdateCertStatus = async () => {
     if (!activeCert) return;
-    try {
-      await DB.updateCertificateStatus(activeCert.id, certStatusSelect);
-      notify.success(t('Status sertifikat diperbarui ke: {status}', { status: certStatusLabel(t, certStatusSelect) }));
-      setCertDetailsModalOpen(false);
-      loadBatchDetails();
-    } catch (err) {
-      console.error(err);
-      notify.error(t('Gagal memperbarui status sertifikat'), getErrorMessage(err));
-    }
+    const target = certStatusSelect;
+    setCertDetailsModalOpen(false); // the card moves on the board right away; no waiting on a dialog
+    const saved = await moveCertificates([activeCert.id], target);
+    if (saved) notify.success(t('Status sertifikat diperbarui ke: {status}', { status: certStatusLabel(t, target) }));
   };
 
   const handleAddParticipantSubmit = async (e: React.FormEvent) => {
@@ -814,10 +853,10 @@ export default function TrainingDetailPage({ params }: PageProps) {
 
         {/* Tab 3: Certificates Kanban */}
         {activeTab === 'certificates' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in duration-150">
+          <div ref={boardRef} className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in duration-150">
             {/* Columns */}
             {['Pending', 'Processing', 'Printing', 'Completed'].map(colStatus => {
-              const cards = certificates.filter(c => c.status === colStatus);
+              const cards = sortedCerts.filter(c => c.status === colStatus);
               return (
                 <div key={colStatus} className="flex flex-col gap-3 bg-slate-100/70 p-3 rounded-xl min-h-[450px]">
                   <div className="flex justify-between items-center px-1 relative">
@@ -900,13 +939,24 @@ export default function TrainingDetailPage({ params }: PageProps) {
                         return (
                           <div
                             key={c.id}
-                            draggable={canWrite}
-                            onDragStart={canWrite ? (e) => handleDragStart(e, c.id) : undefined}
+                            data-flip-id={c.id}
+                            data-syncing={syncing.has(c.id) || undefined}
+                            aria-busy={syncing.has(c.id) || undefined}
+                            draggable={canWrite && !syncing.has(c.id)}
+                            onDragStart={canWrite && !syncing.has(c.id) ? (e) => handleDragStart(e, c.id) : undefined}
                             onDragEnd={canWrite ? handleDragEnd : undefined}
                             onClick={() => handleOpenCertDetails(c)}
-                            className={`kanban-card ${canWrite ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                            className={`kanban-card transition-opacity duration-150 data-[syncing]:opacity-70 ${canWrite ? 'cursor-grab active:cursor-grabbing data-[syncing]:cursor-progress' : 'cursor-pointer'}`}
                           >
-                            <div className="text-[11px] font-mono text-slate-500 mb-1">{c.certificate_number || 'N/A'}</div>
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-mono text-slate-500">{c.certificate_number || 'N/A'}</span>
+                              {syncing.has(c.id) && (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-blue-600" role="status">
+                                  <span className="material-symbols-outlined animate-spin text-[14px]" aria-hidden="true">progress_activity</span>
+                                  {t('Menyimpan...')}
+                                </span>
+                              )}
+                            </div>
                             <h4 className="font-medium text-slate-900 text-sm">{c.participants?.name || t('Tidak diketahui')}</h4>
                             <div className="mt-1.5">
                               <CertTypeBadge type={c.certificate_type} />
