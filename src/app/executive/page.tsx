@@ -16,6 +16,7 @@ import { useLanguage, useT } from '@/i18n/LanguageContext';
 import { useSlaDays } from '@/lib/settings';
 import { getErrorMessage } from '@/lib/errors';
 import { notify } from '@/lib/notify';
+import { scrollToId } from '@/lib/smoothScroll';
 import {
   averageBatchSize,
   computeAgingBuckets,
@@ -495,7 +496,7 @@ export default function ExecutivePage() {
                           type="button"
                           onClick={() => {
                             setCertStage(key);
-                            document.getElementById('daftar-sertifikat')?.scrollIntoView({ behavior: 'smooth' });
+                            scrollToId('daftar-sertifikat');
                           }}
                           className="cursor-pointer rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-blue-600 print:cursor-default"
                         >

@@ -4,6 +4,7 @@ import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Button from './Button';
 import { useT } from '@/i18n/LanguageContext';
+import { pauseSmoothScroll, resumeSmoothScroll } from '@/lib/smoothScroll';
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 
@@ -38,6 +39,7 @@ function useModalBehavior(isOpen: boolean, onClose: () => void, panelRef: React.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    pauseSmoothScroll(); // Lenis would otherwise keep scrolling the page behind the dialog
 
     // Initial focus: first field in the body, else the first focusable, else the panel itself
     const panel = panelRef.current;
@@ -85,6 +87,7 @@ function useModalBehavior(isOpen: boolean, onClose: () => void, panelRef: React.
       const i = openStack.indexOf(id);
       if (i >= 0) openStack.splice(i, 1);
       if (openStack.length === 0) document.body.style.overflow = prevOverflow;
+      resumeSmoothScroll();
       previouslyFocused?.focus?.({ preventScroll: true });
     };
   }, [isOpen, panelRef]);

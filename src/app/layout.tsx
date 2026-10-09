@@ -8,6 +8,7 @@ import { LanguageProvider } from "@/i18n/LanguageContext";
 import { LANGUAGE_COOKIE, isLanguage, DEFAULT_LANGUAGE } from "@/i18n/config";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/context/ThemeContext";
 import { ICON_FONT_URL } from "@/lib/icons";
+import SmoothScroll from "@/components/SmoothScroll";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -51,6 +52,7 @@ export default async function RootLayout({
               {children}
             </AuthProvider>
             <AppToaster />
+            <SmoothScroll />
           </ThemeProvider>
         </LanguageProvider>
       </body>
