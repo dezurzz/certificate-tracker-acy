@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { notify } from '@/lib/notify';
 import { useTheme, ThemePreference } from '@/context/ThemeContext';
 import { useT, useLanguage, msg, type Language } from '@/i18n/LanguageContext';
+import { readSmoothScrollPreference, subscribeSmoothScroll, writeSmoothScrollPreference } from '@/lib/smoothScroll';
 
 const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
   { value: 'id', label: 'Bahasa Indonesia' },
@@ -25,6 +26,7 @@ export default function ProfileSettingsPage() {
   const { preference, setPreference } = useTheme();
   const { language, setLanguage } = useLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const smoothScroll = useSyncExternalStore(subscribeSmoothScroll, readSmoothScrollPreference, () => true);
 
   useEffect(() => {
     if (user) {
@@ -168,6 +170,22 @@ export default function ProfileSettingsPage() {
               </button>
             );
           })}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3">
+          <span className="flex flex-col">
+            <span id="smooth-scroll-label" className="text-sm font-medium text-slate-900">{t('Scroll halus')}</span>
+            <span className="text-xs text-slate-500">{t('Menggulir halaman dengan mouse atau trackpad terasa lebih mulus. Dimatikan otomatis bila perangkat meminta gerakan dikurangi.')}</span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={smoothScroll}
+            aria-labelledby="smooth-scroll-label"
+            onClick={() => writeSmoothScrollPreference(!smoothScroll)}
+            className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-600/25 ${smoothScroll ? 'bg-blue-600' : 'bg-slate-300'}`}
+          >
+            <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${smoothScroll ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
         </div>
       </section>
     </div>

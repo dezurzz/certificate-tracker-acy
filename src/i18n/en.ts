@@ -1321,4 +1321,6 @@ export const en: Record<string, string> = {
   "File terlalu besar (maksimal {mb} MB): {name}": "File too large (maximum {mb} MB): {name}",
   "Lepaskan file di sini": "Drop the file here",
   "{count} {what} dipindahkan ke {to}": "{count} {what} moved to {to}",
+  "Scroll halus": "Smooth scrolling",
+  "Menggulir halaman dengan mouse atau trackpad terasa lebih mulus. Dimatikan otomatis bila perangkat meminta gerakan dikurangi.": "Scrolling the page with a mouse or trackpad feels smoother. Turned off automatically when the device asks for reduced motion.",
 };
